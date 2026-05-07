@@ -28,14 +28,23 @@ Boundaries have been audited; new code must respect them.
 - **`src/input/`** — keyboard → `MoveIntent`. Free of WebSocket / proto
   wiring; the caller passes an `InputSink`.
 - **`src/main.ts`** — thin entry. Parses the `?stub-terrain` flag, calls
-  `bootstrap.runMain()` (or routes to the dev terrain stub), and publishes
-  the returned `AnarchyHandle` on `window.__anarchy` for Playwright.
-- **`src/bootstrap.ts`** — sibling of `main.ts`. Constructs the world /
-  buffer / terrain / renderer / connection / input controller / inventory
-  overlay, owns the per-client monotonic `actionSeq`, and registers the
-  keydown / mousemove / mousedown listeners that drive the inventory
-  toggle + destroy. Together with `main.ts` and `dev/terrain_stub.ts`,
-  the only modules allowed to touch `window` / `document` directly.
+  `bootstrap/index.runMain()` (or routes to the dev terrain stub), and
+  publishes the returned `AnarchyHandle` on `window.__anarchy` for
+  Playwright.
+- **`src/bootstrap/`** — sibling of `main.ts`. `index.ts` constructs the
+  world / buffer / terrain / renderer / connection / input controller /
+  inventory overlay, owns the per-client monotonic `actionSeq`, owns the
+  side-panel + register-modal + toast wiring, and exposes
+  `runMain` / `runApp`. Window-level listener wiring is split out:
+  - `bootstrap/keybindings.ts` — `keydown` (E inventory toggle, M zoom-out
+    toggle, +/-/numpad zoom, Digit1..9 hotbar select) and `wheel` (hotbar
+    cycling, Ctrl+Wheel zoom). Owns the local `zoomedOut` flag.
+  - `bootstrap/break_place.ts` — `mousemove` cursor-NDC mirror, the
+    held-break + heartbeat state machine (mousedown / mouseup / retarget
+    on mousemove), the right-click place-block reach gate, and the
+    `contextmenu` suppression.
+  Together with `main.ts` and `dev/terrain_stub.ts`, these are the only
+  modules allowed to touch `window` / `document` directly.
 - **`src/config.ts`** — operator-tunable constants (speeds, intervals,
   reconciliation distance, render delays). Values mirrored from server's
   `crate::config` where they must agree (notably `SPEED`).

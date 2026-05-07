@@ -13,20 +13,26 @@
  * `window` / `document` directly. Per the project charter this is the only
  * exception to the "browser globals stay in `main.ts`" rule, and exists so
  * `main.ts` reads at a glance.
+ *
+ * ## Submodules
+ *
+ * The window-level listener wiring is split out so this entry stays
+ * focused on construction, the action-send seam, and lifecycle:
+ * - [`./keybindings`] — `keydown` + `wheel` (inventory toggle, hotbar
+ *   select, zoom toggles).
+ * - [`./break_place`] — `mousemove` + `mousedown` + `mouseup` + the
+ *   `contextmenu` suppression that drive held-break and place-block.
  */
 
-import { BREAK_HEARTBEAT_TICKS, INPUT_TICK_INTERVAL_MS, REACH_BLOCKS } from "./config.js";
 import {
-  CHUNK_SIZE,
-  HOTBAR_SLOTS,
   Inventory,
   SnapshotBuffer,
   Terrain,
   type ToolKind,
   World,
   canPlaceTopBlock,
-} from "./game/index.js";
-import { InputController } from "./input/index.js";
+} from "../game/index.js";
+import { InputController } from "../input/index.js";
 import {
   applyServerMessage,
   connect,
@@ -35,8 +41,8 @@ import {
   type RegisterResultStatus,
   type WireBlockEditEvent,
   type WireTargetingStateEvent,
-} from "./net/index.js";
-import { Renderer, type GhostState } from "./render/index.js";
+} from "../net/index.js";
+import { Renderer, type GhostState } from "../render/index.js";
 import {
   mountInventoryUi,
   mountSidePanel,
@@ -44,7 +50,9 @@ import {
   type InventoryUiHandle,
   type RegisterModalHandle,
   type SidePanelAction,
-} from "./ui/index.js";
+} from "../ui/index.js";
+import { attachBreakAndPlace } from "./break_place.js";
+import { attachKeybindings } from "./keybindings.js";
 
 /**
  * Test handle exposed on `window.__anarchy`. Kept narrow on purpose: only
@@ -149,8 +157,6 @@ export interface AnarchyHandle {
    */
   readonly lobbyReject: Promise<LobbyRejectReason | null>;
 }
-
-const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
 /** Default WebSocket endpoint. Overridden by `runApp`'s `wsUrl` arg, which
  * `main.ts` populates from the `?server-port=NNNN` query param so the
@@ -378,8 +384,6 @@ export function runMain(
   const stopInput = input.start(window);
   teardowns.push(stopInput);
 
-  let zoomedOut = false;
-
   const canPlaceAt = (cx: number, cy: number, lx: number, ly: number): boolean =>
     canPlaceTopBlock(world, terrain, localPlayerId, cx, cy, lx, ly);
 
@@ -398,216 +402,16 @@ export function runMain(
   });
   teardowns.push(() => inventoryUi.unmount());
 
-  const onKeydown = (ev: KeyboardEvent): void => {
-    if (ev.repeat) return;
-    if (ev.code === "KeyE") {
-      inventoryUi.toggle();
-      return;
-    }
-    if (ev.code === "KeyM") {
-      zoomedOut = !zoomedOut;
-      renderer.setZoomedOut(zoomedOut);
-      return;
-    }
-    // `+` / `-` continuous zoom. We accept `Equal` (the unshifted `=`/`+`
-    // key on US layouts) and `Minus`, plus their numpad twins, so users
-    // don't have to hold Shift to nudge zoom. Ctrl+Wheel below covers the
-    // mouse / trackpad path. Plain mouse wheel keeps cycling the hotbar.
-    if (ev.code === "Equal" || ev.code === "NumpadAdd") {
-      renderer.nudgeZoom(1);
-      return;
-    }
-    if (ev.code === "Minus" || ev.code === "NumpadSubtract") {
-      renderer.nudgeZoom(-1);
-      return;
-    }
-    // Digits 1..9 select hotbar slots 0..8. `event.code` keeps the binding
-    // robust to keyboard layouts where the produced character differs.
-    if (ev.code.startsWith("Digit")) {
-      const digit = Number(ev.code.slice("Digit".length));
-      if (digit >= 1 && digit <= HOTBAR_SLOTS) {
-        inventoryUi.selectHotbarSlot(digit - 1);
-        return;
-      }
-    }
-  };
-  window.addEventListener("keydown", onKeydown);
-  teardowns.push(() => window.removeEventListener("keydown", onKeydown));
-
-  // Mouse wheel cycles hotbar selection ±1 with wraparound. Up = previous.
-  // `Ctrl+Wheel` is intercepted as a zoom step instead — gives trackpad
-  // users a pinch-equivalent without fighting the hotbar binding. We
-  // can't be passive on this listener anymore because Ctrl+Wheel needs
-  // `preventDefault` to suppress the browser's page-zoom shortcut.
-  const onWheel = (ev: WheelEvent): void => {
-    if (ev.deltaY === 0) return;
-    if (ev.ctrlKey) {
-      ev.preventDefault();
-      renderer.nudgeZoom(ev.deltaY > 0 ? -1 : 1);
-      return;
-    }
-    const cur = inventoryUi.selectedHotbarSlot();
-    const step = ev.deltaY > 0 ? 1 : -1;
-    const next = (cur + step + HOTBAR_SLOTS) % HOTBAR_SLOTS;
-    inventoryUi.selectHotbarSlot(next);
-  };
-  window.addEventListener("wheel", onWheel, { passive: false });
-  teardowns.push(() => window.removeEventListener("wheel", onWheel));
-
-  const onMousemove = (ev: MouseEvent): void => {
-    // Renderer drives the per-frame hover billboard from cursor NDC, so
-    // every cursor sample needs to flow through `setCursorNdc` (see
-    // `picker.ts`).
-    renderer.setCursorNdc({
-      x: (ev.clientX / window.innerWidth) * 2 - 1,
-      y: -(ev.clientY / window.innerHeight) * 2 + 1,
-    });
-  };
-  window.addEventListener("mousemove", onMousemove);
-  teardowns.push(() => window.removeEventListener("mousemove", onMousemove));
-
-  // Held-break state (ADR 0006). While left-mouse is held we keep the
-  // server's per-player `break_intent` synced with whatever tile the
-  // cursor points at, plus a heartbeat resend every
-  // `BREAK_HEARTBEAT_TICKS * INPUT_TICK_INTERVAL_MS` ms so a dropped
-  // frame can't strand the held break with a stale view of the intent.
-  let breakHeld = false;
-  let lastBreakTarget:
-    | { cx: number; cy: number; lx: number; ly: number }
-    | null = null;
-  let breakHeartbeat: ReturnType<typeof setInterval> | null = null;
-
-  function pickBreakTargetAt(
-    clientX: number,
-    clientY: number,
-  ): { cx: number; cy: number; lx: number; ly: number } | null {
-    if (localPlayerId === null) return null;
-    const me = world.getPlayer(localPlayerId);
-    if (!me) return null;
-    const ndc = {
-      x: (clientX / window.innerWidth) * 2 - 1,
-      y: -(clientY / window.innerHeight) * 2 + 1,
-    };
-    const pick = renderer.pickAtCursor(ndc);
-    if (!pick) return null;
-    if (pick.layer !== "top") return null;
-    const [cx, cy] = pick.chunkCoord;
-    const [lx, ly] = pick.localXY;
-    const tileCenterX = cx * CHUNK_SIZE + lx + 0.5;
-    const tileCenterY = cy * CHUNK_SIZE + ly + 0.5;
-    const dx = tileCenterX - me.x;
-    const dy = tileCenterY - me.y;
-    if (dx * dx + dy * dy > REACH_BLOCKS_SQ) return null;
-    return { cx, cy, lx, ly };
-  }
-
-  function targetsEqual(
-    a: { cx: number; cy: number; lx: number; ly: number } | null,
-    b: { cx: number; cy: number; lx: number; ly: number } | null,
-  ): boolean {
-    if (a === null) return b === null;
-    if (b === null) return false;
-    return a.cx === b.cx && a.cy === b.cy && a.lx === b.lx && a.ly === b.ly;
-  }
-
-  function startBreakHeartbeat(): void {
-    if (breakHeartbeat !== null) return;
-    breakHeartbeat = setInterval(() => {
-      if (!breakHeld) return;
-      sendBreakIntent(lastBreakTarget);
-    }, BREAK_HEARTBEAT_TICKS * INPUT_TICK_INTERVAL_MS);
-  }
-
-  function stopBreakHeartbeat(): void {
-    if (breakHeartbeat === null) return;
-    clearInterval(breakHeartbeat);
-    breakHeartbeat = null;
-  }
-  teardowns.push(stopBreakHeartbeat);
-
-  function endHeldBreak(): void {
-    if (!breakHeld) return;
-    breakHeld = false;
-    stopBreakHeartbeat();
-    if (lastBreakTarget !== null) {
-      sendBreakIntent(null);
-      lastBreakTarget = null;
-    }
-  }
-
-  const onMousedown = (ev: MouseEvent): void => {
-    if (localPlayerId === null) return;
-    if (ev.button !== 0 && ev.button !== 2) return;
-    if (ev.button === 0) {
-      // Left-click → start the held-break. The cursor's current top-tile
-      // pick (if any, in reach) becomes the initial target. If the
-      // cursor isn't over a valid target the held state still starts —
-      // mousemove updates the target as the cursor scans across the
-      // world; mouseup releases regardless.
-      breakHeld = true;
-      lastBreakTarget = pickBreakTargetAt(ev.clientX, ev.clientY);
-      sendBreakIntent(lastBreakTarget);
-      startBreakHeartbeat();
-      return;
-    }
-    // Right-click → place the selected hotbar slot's block on the tile
-    // under the cursor. Server validates reach + top-Air + slot kind.
-    const place = pickBreakTargetAt(ev.clientX, ev.clientY);
-    if (place === null) {
-      // Place's reach gate uses the same predicate; if the cursor isn't
-      // on a valid in-reach top tile, the click is silently dropped.
-      const ndc = {
-        x: (ev.clientX / window.innerWidth) * 2 - 1,
-        y: -(ev.clientY / window.innerHeight) * 2 + 1,
-      };
-      const pick = renderer.pickAtCursor(ndc);
-      if (!pick) return;
-      const me = world.getPlayer(localPlayerId);
-      if (!me) return;
-      const [cx, cy] = pick.chunkCoord;
-      const [lx, ly] = pick.localXY;
-      const tileCenterX = cx * CHUNK_SIZE + lx + 0.5;
-      const tileCenterY = cy * CHUNK_SIZE + ly + 0.5;
-      const dx = tileCenterX - me.x;
-      const dy = tileCenterY - me.y;
-      if (dx * dx + dy * dy > REACH_BLOCKS_SQ) return;
-      sendPlaceBlock(cx, cy, lx, ly);
-      return;
-    }
-    sendPlaceBlock(place.cx, place.cy, place.lx, place.ly);
-  };
-  window.addEventListener("mousedown", onMousedown);
-  teardowns.push(() => window.removeEventListener("mousedown", onMousedown));
-
-  const onMouseup = (ev: MouseEvent): void => {
-    if (ev.button !== 0) return;
-    endHeldBreak();
-  };
-  window.addEventListener("mouseup", onMouseup);
-  teardowns.push(() => window.removeEventListener("mouseup", onMouseup));
-
-  // While the break is held, every cursor sample re-picks the current
-  // top-layer tile under the cursor. If the target tile has changed (or
-  // we've moved off any valid target), ship a fresh intent so the server
-  // updates `Player::break_intent` immediately rather than waiting for
-  // the next heartbeat.
-  const onMouseMoveBreakRetarget = (ev: MouseEvent): void => {
-    if (!breakHeld) return;
-    const next = pickBreakTargetAt(ev.clientX, ev.clientY);
-    if (targetsEqual(next, lastBreakTarget)) return;
-    lastBreakTarget = next;
-    sendBreakIntent(lastBreakTarget);
-  };
-  window.addEventListener("mousemove", onMouseMoveBreakRetarget);
-  teardowns.push(() =>
-    window.removeEventListener("mousemove", onMouseMoveBreakRetarget),
+  teardowns.push(attachKeybindings(window, { inventoryUi, renderer }));
+  teardowns.push(
+    attachBreakAndPlace(window, {
+      world,
+      renderer,
+      getLocalPlayerId: () => localPlayerId,
+      sendBreakIntent,
+      sendPlaceBlock,
+    }),
   );
-
-  // Suppress the browser's right-click context menu so right-click can
-  // drive place-block without tearing the player out of the game.
-  const onContextMenu = (ev: MouseEvent): void => ev.preventDefault();
-  window.addEventListener("contextmenu", onContextMenu);
-  teardowns.push(() => window.removeEventListener("contextmenu", onContextMenu));
 
   // Tiny in-session toast for the register flow's result. Stays on
   // screen for ~3 s, then fades. Created on demand so an empty session
@@ -744,7 +548,7 @@ export async function runApp(
     null;
   for (;;) {
     if (identity === null) {
-      const { showLobby, lobbyRejectMessage } = await import("./lobby.js");
+      const { showLobby, lobbyRejectMessage } = await import("../lobby.js");
       const defaults = pendingReject
         ? {
             username: pendingReject.identity.username,

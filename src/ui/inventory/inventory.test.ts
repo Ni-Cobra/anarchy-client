@@ -7,9 +7,9 @@ import {
   Inventory,
   ItemId,
   type Slot,
-} from "../game/index.js";
-import { mountInventoryUi } from "./inventory.js";
-import { _resetTooltipForTests } from "./tooltip.js";
+} from "../../game/index.js";
+import { mountInventoryUi } from "./index.js";
+import { _resetTooltipForTests } from "../tooltip.js";
 
 function fillSlots(updates: Record<number, Slot>): Slot[] {
   const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);

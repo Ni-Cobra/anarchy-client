@@ -9,11 +9,11 @@ export type {
   SidePanelHandle,
   SidePanelOptions,
 } from "./side_panel.js";
-export { mountInventoryUi } from "./inventory.js";
+export { mountInventoryUi } from "./inventory/index.js";
 export type {
   InventoryUiHandle,
   InventoryUiOptions,
-} from "./inventory.js";
+} from "./inventory/index.js";
 export { showRegisterModal, MIN_PASSWORD_LEN } from "./register_modal.js";
 export type {
   RegisterModalHandle,

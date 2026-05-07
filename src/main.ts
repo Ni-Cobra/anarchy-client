@@ -1,4 +1,4 @@
-import { runApp, type AnarchyHandle } from "./bootstrap.js";
+import { runApp, type AnarchyHandle } from "./bootstrap/index.js";
 import { isValidColorIndex, validateUsername } from "./game/index.js";
 import type { LobbyIdentity } from "./net/index.js";
 
