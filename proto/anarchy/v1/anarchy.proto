@@ -25,6 +25,8 @@ message ClientMessage {
     PlaceBlock place_block = 22;
     SelectSlot select_slot = 23;
     MoveSlot move_slot = 24;
+    EquipTool equip_tool = 25;
+    UnequipTool unequip_tool = 26;
   }
 }
 
@@ -263,6 +265,40 @@ message MoveSlot {
   uint32 src = 1;
   uint32 dst = 2;
   uint64 client_seq = 3;
+}
+
+// Identifies which equipment slot a wire `EquipTool` / `UnequipTool` action
+// targets. The wire kind must agree with the kind of the item at
+// `EquipTool.source_slot` — a Wood Pickaxe equipped to the Axe slot is
+// rejected server-side. `TOOL_KIND_UNSPECIFIED = 0` is the proto3 default
+// sentinel and is treated as a malformed action.
+enum ToolKind {
+  TOOL_KIND_UNSPECIFIED = 0;
+  TOOL_KIND_PICKAXE = 1;
+  TOOL_KIND_AXE = 2;
+}
+
+// Client→server "equip the tool currently at `source_slot` into the
+// equipment slot named by `tool_kind`". The server validates indices, that
+// the source slot holds a tool of the matching kind, then atomically swaps
+// the source slot with the equipment slot — any tool currently equipped
+// returns to `source_slot`. Failures are silently dropped; the next
+// `InventoryUpdate` reflects the result.
+message EquipTool {
+  uint32 source_slot = 1;
+  ToolKind tool_kind = 2;
+  uint64 client_seq = 3;
+}
+
+// Client→server "unequip the tool currently in the equipment slot named by
+// `tool_kind`". The server places the unequipped tool into the first empty
+// inventory slot. If the slot is already empty, or the inventory is full
+// (no empty slot to receive the tool), the action is silently dropped —
+// the client surfaces a small toast in that case (UX-side affordance only,
+// not a wire signal).
+message UnequipTool {
+  ToolKind tool_kind = 1;
+  uint64 client_seq = 2;
 }
 
 // === Server -> client world state ===
@@ -509,4 +545,11 @@ message InventoryUpdate {
   // `0..9` are the hotbar; `9..45` are the main grid. Receivers reject any
   // other length defensively.
   repeated ItemSlot slots = 1;
+  // Equipment slots — task 100. Each carries the tool currently equipped to
+  // the matching mini-hotbar cell, or `count == 0` for an empty slot (same
+  // canonical-empty convention as the main `slots` array). The server only
+  // populates these with pickaxe / axe tools; receivers can show empty-slot
+  // affordances (faded silhouette icons) when the field is absent or empty.
+  ItemSlot equipped_pickaxe = 2;
+  ItemSlot equipped_axe = 3;
 }

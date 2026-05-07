@@ -40,6 +40,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const hotbarCells = document.querySelectorAll(
@@ -57,8 +59,10 @@ describe("inventory UI", () => {
     const styleEl = document.getElementById("anarchy-inventory-style")!;
     expect(styleEl.textContent).toContain("grid-template-columns: repeat(4, 48px)");
 
-    const icons = document.querySelectorAll(".anarchy-inventory-icon");
-    expect(icons).toHaveLength(0);
+    const inventoryIcons = document.querySelectorAll(
+      ".anarchy-hotbar .anarchy-inventory-icon, .anarchy-inventory-panel .anarchy-inventory-icon",
+    );
+    expect(inventoryIcons).toHaveLength(0);
 
     expect(panel.classList.contains("open")).toBe(false);
     expect(ui.isOpen()).toBe(false);
@@ -78,6 +82,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const hotbarCells = document.querySelectorAll(
@@ -110,6 +116,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const hotbarCells = document.querySelectorAll(
@@ -173,6 +181,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const panelCells = document.querySelectorAll(
@@ -197,16 +207,23 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
+    // Scope to hotbar / panel — equipment slots paint their own
+    // silhouette icons that aren't part of the inventory mutation under
+    // test here.
+    const inventoryIconSelector =
+      ".anarchy-hotbar .anarchy-inventory-icon, .anarchy-inventory-panel .anarchy-inventory-icon";
     // Empty → no icons.
-    let icons = document.querySelectorAll(".anarchy-inventory-icon");
+    let icons = document.querySelectorAll(inventoryIconSelector);
     expect(icons).toHaveLength(0);
 
     inventory.replaceFromWire(
       fillSlots({ 0: { item: ItemId.Gold, count: 10 } }),
     );
-    icons = document.querySelectorAll(".anarchy-inventory-icon");
+    icons = document.querySelectorAll(inventoryIconSelector);
     expect(icons).toHaveLength(1);
 
     inventory.replaceFromWire(
@@ -215,7 +232,7 @@ describe("inventory UI", () => {
         1: { item: ItemId.Stone, count: 1 },
       }),
     );
-    icons = document.querySelectorAll(".anarchy-inventory-icon");
+    icons = document.querySelectorAll(inventoryIconSelector);
     expect(icons).toHaveLength(2);
     const hotbarCells = document.querySelectorAll(
       ".anarchy-hotbar .anarchy-inventory-slot",
@@ -230,6 +247,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     const panel = document.querySelector(".anarchy-inventory-panel")!;
 
@@ -250,6 +269,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     expect(document.querySelector("#anarchy-inventory-root")).not.toBeNull();
 
@@ -275,6 +296,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: (slot) => sent.push(slot),
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const hotbarCells = document.querySelectorAll(
@@ -298,6 +321,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: (slot) => sent.push(slot),
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     expect(ui.selectedHotbarSlot()).toBe(0);
     ui.selectHotbarSlot(5);
@@ -320,6 +345,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: (src, dst) => moves.push([src, dst]),
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const hotbarCells = document.querySelectorAll(
@@ -369,6 +396,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: (src, dst) => moves.push([src, dst]),
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     const hotbarCells = document.querySelectorAll(
       ".anarchy-hotbar .anarchy-inventory-slot",
@@ -410,6 +439,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: (src, dst) => moves.push([src, dst]),
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     const hotbarCells = document.querySelectorAll(
       ".anarchy-hotbar .anarchy-inventory-slot",
@@ -455,6 +486,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: (src, dst) => moves.push([src, dst]),
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     const hotbarCells = document.querySelectorAll(
@@ -545,6 +578,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       const panelCells = document.querySelectorAll(
         ".anarchy-inventory-panel .anarchy-inventory-slot",
@@ -568,6 +603,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       const panelCells = document.querySelectorAll(
         ".anarchy-inventory-panel .anarchy-inventory-slot",
@@ -588,6 +625,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       const panelCells = document.querySelectorAll(
         ".anarchy-inventory-panel .anarchy-inventory-slot",
@@ -602,6 +641,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       const panelCells = document.querySelectorAll(
         ".anarchy-inventory-panel .anarchy-inventory-slot",
@@ -623,6 +664,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       ui.selectHotbarSlot(4);
       const panelCells = document.querySelectorAll(
@@ -645,6 +688,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       const hotbarCells = document.querySelectorAll(
         ".anarchy-hotbar .anarchy-inventory-slot",
@@ -668,6 +713,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
       const panelCells = document.querySelectorAll(
         ".anarchy-inventory-panel .anarchy-inventory-slot",
@@ -724,6 +771,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     // No drag in flight; escape must not throw or mutate DOM.
     document.dispatchEvent(
@@ -744,6 +793,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: (slot) => sent.push(slot),
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
     const hotbarCells = document.querySelectorAll(
       ".anarchy-hotbar .anarchy-inventory-slot",
@@ -779,6 +830,8 @@ describe("inventory UI", () => {
         getInventory: () => inventory,
         sendSelect: () => {},
         sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
       });
 
       const hotbarCells = document.querySelectorAll(
@@ -837,6 +890,8 @@ describe("inventory UI", () => {
       getInventory: () => inventory,
       sendSelect: () => {},
       sendMove: () => {},
+      sendEquip: () => {},
+      sendUnequip: () => {},
     });
 
     let windowHits = 0;
@@ -864,5 +919,307 @@ describe("inventory UI", () => {
 
     window.removeEventListener("mousedown", onWindow);
     window.removeEventListener("contextmenu", onWindow);
+  });
+
+  // Task 100 — equipment slots (pickaxe / axe mini-hotbar).
+  describe("equipment slots", () => {
+    function equipmentCells(): HTMLElement[] {
+      return Array.from(
+        document.querySelectorAll(
+          ".anarchy-equipment-bar .anarchy-inventory-slot",
+        ),
+      ) as HTMLElement[];
+    }
+
+    it("renders two empty equipment cells next to the hotbar", () => {
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const cells = equipmentCells();
+      expect(cells).toHaveLength(2);
+      // Empty cells get the `.empty` class (drives the silhouette opacity).
+      expect(cells[0].classList.contains("empty")).toBe(true);
+      expect(cells[1].classList.contains("empty")).toBe(true);
+    });
+
+    it("paints the equipped tool when populated", () => {
+      inventory.replaceFromWire(
+        Array.from({ length: INVENTORY_SIZE }, () => null),
+        ItemId.IronPickaxe,
+        ItemId.WoodAxe,
+      );
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const cells = equipmentCells();
+      expect(cells[0].classList.contains("empty")).toBe(false);
+      expect(cells[1].classList.contains("empty")).toBe(false);
+      // Both cells contain a single icon child (the equipped texture).
+      expect(cells[0].querySelector(".anarchy-inventory-icon")).not.toBeNull();
+      expect(cells[1].querySelector(".anarchy-inventory-icon")).not.toBeNull();
+    });
+
+    it("clicking a pickaxe panel cell ships an EquipTool action", () => {
+      inventory.replaceFromWire(
+        fillSlots({
+          [HOTBAR_SLOTS]: { item: ItemId.IronPickaxe, count: 1 },
+        }),
+      );
+      const equips: Array<[number, string]> = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: (slot, kind) => equips.push([slot, kind]),
+        sendUnequip: () => {},
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 11,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      expect(equips).toEqual([[HOTBAR_SLOTS, "pickaxe"]]);
+    });
+
+    it("clicking a non-tool panel cell still ships a MoveSlot, not an EquipTool", () => {
+      inventory.replaceFromWire(
+        fillSlots({
+          [HOTBAR_SLOTS]: { item: ItemId.Gold, count: 5 },
+        }),
+      );
+      const moves: Array<[number, number]> = [];
+      const equips: Array<[number, string]> = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: (slot, kind) => equips.push([slot, kind]),
+        sendUnequip: () => {},
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 11,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      expect(equips).toEqual([]);
+      expect(moves).toEqual([[HOTBAR_SLOTS, 0]]);
+    });
+
+    it("clicking an occupied equipment slot ships an UnequipTool action", () => {
+      inventory.replaceFromWire(
+        Array.from({ length: INVENTORY_SIZE }, () => null),
+        ItemId.IronPickaxe,
+        null,
+      );
+      const unequips: string[] = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: (kind) => unequips.push(kind),
+      });
+      const cells = equipmentCells();
+      cells[0].click();
+      expect(unequips).toEqual(["pickaxe"]);
+    });
+
+    it("clicking an empty equipment slot is a no-op", () => {
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {
+          throw new Error("must not be called for an empty slot click");
+        },
+      });
+      equipmentCells()[0].click();
+    });
+
+    it("dragging a pickaxe onto the pickaxe slot ships an EquipTool", () => {
+      inventory.replaceFromWire(
+        fillSlots({
+          [HOTBAR_SLOTS]: { item: ItemId.WoodPickaxe, count: 1 },
+        }),
+      );
+      const equips: Array<[number, string]> = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: (slot, kind) => equips.push([slot, kind]),
+        sendUnequip: () => {},
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      const pickaxeCell = equipmentCells()[0];
+      const original = document.elementsFromPoint;
+      document.elementsFromPoint = ((_x: number, _y: number) => [
+        pickaxeCell,
+      ]) as typeof document.elementsFromPoint;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.elementsFromPoint = original;
+      expect(equips).toEqual([[HOTBAR_SLOTS, "pickaxe"]]);
+    });
+
+    it("dragging a pickaxe onto the axe slot is rejected (kind guard)", () => {
+      inventory.replaceFromWire(
+        fillSlots({
+          [HOTBAR_SLOTS]: { item: ItemId.WoodPickaxe, count: 1 },
+        }),
+      );
+      const equips: Array<[number, string]> = [];
+      const moves: Array<[number, number]> = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: (slot, kind) => equips.push([slot, kind]),
+        sendUnequip: () => {},
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      const axeCell = equipmentCells()[1];
+      const original = document.elementsFromPoint;
+      document.elementsFromPoint = ((_x: number, _y: number) => [
+        axeCell,
+      ]) as typeof document.elementsFromPoint;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.elementsFromPoint = original;
+      expect(equips).toEqual([]);
+      expect(moves).toEqual([]);
+    });
+
+    it("dragging from an equipment slot onto a panel slot ships an UnequipTool", () => {
+      inventory.replaceFromWire(
+        Array.from({ length: INVENTORY_SIZE }, () => null),
+        ItemId.IronPickaxe,
+        null,
+      );
+      const unequips: string[] = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: (kind) => unequips.push(kind),
+      });
+      const pickaxeCell = equipmentCells()[0];
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[5] as HTMLElement;
+      const original = document.elementsFromPoint;
+      document.elementsFromPoint = ((_x: number, _y: number) => [
+        panelCell,
+      ]) as typeof document.elementsFromPoint;
+      pickaxeCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.elementsFromPoint = original;
+      expect(unequips).toEqual(["pickaxe"]);
+    });
   });
 });

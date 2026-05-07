@@ -44,9 +44,12 @@ import {
   HOTBAR_SLOTS,
   INVENTORY_SIZE,
   type Inventory,
+  ItemId,
   type ItemStack,
   MAIN_SLOTS,
   type Slot,
+  type ToolKind,
+  toolKindOf,
 } from "../game/index.js";
 import { itemDisplayName } from "../item_names.js";
 import { textureUrlForItem } from "../textures.js";
@@ -61,6 +64,23 @@ const PANEL_GAP_PX = 4;
 const PANEL_COLS = 4;
 const PANEL_WIDTH_PX =
   PANEL_COLS * SLOT_PX + (PANEL_COLS - 1) * PANEL_GAP_PX + PANEL_PAD_PX * 2;
+
+/**
+ * Gap (in CSS pixels) between the main hotbar and the two equipment slots
+ * (task 100). The equipment cells reuse the hotbar's `SLOT_PX` size so
+ * the mini-hotbar reads as a sibling cluster without a separate scale.
+ */
+const EQUIP_GAP_PX = 16;
+
+/**
+ * Sentinel slot indices used by the drag-and-drop machinery to identify
+ * the two equipment slots. Outside `[0, INVENTORY_SIZE)` so the wire
+ * `MoveSlot` path can never confuse them with a real slot index — the
+ * UI translates the sentinels into `EquipTool` / `UnequipTool` actions
+ * before sending.
+ */
+const EQUIP_PICKAXE_SLOT_ID = -1;
+const EQUIP_AXE_SLOT_ID = -2;
 
 /**
  * Squared cursor-movement threshold (in CSS pixels) that flips a
@@ -103,11 +123,19 @@ const STYLE = `
     color: #f0f0f0;
   }
   #anarchy-inventory-root > * { pointer-events: auto; }
-  .anarchy-hotbar {
+  .anarchy-hotbar-row {
     position: absolute;
     bottom: 16px;
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    gap: ${EQUIP_GAP_PX}px;
+    align-items: center;
+    pointer-events: none;
+  }
+  .anarchy-hotbar-row > * { pointer-events: auto; }
+  .anarchy-hotbar,
+  .anarchy-equipment-bar {
     display: flex;
     gap: ${HOTBAR_GAP_PX}px;
     padding: 6px;
@@ -115,6 +143,12 @@ const STYLE = `
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+  .anarchy-equipment-slot.empty .anarchy-inventory-icon {
+    opacity: 0.3;
+  }
+  .anarchy-equipment-slot.drag-reject {
+    border-color: rgba(255, 80, 80, 0.6);
   }
   .anarchy-inventory-panel {
     position: absolute;
@@ -206,6 +240,10 @@ export interface InventoryUiOptions {
   readonly sendSelect: (slot: number) => void;
   /** Ship a `MoveSlot` drag-drop action up to the server. */
   readonly sendMove: (src: number, dst: number) => void;
+  /** Ship an `EquipTool` action up to the server (task 100). */
+  readonly sendEquip: (sourceSlot: number, kind: ToolKind) => void;
+  /** Ship an `UnequipTool` action up to the server (task 100). */
+  readonly sendUnequip: (kind: ToolKind) => void;
 }
 
 export interface InventoryUiHandle {
@@ -236,11 +274,25 @@ export function mountInventoryUi(
   const root = document.createElement("div");
   root.id = "anarchy-inventory-root";
 
+  // Wrap the hotbar + equipment bar in a single horizontally-laid row so
+  // the EQUIP_GAP_PX gap between the two clusters falls out of CSS flex
+  // rather than absolute positioning of each cluster.
+  const hotbarRow = document.createElement("div");
+  hotbarRow.className = "anarchy-hotbar-row";
+
   const hotbar = document.createElement("div");
   hotbar.className = "anarchy-hotbar";
   hotbar.setAttribute("role", "toolbar");
   hotbar.setAttribute("aria-label", "Hotbar");
-  root.appendChild(hotbar);
+  hotbarRow.appendChild(hotbar);
+
+  const equipmentBar = document.createElement("div");
+  equipmentBar.className = "anarchy-equipment-bar";
+  equipmentBar.setAttribute("role", "toolbar");
+  equipmentBar.setAttribute("aria-label", "Equipment");
+  hotbarRow.appendChild(equipmentBar);
+
+  root.appendChild(hotbarRow);
 
   const panel = document.createElement("aside");
   panel.className = "anarchy-inventory-panel";
@@ -253,6 +305,15 @@ export function mountInventoryUi(
     const cell = makeSlotCell();
     hotbar.appendChild(cell);
     hotbarCells.push(cell);
+  }
+
+  const equipmentCells: { kind: ToolKind; cell: HTMLDivElement }[] = [
+    { kind: "pickaxe", cell: makeSlotCell() },
+    { kind: "axe", cell: makeSlotCell() },
+  ];
+  for (const { cell } of equipmentCells) {
+    cell.classList.add("anarchy-equipment-slot");
+    equipmentBar.appendChild(cell);
   }
 
   const panelCells: HTMLDivElement[] = [];
@@ -281,6 +342,15 @@ export function mountInventoryUi(
   for (let i = 0; i < MAIN_SLOTS; i++) {
     wireSlotTooltip(HOTBAR_SLOTS + i, panelCells[i]);
   }
+  for (const { kind, cell } of equipmentCells) {
+    tooltipHandles.push(
+      attachTooltip(cell, () => {
+        const equipped = options.getInventory().getEquipped(kind);
+        if (equipped !== null) return itemDisplayName(equipped);
+        return kind === "pickaxe" ? "Pickaxe slot (empty)" : "Axe slot (empty)";
+      }),
+    );
+  }
 
   let open = false;
   let selectedSlot = 0;
@@ -296,6 +366,8 @@ export function mountInventoryUi(
   let dragPreview: HTMLDivElement | null = null;
 
   const cellByIndex = (idx: number): HTMLDivElement | null => {
+    if (idx === EQUIP_PICKAXE_SLOT_ID) return equipmentCells[0].cell;
+    if (idx === EQUIP_AXE_SLOT_ID) return equipmentCells[1].cell;
     if (idx < 0 || idx >= INVENTORY_SIZE) return null;
     if (idx < HOTBAR_SLOTS) return hotbarCells[idx];
     return panelCells[idx - HOTBAR_SLOTS];
@@ -306,7 +378,22 @@ export function mountInventoryUi(
     if (hotbarIdx >= 0) return hotbarIdx;
     const panelIdx = panelCells.indexOf(cell as HTMLDivElement);
     if (panelIdx >= 0) return HOTBAR_SLOTS + panelIdx;
+    if (cell === equipmentCells[0].cell) return EQUIP_PICKAXE_SLOT_ID;
+    if (cell === equipmentCells[1].cell) return EQUIP_AXE_SLOT_ID;
     return null;
+  };
+
+  const equipKindForSentinel = (idx: number): ToolKind | null => {
+    if (idx === EQUIP_PICKAXE_SLOT_ID) return "pickaxe";
+    if (idx === EQUIP_AXE_SLOT_ID) return "axe";
+    return null;
+  };
+
+  const itemAtIndex = (idx: number): ItemId | null => {
+    const inv = options.getInventory();
+    const kind = equipKindForSentinel(idx);
+    if (kind !== null) return inv.getEquipped(kind);
+    return inv.slot(idx)?.item ?? null;
   };
 
   const render = (): void => {
@@ -317,25 +404,33 @@ export function mountInventoryUi(
     for (let i = 0; i < MAIN_SLOTS; i++) {
       paintSlot(panelCells[i], inv.slot(HOTBAR_SLOTS + i), false);
     }
+    for (const { kind, cell } of equipmentCells) {
+      paintEquipmentSlot(cell, kind, inv.getEquipped(kind));
+    }
   };
 
   const beginDrag = (src: number, ev: PointerEvent): void => {
-    const inv = options.getInventory();
-    const slot = inv.slot(src);
-    if (slot === null) return;
+    const item = itemAtIndex(src);
+    if (item === null) return;
     dragSrc = src;
     cellByIndex(src)?.classList.add("drag-source");
     const preview = document.createElement("div");
     preview.className = "anarchy-inventory-drag-preview";
     const icon = document.createElement("div");
     icon.className = "anarchy-inventory-icon";
-    applyItemIconStyle(icon, slot);
+    applyItemIconStyle(icon, { item, count: 1 });
     preview.appendChild(icon);
-    if (slot.count > 1) {
-      const count = document.createElement("span");
-      count.className = "anarchy-inventory-count";
-      count.textContent = String(slot.count);
-      preview.appendChild(count);
+    // Equipment slots hold count-1 tools so we never paint a count badge
+    // for a drag preview originating there. For panel/hotbar drags the
+    // existing count badge surfaces.
+    if (equipKindForSentinel(src) === null) {
+      const slot = options.getInventory().slot(src);
+      if (slot !== null && slot.count > 1) {
+        const count = document.createElement("span");
+        count.className = "anarchy-inventory-count";
+        count.textContent = String(slot.count);
+        preview.appendChild(count);
+      }
     }
     preview.style.left = `${ev.clientX}px`;
     preview.style.top = `${ev.clientY}px`;
@@ -373,6 +468,8 @@ export function mountInventoryUi(
   for (let i = 0; i < MAIN_SLOTS; i++) {
     wireSlotPointerDown(HOTBAR_SLOTS + i, panelCells[i]);
   }
+  wireSlotPointerDown(EQUIP_PICKAXE_SLOT_ID, equipmentCells[0].cell);
+  wireSlotPointerDown(EQUIP_AXE_SLOT_ID, equipmentCells[1].cell);
 
   // Cursor follow + drag promotion + drop resolution at document level
   // so a drag that releases outside any slot cancels cleanly. The first
@@ -412,21 +509,63 @@ export function mountInventoryUi(
         }
       }
       if (dst === null || dst === src) return;
-      options.sendMove(src, dst);
+      handleDrop(src, dst);
       return;
     }
 
-    // No drag → was this a click on a non-empty panel cell? Hotbar cells
-    // own the click via their per-cell `click` listener (selection),
-    // so we only fire the swap on panel cells. Empty source is a
-    // silent no-op the server would reject anyway.
+    // No drag → was this a click on a slot? Hotbar cells own the click
+    // via their per-cell `click` listener (selection); equipment slots
+    // own theirs (unequip). We only fire the click-to-equip / merge path
+    // for panel cells here.
     if (clickSrc === null) return;
+    if (clickSrc < 0) return;
     if (clickSrc < HOTBAR_SLOTS) return;
     const inv = options.getInventory();
-    if (inv.slot(clickSrc) === null) return;
+    const stack = inv.slot(clickSrc);
+    if (stack === null) return;
+    const tool = toolKindOf(stack.item);
+    if (tool !== null) {
+      // Tool click: equip into the matching equipment slot. The server's
+      // atomic swap returns whatever was there into the source slot.
+      options.sendEquip(clickSrc, tool);
+      return;
+    }
     options.sendMove(clickSrc, selectedSlot);
   };
   document.addEventListener("pointerup", onDocumentPointerUp);
+
+  // Drop resolver: src can be a regular flat slot index `[0,
+  // INVENTORY_SIZE)` or one of the equipment-slot sentinels. dst likewise.
+  // Routing matrix:
+  //   regular → regular     : MoveSlot (existing)
+  //   regular → equipment   : EquipTool if kind matches; otherwise reject
+  //   equipment → regular   : UnequipTool (server picks first free slot)
+  //   equipment → equipment : silently dropped
+  const handleDrop = (src: number, dst: number): void => {
+    const srcKind = equipKindForSentinel(src);
+    const dstKind = equipKindForSentinel(dst);
+
+    if (srcKind !== null && dstKind !== null) {
+      // Equipment ↔ equipment drag — no defined semantics; ignore.
+      return;
+    }
+    if (srcKind === null && dstKind !== null) {
+      // Panel → equipment: kind-guard then equip.
+      const stack = options.getInventory().slot(src);
+      if (stack === null) return;
+      if (toolKindOf(stack.item) !== dstKind) return;
+      options.sendEquip(src, dstKind);
+      return;
+    }
+    if (srcKind !== null && dstKind === null) {
+      // Equipment → panel: unequip. The server writes the tool into the
+      // first empty slot, which is what the user expects when they drop
+      // onto an empty cell (the most common case).
+      options.sendUnequip(srcKind);
+      return;
+    }
+    options.sendMove(src, dst);
+  };
 
   // Escape during a drag (or pending click gesture) aborts cleanly — no
   // `sendMove` fires and the preview / drag-source highlight clears.
@@ -455,6 +594,17 @@ export function mountInventoryUi(
     });
   }
 
+  // Equipment-slot click → unequip iff occupied. Empty equipment slots
+  // are no-ops on click (there's no panel-cell selection model to source
+  // the equip from). Drag-from-panel covers the equip path.
+  for (const { kind, cell } of equipmentCells) {
+    cell.addEventListener("click", () => {
+      const equipped = options.getInventory().getEquipped(kind);
+      if (equipped === null) return;
+      options.sendUnequip(kind);
+    });
+  }
+
   const setOpen = (next: boolean): void => {
     if (open === next) return;
     open = next;
@@ -476,6 +626,7 @@ export function mountInventoryUi(
   // click lands on the hotbar or the panel.
   for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
     hotbar.addEventListener(ev, (e) => e.stopPropagation());
+    equipmentBar.addEventListener(ev, (e) => e.stopPropagation());
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
 
@@ -526,4 +677,36 @@ function paintSlot(
     count.textContent = String(slot.count);
     cell.appendChild(count);
   }
+}
+
+/**
+ * Paint one equipment-slot cell (task 100). Empty slots get a faded
+ * silhouette of the wood-tier tool so the slot affordance reads as a
+ * pickaxe / axe slot at a glance; populated slots paint the equipped
+ * tool's full icon.
+ */
+function paintEquipmentSlot(
+  cell: HTMLDivElement,
+  kind: ToolKind,
+  item: ItemId | null,
+): void {
+  cell.replaceChildren();
+  const icon = document.createElement("div");
+  icon.className = "anarchy-inventory-icon";
+  if (item !== null) {
+    applyItemIconStyle(icon, { item, count: 1 });
+    cell.classList.remove("empty");
+  } else {
+    // Wood-tier silhouette is the cheapest "this is what goes here"
+    // affordance — same texture pipeline as the rest of the inventory
+    // surface, just at low opacity. The CSS rule `.empty .icon` knocks
+    // it down to ~30% alpha.
+    const placeholder: ItemStack = {
+      item: kind === "pickaxe" ? ItemId.WoodPickaxe : ItemId.WoodAxe,
+      count: 1,
+    };
+    applyItemIconStyle(icon, placeholder);
+    cell.classList.add("empty");
+  }
+  cell.appendChild(icon);
 }

@@ -22,6 +22,7 @@ import {
   Inventory,
   SnapshotBuffer,
   Terrain,
+  type ToolKind,
   World,
   canPlaceTopBlock,
 } from "./game/index.js";
@@ -88,6 +89,19 @@ export interface AnarchyHandle {
   sendSelectSlot: (slot: number) => void;
   /** Send an inventory drag-drop action; bumps the local action seq. */
   sendMoveSlot: (src: number, dst: number) => void;
+  /**
+   * Equip the tool at `sourceSlot` into the equipment slot named by
+   * `kind` (task 100). Server validates that the source slot holds a
+   * tool of the matching kind and atomically swaps the source slot with
+   * the equipment slot.
+   */
+  sendEquipTool: (sourceSlot: number, kind: ToolKind) => void;
+  /**
+   * Unequip the tool from the equipment slot named by `kind`. Server
+   * places the tool into the first empty inventory slot, dropping
+   * silently if the inventory is full.
+   */
+  sendUnequipTool: (kind: ToolKind) => void;
   /** Index of the locally-mirrored selected hotbar slot. */
   getSelectedHotbarSlot: () => number;
   /** True while the inventory side panel is open (toggled with `E`). */
@@ -335,6 +349,31 @@ export function runMain(
     conn.send({ moveSlot: { src, dst, clientSeq: seq } });
   }
 
+  function toolKindToWire(kind: ToolKind): number {
+    // Mirrors `proto::v1::ToolKind`. The wire enum lives in
+    // `src/gen/anarchy.js`; we use the numeric codes directly so callers
+    // outside the wire bridge don't need to import generated types.
+    return kind === "pickaxe" ? 1 : 2;
+  }
+
+  function sendEquipTool(sourceSlot: number, kind: ToolKind): void {
+    const seq = ++actionSeq;
+    conn.send({
+      equipTool: {
+        sourceSlot,
+        toolKind: toolKindToWire(kind),
+        clientSeq: seq,
+      },
+    });
+  }
+
+  function sendUnequipTool(kind: ToolKind): void {
+    const seq = ++actionSeq;
+    conn.send({
+      unequipTool: { toolKind: toolKindToWire(kind), clientSeq: seq },
+    });
+  }
+
   const input = new InputController({ sendMoveIntent });
   const stopInput = input.start(window);
   teardowns.push(stopInput);
@@ -354,6 +393,8 @@ export function runMain(
     getInventory: () => inventory,
     sendSelect: sendSelectSlot,
     sendMove: sendMoveSlot,
+    sendEquip: sendEquipTool,
+    sendUnequip: sendUnequipTool,
   });
   teardowns.push(() => inventoryUi.unmount());
 
@@ -666,6 +707,8 @@ export function runMain(
     sendPlaceBlock,
     sendSelectSlot,
     sendMoveSlot,
+    sendEquipTool,
+    sendUnequipTool,
     getSelectedHotbarSlot: () => inventoryUi.selectedHotbarSlot(),
     isInventoryOpen: () => inventoryUi.isOpen(),
     canPlaceAt,

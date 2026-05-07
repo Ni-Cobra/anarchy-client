@@ -67,15 +67,74 @@ export interface ItemStack {
 export type Slot = ItemStack | null;
 
 /**
+ * Identifies one of the two equipment-slot mini-hotbar cells (task 100).
+ * Mirrors the proto `ToolKind` enum and the server's `game::ToolKind`.
+ */
+export type ToolKind = "pickaxe" | "axe";
+
+/**
+ * `true` iff `item` is one of the five pickaxe tiers. Used by the
+ * inventory UI's click-routing to decide whether a panel-cell click
+ * should target the equipment slot or the active hotbar.
+ */
+export function isPickaxe(item: ItemId): boolean {
+  return (
+    item === ItemId.WoodPickaxe ||
+    item === ItemId.StonePickaxe ||
+    item === ItemId.CopperPickaxe ||
+    item === ItemId.IronPickaxe ||
+    item === ItemId.TungstenPickaxe
+  );
+}
+
+/** True iff `item` is one of the five axe tiers. */
+export function isAxe(item: ItemId): boolean {
+  return (
+    item === ItemId.WoodAxe ||
+    item === ItemId.StoneAxe ||
+    item === ItemId.CopperAxe ||
+    item === ItemId.IronAxe ||
+    item === ItemId.TungstenAxe
+  );
+}
+
+/** Tool family the item belongs to, or `null` for non-tool items. */
+export function toolKindOf(item: ItemId): ToolKind | null {
+  if (isPickaxe(item)) return "pickaxe";
+  if (isAxe(item)) return "axe";
+  return null;
+}
+
+/**
  * Per-player inventory. Slots are addressed flat — the hotbar/main split is
  * a constant-driven offset, not a separate field.
  */
 export class Inventory {
   private slots: Slot[];
+  private equippedPickaxe: ItemId | null = null;
+  private equippedAxe: ItemId | null = null;
   private listeners: Array<() => void> = [];
 
   constructor() {
     this.slots = Array.from({ length: INVENTORY_SIZE }, () => null);
+  }
+
+  /** Tool currently equipped to the pickaxe mini-hotbar slot (task 100). */
+  getEquippedPickaxe(): ItemId | null {
+    return this.equippedPickaxe;
+  }
+
+  /** Tool currently equipped to the axe mini-hotbar slot (task 100). */
+  getEquippedAxe(): ItemId | null {
+    return this.equippedAxe;
+  }
+
+  /**
+   * Equipment slot for `kind`. Convenience for the UI's render loop, which
+   * paints both equipment cells from the same code path.
+   */
+  getEquipped(kind: ToolKind): ItemId | null {
+    return kind === "pickaxe" ? this.equippedPickaxe : this.equippedAxe;
   }
 
   /** Read a single slot by flat index. Returns `null` for out-of-range indices. */
@@ -106,14 +165,22 @@ export class Inventory {
    * Throws if `slots.length` does not match `INVENTORY_SIZE` — the wire
    * bridge guards against malformed frames before reaching here. Notifies
    * subscribers after the swap so a UI mirror can re-render reactively.
+   * `equippedPickaxe` / `equippedAxe` carry the equipment-slot mirror
+   * (task 100); both default to `null` for an empty slot.
    */
-  replaceFromWire(slots: readonly Slot[]): void {
+  replaceFromWire(
+    slots: readonly Slot[],
+    equippedPickaxe: ItemId | null = null,
+    equippedAxe: ItemId | null = null,
+  ): void {
     if (slots.length !== INVENTORY_SIZE) {
       throw new Error(
         `inventory slot array length ${slots.length} != ${INVENTORY_SIZE}`,
       );
     }
     this.slots = slots.slice();
+    this.equippedPickaxe = equippedPickaxe;
+    this.equippedAxe = equippedAxe;
     for (const listener of this.listeners) listener();
   }
 

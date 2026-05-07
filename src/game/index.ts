@@ -27,8 +27,11 @@ export {
   Inventory,
   ItemId,
   MAIN_SLOTS,
+  isAxe,
+  isPickaxe,
+  toolKindOf,
 } from "./inventory.js";
-export type { ItemStack, Slot } from "./inventory.js";
+export type { ItemStack, Slot, ToolKind } from "./inventory.js";
 export {
   MAX_USERNAME_LEN,
   MIN_USERNAME_LEN,
