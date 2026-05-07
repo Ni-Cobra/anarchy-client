@@ -8,6 +8,7 @@ import {
   type Terrain,
   getBlock,
 } from "../game/index.js";
+import type { BlockTextureSet } from "./texture_loader.js";
 
 /**
  * Build a Three.js group for a `Terrain` snapshot. Each loaded chunk becomes
@@ -15,17 +16,25 @@ import {
  * block is a smaller upright box. Coordinates use the same world↔scene
  * mapping as `tileToScene` in `sync.ts` (`+y_world → -z_scene`).
  *
+ * `textures` is the shared `BlockTextureSet` produced once at renderer
+ * construction and passed through to every chunk-mesh build. When `null`
+ * (legacy / test path), tiles fall back to flat-color materials so unit
+ * tests can pin the geometry without spinning up a `TextureLoader`.
+ *
  * Pure function — call it once and add the result to a scene; call
  * `disposeTerrainMesh` to free GPU resources when the group leaves the
  * scene. The renderer rebuilds wholesale on `TerrainSnapshot` and per-chunk
  * via `buildChunkMesh` on `ChunkLoaded` / `ChunkUnloaded`.
  */
-export function buildTerrainMesh(terrain: Terrain): THREE.Group {
+export function buildTerrainMesh(
+  terrain: Terrain,
+  textures: BlockTextureSet | null = null,
+): THREE.Group {
   const group = new THREE.Group();
   group.name = "terrain";
   for (const [coord, chunk] of terrain.iter()) {
     const [cx, cy] = coord;
-    group.add(buildChunkMesh(cx, cy, chunk));
+    group.add(buildChunkMesh(cx, cy, chunk, textures));
   }
   return group;
 }
@@ -62,16 +71,18 @@ export function disposeTerrainMesh(
 // internal visual choices, not operator-tunable knobs) ----
 
 /**
- * Color for each block kind that renders as the default unit cube. `Tree`
- * is intentionally absent — it gets its own trunk + canopy mesh below.
- * Gold is the placeable kind today (builder mode); the rest cover ground
- * tiles + worldgen-placed top blocks (Stone outcrops).
+ * Fallback flat color per block kind. Used when the renderer is built
+ * without a `BlockTextureSet` (the unit-test path) or when a kind happens
+ * to lack a texture entry. Magenta surfaces missing kinds loudly rather
+ * than rendering as black.
  */
-const CUBE_BLOCK_COLOR: Partial<Record<BlockType, number>> = {
+const FALLBACK_BLOCK_COLOR: Partial<Record<BlockType, number>> = {
   [BlockType.Grass]: 0x4a8c2a,
   [BlockType.Stone]: 0x808080,
   [BlockType.Wood]: 0x8b5a2b,
   [BlockType.Gold]: 0xf5c542,
+  [BlockType.Tree]: 0x2d6a2d,
+  [BlockType.Sticks]: 0xa9774a,
 };
 
 const GROUND_THICKNESS = 0.02;
@@ -117,8 +128,16 @@ const STICKS_Y = GROUND_Y + GROUND_THICKNESS / 2 + STICKS_THICKNESS / 2;
  * Build a per-chunk sub-group named `chunk:cx,cy`. Exported so the renderer
  * can rebuild a single chunk on a `ChunkLoaded` event without throwing away
  * the rest of the terrain mesh.
+ *
+ * `textures` is the shared `BlockTextureSet` from the renderer; when
+ * `null` the chunk falls back to flat-color materials (unit-test path).
  */
-export function buildChunkMesh(cx: number, cy: number, chunk: Chunk): THREE.Group {
+export function buildChunkMesh(
+  cx: number,
+  cy: number,
+  chunk: Chunk,
+  textures: BlockTextureSet | null = null,
+): THREE.Group {
   // Per-chunk shared geometries + materials. Sharing keeps the per-build
   // allocation count proportional to "kinds present" rather than "tiles" —
   // and the dedupe-on-dispose set in `disposeTerrainMesh` handles cleanup.
@@ -128,8 +147,7 @@ export function buildChunkMesh(cx: number, cy: number, chunk: Chunk): THREE.Grou
   const materialFor = (kind: BlockType): THREE.Material => {
     let m = matCache.get(kind);
     if (!m) {
-      const color = CUBE_BLOCK_COLOR[kind] ?? 0xff00ff;
-      m = new THREE.MeshLambertMaterial({ color });
+      m = buildBlockMaterial(kind, textures);
       matCache.set(kind, m);
     }
     return m;
@@ -175,9 +193,9 @@ export function buildChunkMesh(cx: number, cy: number, chunk: Chunk): THREE.Grou
             TREE_CANOPY_WIDTH,
           );
         if (!trunkMat)
-          trunkMat = new THREE.MeshLambertMaterial({ color: TREE_TRUNK_COLOR });
+          trunkMat = buildBlockMaterial(BlockType.Wood, textures, TREE_TRUNK_COLOR);
         if (!canopyMat)
-          canopyMat = new THREE.MeshLambertMaterial({ color: TREE_CANOPY_COLOR });
+          canopyMat = buildBlockMaterial(BlockType.Tree, textures, TREE_CANOPY_COLOR);
         const trunk = new THREE.Mesh(trunkGeom, trunkMat);
         trunk.position.set(scene.x, TREE_TRUNK_Y, scene.z);
         group.add(trunk);
@@ -188,7 +206,7 @@ export function buildChunkMesh(cx: number, cy: number, chunk: Chunk): THREE.Grou
         if (!sticksGeom)
           sticksGeom = new THREE.BoxGeometry(STICKS_WIDTH, STICKS_THICKNESS, STICKS_WIDTH);
         if (!sticksMat)
-          sticksMat = new THREE.MeshLambertMaterial({ color: STICKS_COLOR });
+          sticksMat = buildBlockMaterial(BlockType.Sticks, textures, STICKS_COLOR);
         const decal = new THREE.Mesh(sticksGeom, sticksMat);
         decal.position.set(scene.x, STICKS_Y, scene.z);
         group.add(decal);
@@ -208,6 +226,26 @@ export function buildChunkMesh(cx: number, cy: number, chunk: Chunk): THREE.Grou
     topGeom.dispose();
   }
   return group;
+}
+
+/**
+ * Build a `MeshLambertMaterial` for a given block kind. Prefers the loaded
+ * texture from `textures` (with `NearestFilter` already configured by the
+ * loader); falls back to the per-kind flat color when `textures` is
+ * `null` (test path) or the kind is missing from the set. `colorOverride`
+ * is for the tree-trunk / sticks special cases that want their historical
+ * accent color in the no-texture fallback.
+ */
+function buildBlockMaterial(
+  kind: BlockType,
+  textures: BlockTextureSet | null,
+  colorOverride?: number,
+): THREE.MeshLambertMaterial {
+  const tex = textures?.get(kind) ?? null;
+  if (tex) return new THREE.MeshLambertMaterial({ map: tex });
+  const color =
+    colorOverride ?? FALLBACK_BLOCK_COLOR[kind] ?? 0xff00ff;
+  return new THREE.MeshLambertMaterial({ color });
 }
 
 /**

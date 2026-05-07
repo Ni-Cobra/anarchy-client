@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "proto:gen": "mkdir -p src/gen && pbjs -t static-module -w es6 --es6 -o src/gen/anarchy.js proto/anarchy/v1/anarchy.proto && pbts -o src/gen/anarchy.d.ts src/gen/anarchy.js",
+    "textures:gen": "cd ../anarchy-server/dev_utils && .venv/bin/python -m anarchy_dev_utils textures",
     "predev": "npm run proto:gen",
     "prebuild": "npm run proto:gen",
     "dev": "vite",

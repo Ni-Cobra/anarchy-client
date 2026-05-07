@@ -33,6 +33,11 @@ import {
   type TargetingStateEvent,
 } from "./effects/index.js";
 import { computeGhostState, type GhostState } from "./ghost.js";
+import {
+  type BlockTextureSet,
+  disposeBlockTextures,
+  loadBlockTextures,
+} from "./texture_loader.js";
 
 // The player's body sphere mirrors the authoritative collision radius
 // (`PLAYER_RADIUS` in `config.ts`, `crate::game::player::PLAYER_RADIUS`
@@ -107,19 +112,13 @@ const CHUNK_GRID_OPACITY = 0.35;
 // Placement ghost: a semi-transparent unit-cube preview at the targeted
 // top-layer cell. Sized to match a real placed top-layer block
 // (`TOP_BOX_*` in `terrain.ts`) so what-you-see is what-you-get on click.
-// Color is picked per-frame from the held block kind (see
-// `GHOST_COLOR_BY_KIND`); a fallback magenta surfaces unmapped kinds
-// loudly rather than silently rendering as black.
+// The texture (sourced from the renderer's shared `BlockTextureSet`) is
+// swapped per-kind so the preview shows the same surface as the placed
+// block; a fallback flat color surfaces texture-less kinds loudly.
 const GHOST_FALLBACK_COLOR = 0xff00ff;
 const GHOST_OPACITY = 0.45;
 const GHOST_BOX_SIZE = 1.0;
 const GHOST_BOX_Y = 0.025 + GHOST_BOX_SIZE / 2;
-const GHOST_COLOR_BY_KIND: Partial<Record<BlockType, number>> = {
-  [BlockType.Wood]: 0x8b5a2b,
-  [BlockType.Stone]: 0x808080,
-  [BlockType.Gold]: 0xf5c542,
-  [BlockType.Sticks]: 0xa9774a,
-};
 
 const defaultFactory: PlayerMeshFactory = {
   create(entity: RenderableEntity, _isLocal: boolean) {
@@ -290,6 +289,7 @@ export class Renderer {
   private localPlayerId: PlayerId | null = null;
   private terrain: Terrain | null;
   private terrainGroup: THREE.Group | null = null;
+  private readonly blockTextures: BlockTextureSet;
   private ghostMesh: THREE.Mesh | null = null;
   private ghostMeshKind: BlockType | null = null;
   private ghostState: GhostState | null = null;
@@ -325,6 +325,8 @@ export class Renderer {
     this.now = now;
     this.inventory = inventory;
     this.getSelectedHotbarSlot = getSelectedHotbarSlot;
+
+    this.blockTextures = loadBlockTextures();
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x202028);
@@ -373,7 +375,7 @@ export class Renderer {
     this.scene.add(this.playerGroup);
 
     if (terrain !== null) {
-      this.terrainGroup = buildTerrainMesh(terrain);
+      this.terrainGroup = buildTerrainMesh(terrain, this.blockTextures);
       this.scene.add(this.terrainGroup);
     }
 
@@ -479,24 +481,40 @@ export class Renderer {
         GHOST_BOX_SIZE,
         GHOST_BOX_SIZE,
       );
-      const mat = new THREE.MeshLambertMaterial({
-        color: GHOST_COLOR_BY_KIND[state.kind] ?? GHOST_FALLBACK_COLOR,
-        transparent: true,
-        opacity: GHOST_OPACITY,
-        depthWrite: false,
-      });
-      this.ghostMesh = new THREE.Mesh(geom, mat);
+      this.ghostMesh = new THREE.Mesh(geom, this.buildGhostMaterial(state.kind));
       this.ghostMeshKind = state.kind;
       this.scene.add(this.ghostMesh);
     } else if (this.ghostMeshKind !== state.kind) {
-      const mat = this.ghostMesh.material as THREE.MeshLambertMaterial;
-      mat.color.setHex(GHOST_COLOR_BY_KIND[state.kind] ?? GHOST_FALLBACK_COLOR);
+      // Swap the material wholesale on kind change so a texture-backed
+      // and a flat-color preview can switch cleanly without leaking the
+      // previous material's GPU resources.
+      const oldMat = this.ghostMesh.material as THREE.Material;
+      this.ghostMesh.material = this.buildGhostMaterial(state.kind);
+      oldMat.dispose();
       this.ghostMeshKind = state.kind;
     }
     const [cx, cy, lx, ly] = state.cell;
     const scene = tileCenterToScene(cx, cy, lx, ly);
     this.ghostMesh.position.set(scene.x, GHOST_BOX_Y, scene.z);
     this.ghostMesh.visible = true;
+  }
+
+  private buildGhostMaterial(kind: BlockType): THREE.MeshLambertMaterial {
+    const tex = this.blockTextures.get(kind) ?? null;
+    if (tex) {
+      return new THREE.MeshLambertMaterial({
+        map: tex,
+        transparent: true,
+        opacity: GHOST_OPACITY,
+        depthWrite: false,
+      });
+    }
+    return new THREE.MeshLambertMaterial({
+      color: GHOST_FALLBACK_COLOR,
+      transparent: true,
+      opacity: GHOST_OPACITY,
+      depthWrite: false,
+    });
   }
 
   /**
@@ -530,7 +548,7 @@ export class Renderer {
     if (!chunk) return;
     const root = this.terrainGroupOrCreate();
     this.disposeChunkSubgroup(cx, cy, root);
-    root.add(buildChunkMesh(cx, cy, chunk));
+    root.add(buildChunkMesh(cx, cy, chunk, this.blockTextures));
   }
 
   /**
@@ -589,6 +607,7 @@ export class Renderer {
     this.scene.remove(this.chunkBorderGrid);
     this.chunkBorderGrid.geometry.dispose();
     (this.chunkBorderGrid.material as THREE.Material).dispose();
+    disposeBlockTextures(this.blockTextures);
     this.webgl.dispose();
     this.webgl.domElement.remove();
   }

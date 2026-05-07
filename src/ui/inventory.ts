@@ -6,8 +6,9 @@
  * Network-free: the module reads inventory state through a `getInventory`
  * thunk passed in by `bootstrap.ts` and subscribes to the live `Inventory`
  * mirror so each `InventoryUpdate` from the server triggers a re-render.
- * Slot icons are placeholder colored squares per `ItemId` — `INVENTORY_PALETTE`
- * is the small CSS-color map. Real textures land later.
+ * Slot icons render the same 16×16 pixel-art textures used in the world
+ * renderer, sourced from `src/textures.ts` — the same file feeds both
+ * surfaces so a re-skin is one edit.
  *
  * Selection state (the highlighted hotbar cell) is mirrored locally so the
  * UI can repaint without a server round-trip; the wire-driven `sendSelect`
@@ -28,10 +29,11 @@ import {
   HOTBAR_SLOTS,
   INVENTORY_SIZE,
   type Inventory,
-  ItemId,
+  type ItemStack,
   MAIN_SLOTS,
   type Slot,
 } from "../game/index.js";
+import { textureUrlForItem } from "../textures.js";
 
 const STYLE_ID = "anarchy-inventory-style";
 
@@ -44,16 +46,27 @@ const PANEL_WIDTH_PX =
   PANEL_COLS * SLOT_PX + (PANEL_COLS - 1) * PANEL_GAP_PX + PANEL_PAD_PX * 2;
 
 /**
- * Placeholder slot colors per item kind. `ItemId.<X>` enum values are the
- * keys; lookup falls back to a neutral gray for any unknown id (no UI for
- * that id today, but defensive).
+ * Apply the per-item texture to a slot icon element. Items that map to a
+ * `BlockType` (today: every `ItemId` — they all place blocks) reuse the
+ * world-renderer texture so the inventory and the placed block share a
+ * pixel-perfect visual identity. Items without a texture (future tools /
+ * consumables) get a neutral gray fallback.
+ *
+ * `image-rendering: pixelated` keeps the 16×16 PNG crisp when CSS scales
+ * it up to the slot icon's native size — exact same intent as
+ * `THREE.NearestFilter` on the renderer side.
  */
-const INVENTORY_PALETTE: Record<ItemId, string> = {
-  [ItemId.Stick]: "#a8732a",
-  [ItemId.Wood]: "#5e3a1a",
-  [ItemId.Stone]: "#7d8590",
-  [ItemId.Gold]: "#f5c542",
-};
+function applyItemIconStyle(icon: HTMLElement, slot: ItemStack): void {
+  const url = textureUrlForItem(slot.item);
+  if (url) {
+    icon.style.backgroundImage = `url("${url}")`;
+    icon.style.backgroundSize = "100% 100%";
+    icon.style.backgroundRepeat = "no-repeat";
+    icon.style.imageRendering = "pixelated";
+  } else {
+    icon.style.background = "#888";
+  }
+}
 
 const STYLE = `
   #anarchy-inventory-root {
@@ -267,7 +280,7 @@ export function mountInventoryUi(
     preview.className = "anarchy-inventory-drag-preview";
     const icon = document.createElement("div");
     icon.className = "anarchy-inventory-icon";
-    icon.style.background = INVENTORY_PALETTE[slot.item] ?? "#888";
+    applyItemIconStyle(icon, slot);
     preview.appendChild(icon);
     if (slot.count > 1) {
       const count = document.createElement("span");
@@ -420,7 +433,7 @@ function paintSlot(
   if (slot === null) return;
   const icon = document.createElement("div");
   icon.className = "anarchy-inventory-icon";
-  icon.style.background = INVENTORY_PALETTE[slot.item] ?? "#888";
+  applyItemIconStyle(icon, slot);
   cell.appendChild(icon);
   if (slot.count > 1) {
     const count = document.createElement("span");
