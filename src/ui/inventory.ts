@@ -48,7 +48,9 @@ import {
   MAIN_SLOTS,
   type Slot,
 } from "../game/index.js";
+import { itemDisplayName } from "../item_names.js";
 import { textureUrlForItem } from "../textures.js";
+import { attachTooltip, type TooltipHandle } from "./tooltip.js";
 
 const STYLE_ID = "anarchy-inventory-style";
 
@@ -260,6 +262,26 @@ export function mountInventoryUi(
     panelCells.push(cell);
   }
 
+  // Wire one tooltip handle per slot. The thunk reads the live `Inventory`
+  // mirror each time so a count change between hovers (or a slot move that
+  // swaps the underlying item) surfaces immediately on the next pointer
+  // enter — no manual refresh needed.
+  const tooltipHandles: TooltipHandle[] = [];
+  const wireSlotTooltip = (idx: number, cell: HTMLDivElement): void => {
+    tooltipHandles.push(
+      attachTooltip(cell, () => {
+        const slot = options.getInventory().slot(idx);
+        if (slot === null) return null;
+        const name = itemDisplayName(slot.item);
+        return slot.count > 1 ? `${name} (${slot.count})` : name;
+      }),
+    );
+  };
+  for (let i = 0; i < HOTBAR_SLOTS; i++) wireSlotTooltip(i, hotbarCells[i]);
+  for (let i = 0; i < MAIN_SLOTS; i++) {
+    wireSlotTooltip(HOTBAR_SLOTS + i, panelCells[i]);
+  }
+
   let open = false;
   let selectedSlot = 0;
 
@@ -469,6 +491,8 @@ export function mountInventoryUi(
     render,
     unmount: () => {
       unsubscribe();
+      for (const handle of tooltipHandles) handle.detach();
+      tooltipHandles.length = 0;
       document.removeEventListener("pointermove", onDocumentPointerMove);
       document.removeEventListener("pointerup", onDocumentPointerUp);
       document.removeEventListener("keydown", onDocumentKeydown, true);

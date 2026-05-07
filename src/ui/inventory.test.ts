@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   HOTBAR_SLOTS,
@@ -9,6 +9,7 @@ import {
   type Slot,
 } from "../game/index.js";
 import { mountInventoryUi } from "./inventory.js";
+import { _resetTooltipForTests } from "./tooltip.js";
 
 function fillSlots(updates: Record<number, Slot>): Slot[] {
   const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
@@ -24,12 +25,14 @@ describe("inventory UI", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";
+    _resetTooltipForTests();
     inventory = new Inventory();
   });
 
   afterEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";
+    _resetTooltipForTests();
   });
 
   it("renders an empty inventory: 9 hotbar cells, 36 panel cells laid out 4 cols × 9 rows, panel hidden", () => {
@@ -716,6 +719,72 @@ describe("inventory UI", () => {
     expect(ui.selectedHotbarSlot()).toBe(0);
     // 8 forward steps (1..8) + 1 back to 0 = 9 distinct selection sends.
     expect(sent).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 0]);
+  });
+
+  it("hovering a populated cell surfaces a tooltip with the item name and count", () => {
+    vi.useFakeTimers();
+    try {
+      inventory.replaceFromWire(
+        fillSlots({
+          0: { item: ItemId.Gold, count: 10 },
+          2: { item: ItemId.Stone, count: 1 },
+        }),
+      );
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+      });
+
+      const hotbarCells = document.querySelectorAll(
+        ".anarchy-hotbar .anarchy-inventory-slot",
+      );
+
+      // count > 1 → "Gold (10)".
+      (hotbarCells[0] as HTMLElement).dispatchEvent(
+        new PointerEvent("pointerenter", {
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      vi.advanceTimersByTime(300);
+      let tooltip = document.getElementById("anarchy-tooltip")!;
+      expect(tooltip.textContent).toBe("Gold (10)");
+
+      (hotbarCells[0] as HTMLElement).dispatchEvent(
+        new PointerEvent("pointerleave", { bubbles: true }),
+      );
+
+      // count === 1 → just the name, no count badge in the tooltip.
+      (hotbarCells[2] as HTMLElement).dispatchEvent(
+        new PointerEvent("pointerenter", {
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      vi.advanceTimersByTime(300);
+      tooltip = document.getElementById("anarchy-tooltip")!;
+      expect(tooltip.textContent).toBe("Stone");
+
+      // Empty cell → tooltip stays hidden (getContent returns null).
+      (hotbarCells[2] as HTMLElement).dispatchEvent(
+        new PointerEvent("pointerleave", { bubbles: true }),
+      );
+      (hotbarCells[5] as HTMLElement).dispatchEvent(
+        new PointerEvent("pointerenter", {
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      vi.advanceTimersByTime(300);
+      tooltip = document.getElementById("anarchy-tooltip")!;
+      expect(tooltip.style.display).toBe("none");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stops mousedown / contextmenu inside the overlay from reaching window", () => {
