@@ -27,6 +27,7 @@ import {
 } from "./picker.js";
 import { buildChunkMesh, buildTerrainMesh, disposeTerrainMesh } from "./terrain.js";
 import {
+  BeamLayer,
   EffectsLayer,
   type BlockEditEvent,
   type TargetingStateEvent,
@@ -295,6 +296,7 @@ export class Renderer {
   private readonly inventory: Inventory | null;
   private readonly getSelectedHotbarSlot: () => number;
   private readonly effects: EffectsLayer;
+  private readonly beams: BeamLayer;
   private readonly chunkBorderGrid: THREE.LineSegments;
   private zoomedOut = false;
   // Wall-clock timestamp of the last `frame()` call. `null` until the first
@@ -384,6 +386,13 @@ export class Renderer {
       return player ? player.colorIndex : null;
     });
     this.scene.add(this.effects.scene());
+
+    // Beam layer (task 030): visual line connecting an actor to the cell
+    // they're acting on. Driven by the same wire signals as the effects
+    // layer (held-break targeting + place edits) plus per-frame player
+    // positions plumbed by `frame()` so the beam tracks moving actors.
+    this.beams = new BeamLayer();
+    this.scene.add(this.beams.scene());
 
     this.chunkBorderGrid = buildChunkBorderGrid();
     this.chunkBorderGrid.visible = false;
@@ -496,7 +505,9 @@ export class Renderer {
    * by the actor's color. See `EffectsLayer.onBlockEdit`.
    */
   onBlockEdit(event: BlockEditEvent): void {
-    this.effects.onBlockEdit(event, this.now());
+    const nowMs = this.now();
+    this.effects.onBlockEdit(event, nowMs);
+    if (event.kind === "placed") this.beams.onPlace(event, nowMs);
   }
 
   /**
@@ -505,6 +516,7 @@ export class Renderer {
    */
   applyTargetingStates(targets: readonly TargetingStateEvent[]): void {
     this.effects.applyTargets(targets);
+    this.beams.applyBreakTargets(targets);
   }
 
   /**
@@ -573,6 +585,7 @@ export class Renderer {
       this.ghostMesh = null;
     }
     this.effects.dispose();
+    this.beams.dispose();
     this.scene.remove(this.chunkBorderGrid);
     this.chunkBorderGrid.geometry.dispose();
     (this.chunkBorderGrid.material as THREE.Material).dispose();
@@ -597,6 +610,12 @@ export class Renderer {
     this.refreshHoverBillboards();
     this.refreshGhostPreview();
     this.effects.update(nowMs);
+    // Beams aim at the same interpolated player positions that
+    // `syncPlayerMeshes` just consumed so a beam stays glued to its
+    // actor's body across remote-render delay.
+    const positionByPlayer = new Map<PlayerId, { x: number; y: number }>();
+    for (const e of entities) positionByPlayer.set(e.id, { x: e.x, y: e.y });
+    this.beams.update((id) => positionByPlayer.get(id) ?? null, nowMs);
     this.webgl.render(this.scene, this.camera);
   };
 

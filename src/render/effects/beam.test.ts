@@ -1,0 +1,140 @@
+import { describe, expect, it } from "vitest";
+import * as THREE from "three";
+
+import { BeamLayer } from "./beam.js";
+
+function makeLayer() {
+  return new BeamLayer();
+}
+
+function lineCount(layer: BeamLayer): number {
+  return layer.scene().children.length;
+}
+
+function getLine(layer: BeamLayer, idx: number): THREE.Line {
+  return layer.scene().children[idx] as THREE.Line;
+}
+
+describe("BeamLayer", () => {
+  it("creates a break beam when a player begins targeting", () => {
+    const layer = makeLayer();
+    expect(lineCount(layer)).toBe(0);
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    expect(lineCount(layer)).toBe(1);
+  });
+
+  it("clears a break beam when a player drops out of the targeting set", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    layer.applyBreakTargets([]);
+    expect(lineCount(layer)).toBe(0);
+  });
+
+  it("re-uses the same beam when a player re-targets", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    const before = getLine(layer, 0);
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 1, ly: 1 }]);
+    expect(lineCount(layer)).toBe(1);
+    expect(getLine(layer, 0)).toBe(before);
+  });
+
+  it("supports multiple players targeting different cells simultaneously", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 },
+      { playerId: 2, cx: 0, cy: 0, lx: 5, ly: 5 },
+    ]);
+    expect(lineCount(layer)).toBe(2);
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    expect(lineCount(layer)).toBe(1);
+  });
+
+  it("aims the beam from the player position to the block center on update", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    layer.update((id) => (id === 1 ? { x: 4, y: 6 } : null), 0);
+    const line = getLine(layer, 0);
+    expect(line.visible).toBe(true);
+    const positions = line.geometry.getAttribute(
+      "position",
+    ) as THREE.BufferAttribute;
+    // Player end: tileToScene(4, 6) = (4, 0.5, -6).
+    expect(positions.getX(0)).toBeCloseTo(4);
+    expect(positions.getY(0)).toBeCloseTo(0.5);
+    expect(positions.getZ(0)).toBeCloseTo(-6);
+    // Block end: tileCenterToScene(0,0,0,0) = (0.5, _, -0.5), y at cube center.
+    expect(positions.getX(1)).toBeCloseTo(0.5);
+    expect(positions.getY(1)).toBeCloseTo(0.55);
+    expect(positions.getZ(1)).toBeCloseTo(-0.5);
+  });
+
+  it("re-aims a beam to the new target when the player re-targets", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    layer.update(() => ({ x: 0, y: 0 }), 0);
+    layer.applyBreakTargets([{ playerId: 1, cx: 1, cy: 0, lx: 2, ly: 3 }]);
+    layer.update(() => ({ x: 0, y: 0 }), 0);
+    const positions = (
+      getLine(layer, 0).geometry.getAttribute("position") as THREE.BufferAttribute
+    );
+    // tileCenterToScene(1, 0, 2, 3): wx = 16 + 2 + 0.5 = 18.5, wy = 0 + 3 + 0.5 = 3.5.
+    expect(positions.getX(1)).toBeCloseTo(18.5);
+    expect(positions.getZ(1)).toBeCloseTo(-3.5);
+  });
+
+  it("hides a beam whose actor is unknown to the position lookup", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    layer.update(() => null, 0);
+    expect(getLine(layer, 0).visible).toBe(false);
+  });
+
+  it("starts a freshly-spawned beam hidden until the first update", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    expect(getLine(layer, 0).visible).toBe(false);
+  });
+
+  it("spawns a place-flash beam and expires it once its duration elapses", () => {
+    const layer = makeLayer();
+    layer.onPlace({ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }, 1_000);
+    expect(lineCount(layer)).toBe(1);
+    layer.update(() => ({ x: 0, y: 0 }), 1_050);
+    expect(lineCount(layer)).toBe(1);
+    layer.update(() => ({ x: 0, y: 0 }), 1_200);
+    expect(lineCount(layer)).toBe(0);
+  });
+
+  it("aims the place-flash beam at the placed cell with the actor's position", () => {
+    const layer = makeLayer();
+    layer.onPlace({ playerId: 7, cx: 0, cy: 0, lx: 1, ly: 1 }, 0);
+    layer.update((id) => (id === 7 ? { x: 2.5, y: 2.5 } : null), 50);
+    const line = getLine(layer, 0);
+    expect(line.visible).toBe(true);
+    const positions = line.geometry.getAttribute(
+      "position",
+    ) as THREE.BufferAttribute;
+    expect(positions.getX(0)).toBeCloseTo(2.5);
+    expect(positions.getZ(0)).toBeCloseTo(-2.5);
+    // tileCenterToScene(0, 0, 1, 1) = (1.5, _, -1.5).
+    expect(positions.getX(1)).toBeCloseTo(1.5);
+    expect(positions.getZ(1)).toBeCloseTo(-1.5);
+  });
+
+  it("place flashes coexist with break beams on the same player", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    layer.onPlace({ playerId: 1, cx: 0, cy: 0, lx: 5, ly: 5 }, 0);
+    expect(lineCount(layer)).toBe(2);
+  });
+
+  it("clears all owned scene state on dispose", () => {
+    const layer = makeLayer();
+    layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
+    layer.onPlace({ playerId: 2, cx: 0, cy: 0, lx: 0, ly: 0 }, 0);
+    expect(lineCount(layer)).toBe(2);
+    layer.dispose();
+    expect(lineCount(layer)).toBe(0);
+  });
+});
