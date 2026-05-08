@@ -91,44 +91,69 @@ describe("Inventory", () => {
     expect(inv.countOf(ItemId.Stone)).toBe(0);
   });
 
-  it("replaceFromWire exposes equippedPickaxe and equippedAxe through the typed getters", () => {
-    // Task 100 wires equipment slots into `InventoryUpdate`. The mirror must
-    // surface them via the typed accessors so the UI layer can paint the
-    // mini-hotbar without reaching into private state.
+  it("replaceFromWire surfaces the equipped slot indices via the typed getters", () => {
+    // Task 010 rework: equipment is a flag on a cell. The mirror must
+    // expose the equipped slot index so the UI layer can paint the
+    // colored highlight on the right cell, and `getEquipped` must derive
+    // the equipped item from the cell's contents.
     const inv = new Inventory();
-    const empty: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
-    inv.replaceFromWire(empty, ItemId.IronPickaxe, ItemId.WoodAxe);
-    expect(inv.getEquippedPickaxe()).toBe(ItemId.IronPickaxe);
-    expect(inv.getEquippedAxe()).toBe(ItemId.WoodAxe);
+    const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+    slots[3] = { item: ItemId.IronPickaxe, count: 1 };
+    slots[7] = { item: ItemId.WoodAxe, count: 1 };
+    inv.replaceFromWire(slots, 3, 7);
+    expect(inv.getEquippedSlot("pickaxe")).toBe(3);
+    expect(inv.getEquippedSlot("axe")).toBe(7);
     expect(inv.getEquipped("pickaxe")).toBe(ItemId.IronPickaxe);
     expect(inv.getEquipped("axe")).toBe(ItemId.WoodAxe);
+    expect(inv.isEquippedAt("pickaxe", 3)).toBe(true);
+    expect(inv.isEquippedAt("pickaxe", 7)).toBe(false);
+    expect(inv.isEquippedAt("axe", 7)).toBe(true);
 
-    // A frame with no equipment fields clears both slots — `null` is the
-    // canonical empty (matches the `count == 0` wire shape).
-    inv.replaceFromWire(empty);
-    expect(inv.getEquippedPickaxe()).toBeNull();
-    expect(inv.getEquippedAxe()).toBeNull();
+    // A frame with `null` equipment pointers clears both flags.
+    inv.replaceFromWire(slots);
+    expect(inv.getEquippedSlot("pickaxe")).toBeNull();
+    expect(inv.getEquippedSlot("axe")).toBeNull();
     expect(inv.getEquipped("pickaxe")).toBeNull();
     expect(inv.getEquipped("axe")).toBeNull();
   });
 
-  it("replaceFromWire fires subscribers when only the equipment slots changed", () => {
-    // Equip/unequip without changing main slots still mutates the mirror —
-    // the UI's equipment cells need to re-paint, so the change channel must
-    // fire even when only the equipment fields differ.
+  it("replaceFromWire normalizes a stale equipped pointer to null", () => {
+    // A pointer to an empty cell or a cell with the wrong tool kind is
+    // defensively cleared so the UI never paints a wrong-color
+    // highlight.
     const inv = new Inventory();
-    const empty: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+    const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+    slots[0] = { item: ItemId.Gold, count: 5 };
+    // Slot 1 is empty; slot 0 holds Gold (not a tool). Both should be
+    // normalized to null when used as equipped pointers.
+    inv.replaceFromWire(slots, 0, 1);
+    expect(inv.getEquippedSlot("pickaxe")).toBeNull();
+    expect(inv.getEquippedSlot("axe")).toBeNull();
+    // Out-of-range indices also clear.
+    inv.replaceFromWire(slots, INVENTORY_SIZE, -1);
+    expect(inv.getEquippedSlot("pickaxe")).toBeNull();
+    expect(inv.getEquippedSlot("axe")).toBeNull();
+  });
+
+  it("replaceFromWire fires subscribers when only the equipment slot pointers changed", () => {
+    // Equip/unequip without changing main slots still mutates the mirror —
+    // the UI's cells need to re-paint, so the change channel must
+    // fire even when only the equipment pointers differ.
+    const inv = new Inventory();
+    const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+    slots[3] = { item: ItemId.IronPickaxe, count: 1 };
+    slots[7] = { item: ItemId.TungstenAxe, count: 1 };
     let calls = 0;
     inv.subscribe(() => {
       calls++;
     });
-    inv.replaceFromWire(empty);
+    inv.replaceFromWire(slots);
     expect(calls).toBe(1);
-    inv.replaceFromWire(empty, ItemId.IronPickaxe, null);
+    inv.replaceFromWire(slots, 3, null);
     expect(calls).toBe(2);
-    inv.replaceFromWire(empty, ItemId.IronPickaxe, ItemId.TungstenAxe);
+    inv.replaceFromWire(slots, 3, 7);
     expect(calls).toBe(3);
-    inv.replaceFromWire(empty);
+    inv.replaceFromWire(slots);
     expect(calls).toBe(4);
   });
 

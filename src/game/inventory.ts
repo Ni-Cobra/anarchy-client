@@ -108,33 +108,45 @@ export function toolKindOf(item: ItemId): ToolKind | null {
 /**
  * Per-player inventory. Slots are addressed flat — the hotbar/main split is
  * a constant-driven offset, not a separate field.
+ *
+ * Equipment is a flag pointing at an inventory cell (task 010 rework):
+ * the equipped pickaxe / axe is identified by a slot index, and the tool
+ * itself stays in its inventory cell. The HUD reads
+ * [`getEquippedSlot`] to paint the colored highlight on the equipped
+ * cell and to mirror the cell into the mini-hotbar equipment panel.
  */
 export class Inventory {
   private slots: Slot[];
-  private equippedPickaxe: ItemId | null = null;
-  private equippedAxe: ItemId | null = null;
+  private equippedPickaxeSlot: number | null = null;
+  private equippedAxeSlot: number | null = null;
   private listeners: Array<() => void> = [];
 
   constructor() {
     this.slots = Array.from({ length: INVENTORY_SIZE }, () => null);
   }
 
-  /** Tool currently equipped to the pickaxe mini-hotbar slot (task 100). */
-  getEquippedPickaxe(): ItemId | null {
-    return this.equippedPickaxe;
-  }
-
-  /** Tool currently equipped to the axe mini-hotbar slot (task 100). */
-  getEquippedAxe(): ItemId | null {
-    return this.equippedAxe;
+  /**
+   * Inventory slot index flagged as the equipped tool of `kind`, or `null`
+   * if nothing is equipped. The cell at this index holds the tool — see
+   * [`getEquipped`] for the resolved item.
+   */
+  getEquippedSlot(kind: ToolKind): number | null {
+    return kind === "pickaxe" ? this.equippedPickaxeSlot : this.equippedAxeSlot;
   }
 
   /**
-   * Equipment slot for `kind`. Convenience for the UI's render loop, which
-   * paints both equipment cells from the same code path.
+   * Tool currently equipped to the equipment slot named by `kind`,
+   * derived from the inventory cell at [`getEquippedSlot`]. `null` when
+   * no slot is flagged or the flagged cell doesn't hold a matching tool
+   * (defensive — the wire surface clamps these in practice).
    */
   getEquipped(kind: ToolKind): ItemId | null {
-    return kind === "pickaxe" ? this.equippedPickaxe : this.equippedAxe;
+    const idx = this.getEquippedSlot(kind);
+    if (idx === null) return null;
+    const slot = this.slot(idx);
+    if (slot === null) return null;
+    if (toolKindOf(slot.item) !== kind) return null;
+    return slot.item;
   }
 
   /** Read a single slot by flat index. Returns `null` for out-of-range indices. */
@@ -146,6 +158,15 @@ export class Inventory {
   /** Read every slot in order, hotbar first then main. */
   allSlots(): readonly Slot[] {
     return this.slots;
+  }
+
+  /**
+   * True iff `idx` is currently the equipped slot for `kind`. Used by the
+   * inventory UI's render loop to paint the orange (pickaxe) / green (axe)
+   * highlight on the equipped cell.
+   */
+  isEquippedAt(kind: ToolKind, idx: number): boolean {
+    return this.getEquippedSlot(kind) === idx;
   }
 
   /**
@@ -165,13 +186,16 @@ export class Inventory {
    * Throws if `slots.length` does not match `INVENTORY_SIZE` — the wire
    * bridge guards against malformed frames before reaching here. Notifies
    * subscribers after the swap so a UI mirror can re-render reactively.
-   * `equippedPickaxe` / `equippedAxe` carry the equipment-slot mirror
-   * (task 100); both default to `null` for an empty slot.
+   *
+   * `equippedPickaxeSlot` / `equippedAxeSlot` carry the equipped-cell
+   * pointers (task 010 rework). Either may be `null` to mean "nothing
+   * equipped"; out-of-range or non-tool-bearing indices are normalized
+   * to `null` defensively so the UI never paints a wrong-color highlight.
    */
   replaceFromWire(
     slots: readonly Slot[],
-    equippedPickaxe: ItemId | null = null,
-    equippedAxe: ItemId | null = null,
+    equippedPickaxeSlot: number | null = null,
+    equippedAxeSlot: number | null = null,
   ): void {
     if (slots.length !== INVENTORY_SIZE) {
       throw new Error(
@@ -179,8 +203,8 @@ export class Inventory {
       );
     }
     this.slots = slots.slice();
-    this.equippedPickaxe = equippedPickaxe;
-    this.equippedAxe = equippedAxe;
+    this.equippedPickaxeSlot = normalizeEquipped(this.slots, equippedPickaxeSlot, "pickaxe");
+    this.equippedAxeSlot = normalizeEquipped(this.slots, equippedAxeSlot, "axe");
     for (const listener of this.listeners) listener();
   }
 
@@ -196,4 +220,17 @@ export class Inventory {
       if (i >= 0) this.listeners.splice(i, 1);
     };
   }
+}
+
+function normalizeEquipped(
+  slots: readonly Slot[],
+  slot: number | null,
+  kind: ToolKind,
+): number | null {
+  if (slot === null) return null;
+  if (slot < 0 || slot >= slots.length) return null;
+  const cell = slots[slot];
+  if (cell === null) return null;
+  if (toolKindOf(cell.item) !== kind) return null;
+  return slot;
 }

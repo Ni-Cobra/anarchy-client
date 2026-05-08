@@ -225,11 +225,21 @@ export function mountInventoryUi(
 
   const render = (): void => {
     const inv = options.getInventory();
+    const pickaxeSlot = inv.getEquippedSlot("pickaxe");
+    const axeSlot = inv.getEquippedSlot("axe");
+    const equipMarkAt = (
+      idx: number,
+    ): "pickaxe" | "axe" | null => {
+      if (idx === pickaxeSlot) return "pickaxe";
+      if (idx === axeSlot) return "axe";
+      return null;
+    };
     for (let i = 0; i < HOTBAR_SLOTS; i++) {
-      paintSlot(hotbarCells[i], inv.slot(i), i === selectedSlot);
+      paintSlot(hotbarCells[i], inv.slot(i), i === selectedSlot, equipMarkAt(i));
     }
     for (let i = 0; i < MAIN_SLOTS; i++) {
-      paintSlot(panelCells[i], inv.slot(HOTBAR_SLOTS + i), false);
+      const flatIdx = HOTBAR_SLOTS + i;
+      paintSlot(panelCells[i], inv.slot(flatIdx), false, equipMarkAt(flatIdx));
     }
     for (const { kind, cell } of equipmentCells) {
       paintEquipmentSlot(cell, kind, inv.getEquipped(kind));

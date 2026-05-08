@@ -545,11 +545,23 @@ message InventoryUpdate {
   // `0..9` are the hotbar; `9..45` are the main grid. Receivers reject any
   // other length defensively.
   repeated ItemSlot slots = 1;
-  // Equipment slots — task 100. Each carries the tool currently equipped to
-  // the matching mini-hotbar cell, or `count == 0` for an empty slot (same
-  // canonical-empty convention as the main `slots` array). The server only
-  // populates these with pickaxe / axe tools; receivers can show empty-slot
-  // affordances (faded silhouette icons) when the field is absent or empty.
-  ItemSlot equipped_pickaxe = 2;
-  ItemSlot equipped_axe = 3;
+  // Field numbers 2/3 originally carried the equipped tool's full
+  // `ItemSlot` (task 100). Task 010 reworked equipment into a flag — the
+  // tool itself stays in its inventory cell — and the wire surface
+  // collapsed to a single slot index per kind. Old field numbers are
+  // reserved so no future schema edit reuses them with a different shape.
+  reserved 2, 3;
+  reserved "equipped_pickaxe", "equipped_axe";
+  // Inventory slot index (`0..INVENTORY_SIZE`) of the equipped pickaxe;
+  // `-1` (or any value `< 0` / `>= INVENTORY_SIZE`) means "no tool
+  // equipped". The matching cell in `slots` is the equipped tool;
+  // receivers paint the cell with the equipped-pickaxe highlight color
+  // and mirror the cell into the mini-hotbar pickaxe slot panel. The
+  // server keeps this aligned to a cell whose item is a pickaxe; clients
+  // that observe a misaligned index treat it as "no tool equipped"
+  // defensively.
+  int32 equipped_pickaxe_slot = 4;
+  // Inventory slot index of the equipped axe — see
+  // `equipped_pickaxe_slot`.
+  int32 equipped_axe_slot = 5;
 }

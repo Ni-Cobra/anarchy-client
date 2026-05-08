@@ -947,11 +947,13 @@ describe("inventory UI", () => {
     });
 
     it("paints the equipped tool when populated", () => {
-      inventory.replaceFromWire(
-        Array.from({ length: INVENTORY_SIZE }, () => null),
-        ItemId.IronPickaxe,
-        ItemId.WoodAxe,
-      );
+      // Equipment is a flag pointing at an inventory cell (task 010
+      // rework). Place the tools at known slots and pass the slot
+      // indices as the equipped pointers.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[3] = { item: ItemId.IronPickaxe, count: 1 };
+      slots[7] = { item: ItemId.WoodAxe, count: 1 };
+      inventory.replaceFromWire(slots, 3, 7);
       mountInventoryUi({
         getInventory: () => inventory,
         sendSelect: () => {},
@@ -1042,11 +1044,9 @@ describe("inventory UI", () => {
     });
 
     it("clicking an occupied equipment slot ships an UnequipTool action", () => {
-      inventory.replaceFromWire(
-        Array.from({ length: INVENTORY_SIZE }, () => null),
-        ItemId.IronPickaxe,
-        null,
-      );
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[3] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slots, 3, null);
       const unequips: string[] = [];
       mountInventoryUi({
         getInventory: () => inventory,
@@ -1188,6 +1188,12 @@ describe("inventory UI", () => {
       });
 
       const empty: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      // Place tools in known cells so the equipped flag has somewhere
+      // to point. The mini-hotbar mirrors the equipped cell (task 010
+      // rework).
+      const withTools: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      withTools[3] = { item: ItemId.IronPickaxe, count: 1 };
+      withTools[7] = { item: ItemId.WoodAxe, count: 1 };
       // Initial state: both equipment slots empty.
       let cells = equipmentCells();
       expect(cells[0].classList.contains("empty")).toBe(true);
@@ -1195,14 +1201,14 @@ describe("inventory UI", () => {
 
       // Equip a pickaxe — cells re-render, pickaxe slot lights up with an
       // icon, axe slot stays empty.
-      inventory.replaceFromWire(empty, ItemId.IronPickaxe, null);
+      inventory.replaceFromWire(withTools, 3, null);
       cells = equipmentCells();
       expect(cells[0].classList.contains("empty")).toBe(false);
       expect(cells[0].querySelector(".anarchy-inventory-icon")).not.toBeNull();
       expect(cells[1].classList.contains("empty")).toBe(true);
 
       // Equip an axe alongside — both populated.
-      inventory.replaceFromWire(empty, ItemId.IronPickaxe, ItemId.WoodAxe);
+      inventory.replaceFromWire(withTools, 3, 7);
       cells = equipmentCells();
       expect(cells[0].classList.contains("empty")).toBe(false);
       expect(cells[1].classList.contains("empty")).toBe(false);
@@ -1216,11 +1222,9 @@ describe("inventory UI", () => {
     });
 
     it("dragging from an equipment slot onto a panel slot ships an UnequipTool", () => {
-      inventory.replaceFromWire(
-        Array.from({ length: INVENTORY_SIZE }, () => null),
-        ItemId.IronPickaxe,
-        null,
-      );
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[3] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slots, 3, null);
       const unequips: string[] = [];
       mountInventoryUi({
         getInventory: () => inventory,
@@ -1262,6 +1266,71 @@ describe("inventory UI", () => {
       );
       document.elementsFromPoint = original;
       expect(unequips).toEqual(["pickaxe"]);
+    });
+
+    it("paints orange highlight on the equipped pickaxe cell and green on the equipped axe cell", () => {
+      // Task 010 rework: equipment is a flag on a cell; the cell renders
+      // with an `equipped-pickaxe` (orange) or `equipped-axe` (green)
+      // class so the player can see at a glance which cell is the
+      // equipped tool. The mini-hotbar mirrors the cell — it's not the
+      // owner anymore.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      // Pickaxe in the first hotbar cell, axe in panel slot 5 (= flat
+      // index HOTBAR_SLOTS + 5). Picking distinct rows means the
+      // assertions don't accidentally agree by sharing a single cell.
+      slots[0] = { item: ItemId.IronPickaxe, count: 1 };
+      slots[HOTBAR_SLOTS + 5] = { item: ItemId.WoodAxe, count: 1 };
+      inventory.replaceFromWire(slots, 0, HOTBAR_SLOTS + 5);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const hotbarCells = document.querySelectorAll(
+        ".anarchy-hotbar .anarchy-inventory-slot",
+      );
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      expect(hotbarCells[0].classList.contains("equipped-pickaxe")).toBe(true);
+      expect(hotbarCells[0].classList.contains("equipped-axe")).toBe(false);
+      expect(hotbarCells[1].classList.contains("equipped-pickaxe")).toBe(false);
+      expect(panelCells[5].classList.contains("equipped-axe")).toBe(true);
+      expect(panelCells[5].classList.contains("equipped-pickaxe")).toBe(false);
+      expect(panelCells[0].classList.contains("equipped-axe")).toBe(false);
+    });
+
+    it("re-points the equipped highlight when InventoryUpdate moves the tool", () => {
+      // The flag-on-cell model means the highlight follows the slot
+      // index the server ships. A subsequent `InventoryUpdate` whose
+      // equipped slot pointer changes must re-light the new cell and
+      // dim the old one.
+      const slotsA: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slotsA[2] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slotsA, 2, null);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      let hotbarCells = document.querySelectorAll(
+        ".anarchy-hotbar .anarchy-inventory-slot",
+      );
+      expect(hotbarCells[2].classList.contains("equipped-pickaxe")).toBe(true);
+
+      // Same pickaxe, different slot — the highlight follows.
+      const slotsB: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slotsB[5] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slotsB, 5, null);
+      hotbarCells = document.querySelectorAll(
+        ".anarchy-hotbar .anarchy-inventory-slot",
+      );
+      expect(hotbarCells[2].classList.contains("equipped-pickaxe")).toBe(false);
+      expect(hotbarCells[5].classList.contains("equipped-pickaxe")).toBe(true);
     });
   });
 });

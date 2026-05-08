@@ -60,15 +60,22 @@ test("equipped Tungsten Pickaxe breaks a Stone block well under the no-tool base
     await openClient(page, "tool-mine");
 
     // Equip the tungsten pickaxe and wait for the InventoryUpdate that
-    // mirrors the equipped state back to the client. ItemId numeric for
-    // the pickaxe slot is 9 (TungstenPickaxe).
+    // points the equipped-pickaxe slot at it. The starter loadout
+    // auto-equips the wood-tier tool (task 010 rework), so the
+    // assertion has to wait for the *new* pointer to land, not just any
+    // pickaxe being equipped.
     await page.evaluate((slot) => {
       window.__anarchy!.sendEquipTool(slot, "pickaxe");
     }, TUNGSTEN_PICKAXE_SLOT);
     await page.waitForFunction(
-      ({ expected }) =>
-        window.__anarchy!.inventory.getEquippedPickaxe() === expected,
-      { expected: ITEM_ID_TUNGSTEN_PICKAXE },
+      ({ slot, expected }) => {
+        const inv = window.__anarchy!.inventory;
+        return (
+          inv.getEquippedSlot("pickaxe") === slot &&
+          inv.getEquipped("pickaxe") === expected
+        );
+      },
+      { slot: TUNGSTEN_PICKAXE_SLOT, expected: ITEM_ID_TUNGSTEN_PICKAXE },
     );
 
     // Seed the Stone block in reach (tile center (1.5, 0.5), distance ≈ 1

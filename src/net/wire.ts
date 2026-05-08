@@ -184,21 +184,20 @@ function applyInventoryUpdate(
     if (item === null) return null;
     return { item, count };
   });
-  // Equipment slots (task 100). The server emits `count == 0` (with item
-  // = ITEM_ID_UNSPECIFIED) for an empty slot — same canonical-empty
-  // convention as the main slot array.
-  const equippedPickaxe = equippedItemFromWire(update.equippedPickaxe);
-  const equippedAxe = equippedItemFromWire(update.equippedAxe);
-  deps.inventory.replaceFromWire(slots, equippedPickaxe, equippedAxe);
+  // Equipment slot pointers (task 010 rework). `-1` (or any out-of-range
+  // value) means "nothing equipped"; otherwise the index of the cell in
+  // `slots` that holds the equipped tool. The Inventory mirror clamps
+  // stale or non-tool indices to `null` defensively.
+  const equippedPickaxeSlot = equippedSlotFromWire(update.equippedPickaxeSlot);
+  const equippedAxeSlot = equippedSlotFromWire(update.equippedAxeSlot);
+  deps.inventory.replaceFromWire(slots, equippedPickaxeSlot, equippedAxeSlot);
 }
 
-function equippedItemFromWire(
-  wire: anarchy.v1.IItemSlot | null | undefined,
-): ItemId | null {
-  if (!wire) return null;
-  const count = wire.count ?? 0;
-  if (count === 0) return null;
-  return itemIdFromWire(wire.item);
+function equippedSlotFromWire(slot: number | null | undefined): number | null {
+  if (slot === null || slot === undefined) return null;
+  if (slot < 0) return null;
+  if (slot >= INVENTORY_SIZE) return null;
+  return slot;
 }
 
 function itemIdFromWire(

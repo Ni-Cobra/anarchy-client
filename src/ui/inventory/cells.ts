@@ -14,6 +14,13 @@ import { ItemId, type ItemStack, type Slot, type ToolKind } from "../../game/ind
 import { textureUrlForItem } from "../../textures.js";
 
 /**
+ * Equipment kind currently flagged on a cell, or `null` for cells that
+ * are not equipped to either kind. Drives the colored-background paint
+ * on the inventory cell — orange for pickaxe, green for axe.
+ */
+export type CellEquipmentMark = ToolKind | null;
+
+/**
  * Apply the per-item texture to a slot icon element. Items that map to a
  * `BlockType` (today: every `ItemId` — they all place blocks) reuse the
  * world-renderer texture so the inventory and the placed block share a
@@ -42,8 +49,11 @@ export function paintSlot(
   cell: HTMLDivElement,
   slot: Slot,
   selected: boolean,
+  equipped: CellEquipmentMark = null,
 ): void {
   cell.classList.toggle("selected", selected);
+  cell.classList.toggle("equipped-pickaxe", equipped === "pickaxe");
+  cell.classList.toggle("equipped-axe", equipped === "axe");
   cell.replaceChildren();
   if (slot === null) return;
   const icon = document.createElement("div");

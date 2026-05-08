@@ -138,8 +138,8 @@ async function sendEquipTool(
 
 interface InventoryFrame {
   slots: { item: number; count: number }[];
-  equippedPickaxe: { item: number; count: number };
-  equippedAxe: { item: number; count: number };
+  equippedPickaxeSlot: number;
+  equippedAxeSlot: number;
 }
 
 function decodeInventory(
@@ -148,8 +148,8 @@ function decodeInventory(
   const msg = ServerMessage.decode(frame.data).toJSON() as {
     inventoryUpdate?: {
       slots?: { item?: string | number; count?: number }[];
-      equippedPickaxe?: { item?: string | number; count?: number };
-      equippedAxe?: { item?: string | number; count?: number };
+      equippedPickaxeSlot?: number;
+      equippedAxeSlot?: number;
     };
   };
   if (!msg.inventoryUpdate) return null;
@@ -162,8 +162,14 @@ function decodeInventory(
   });
   return {
     slots: (msg.inventoryUpdate.slots ?? []).map(decodeSlot),
-    equippedPickaxe: decodeSlot(msg.inventoryUpdate.equippedPickaxe ?? {}),
-    equippedAxe: decodeSlot(msg.inventoryUpdate.equippedAxe ?? {}),
+    // Task 010 rework: equipment is a slot index, not an `ItemSlot`. `-1`
+    // (or proto3 default `0` when the field was never set... actually
+    // no, JSON encoding is explicit about absent vs zero) means
+    // "nothing equipped"; otherwise the index of the equipped tool's
+    // cell in `slots`. Default to `-1` defensively when the field is
+    // missing.
+    equippedPickaxeSlot: Number(msg.inventoryUpdate.equippedPickaxeSlot ?? -1),
+    equippedAxeSlot: Number(msg.inventoryUpdate.equippedAxeSlot ?? -1),
   };
 }
 
@@ -226,57 +232,63 @@ function uniq(prefix: string): string {
   return `${prefix}-${tail.slice(-Math.max(1, allowed))}`;
 }
 
-test("equip wire round-trip: EquipTool lands populated equipped fields in InventoryUpdate", async () => {
+test("equip wire round-trip: EquipTool flips the equipped-slot pointer in InventoryUpdate", async () => {
   const username = uniq("equip-rt");
   const sock = await openSocket();
   await sendHello(sock.ws, username);
 
-  // Initial inventory: equipment slots are empty.
+  // Initial inventory: the starter loadout plants every tool tier into
+  // the panel but explicitly does NOT auto-equip (task 010 rework). The
+  // player chooses which tier to equip; a fresh admit ships both
+  // equipment pointers as `-1` so the wire surface and the
+  // pre-task-010 break-rate timings stay aligned.
   const initial = await waitForInventory(sock);
-  expect(initial.equippedPickaxe.count).toBe(0);
-  expect(initial.equippedAxe.count).toBe(0);
   expect(initial.slots[WOOD_PICKAXE_SLOT].item).toBe(ITEM_ID_WOOD_PICKAXE);
+  expect(initial.slots[WOOD_PICKAXE_SLOT].count).toBe(1);
+  expect(initial.equippedPickaxeSlot).toBe(-1);
+  expect(initial.equippedAxeSlot).toBe(-1);
 
-  // Equip the wood pickaxe. The starter loadout's first slot is fixed at
-  // `WOOD_PICKAXE_SLOT`.
+  // Equip the wood pickaxe via the wire surface.
   await sendEquipTool(sock.ws, WOOD_PICKAXE_SLOT, TOOL_KIND_PICKAXE);
 
-  // Next InventoryUpdate (next tick) carries the equipped tool field
-  // populated and the source slot now empty.
+  // Next InventoryUpdate (next tick) carries the equipped-slot pointer;
+  // the tool itself stayed in its inventory cell — equipment is a
+  // flag, not a swap.
   const after = await waitForInventory(sock);
-  expect(after.equippedPickaxe.item).toBe(ITEM_ID_WOOD_PICKAXE);
-  expect(after.equippedPickaxe.count).toBe(1);
-  expect(after.slots[WOOD_PICKAXE_SLOT].count).toBe(0);
+  expect(after.equippedPickaxeSlot).toBe(WOOD_PICKAXE_SLOT);
+  expect(after.slots[WOOD_PICKAXE_SLOT].item).toBe(ITEM_ID_WOOD_PICKAXE);
+  expect(after.slots[WOOD_PICKAXE_SLOT].count).toBe(1);
 
   sock.ws.close();
 });
 
-test("equipped tools survive a reconnect (dormant record carries them forward)", async () => {
+test("equipped flag survives a reconnect (dormant record carries the slot pointer forward)", async () => {
   const username = uniq("equip-rec");
 
-  // Session 1: connect, equip a wood axe, wait for confirmation, then
-  // close the socket so the server parks the player into the dormant
-  // pool.
+  // Session 1: connect (no auto-equip), explicitly equip the wood axe,
+  // wait for the confirmation, then close so the server parks the
+  // player into the dormant pool with the flag set.
   const session1 = await openSocket();
   await sendHello(session1.ws, username);
   const session1Inventory = await waitForInventory(session1);
-  expect(session1Inventory.equippedAxe.count).toBe(0);
+  expect(session1Inventory.equippedAxeSlot).toBe(-1);
+
   await sendEquipTool(session1.ws, WOOD_AXE_SLOT, TOOL_KIND_AXE);
   const equipped = await waitForInventory(session1);
-  expect(equipped.equippedAxe.item).toBe(ITEM_ID_WOOD_AXE);
-  expect(equipped.equippedAxe.count).toBe(1);
+  expect(equipped.equippedAxeSlot).toBe(WOOD_AXE_SLOT);
   session1.ws.close();
   // Wait for the close to land server-side so end_session fires before the
   // reconnect Hello.
   await new Promise((r) => setTimeout(r, 200));
 
   // Session 2: reconnect under the same username. The dormant record
-  // restored by the admission path must carry the equipped axe forward.
+  // restored by the admission path must carry the equipped slot index
+  // forward.
   const session2 = await openSocket();
   await sendHello(session2.ws, username, /* reconnect */ true);
   const restored = await waitForInventory(session2);
-  expect(restored.equippedAxe.item).toBe(ITEM_ID_WOOD_AXE);
-  expect(restored.equippedAxe.count).toBe(1);
-  expect(restored.equippedPickaxe.count).toBe(0);
+  expect(restored.equippedAxeSlot).toBe(WOOD_AXE_SLOT);
+  expect(restored.slots[WOOD_AXE_SLOT].count).toBe(1);
+  expect(restored.equippedPickaxeSlot).toBe(-1);
   session2.ws.close();
 });
