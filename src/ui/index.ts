@@ -21,5 +21,7 @@ export type {
 } from "./register_modal.js";
 export { attachInputGate } from "./input_gate.js";
 export type { InputGateHandle } from "./input_gate.js";
+export { mountCoordsHud, formatCoords } from "./coords_hud.js";
+export type { CoordsHudHandle } from "./coords_hud.js";
 export { attachTooltip } from "./tooltip.js";
 export type { TooltipHandle } from "./tooltip.js";

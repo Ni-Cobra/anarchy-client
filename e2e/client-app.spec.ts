@@ -154,6 +154,23 @@ test("clicking Disconnect in the side panel returns to the lobby and a fresh log
   expect(meSecond.id).not.toBe(meFirst.id);
 });
 
+test("the coordinates HUD appears and updates when the player moves east", async ({ page }) => {
+  await openClient(page);
+  await waitForSelfSpawn(page);
+
+  // The HUD pumps from rAF, so the element appears as soon as the local
+  // player snapshot lands. The test-clear-spawn-region flag pins the
+  // initial tile to (0, 0).
+  const hud = page.locator("#anarchy-coords-hud");
+  await expect(hud).toHaveCount(1);
+  await expect(hud.locator(".anarchy-coords-tile")).toHaveText("0, 0");
+
+  // Walk east until the integer X line ticks past 0. The intent stays
+  // latched server-side so a single send is enough.
+  await page.evaluate(() => window.__anarchy!.sendMoveIntent(1, 0));
+  await expect(hud.locator(".anarchy-coords-tile")).not.toHaveText("0, 0");
+});
+
 test("when one client disconnects the other sees them leave the world", async ({ browser }) => {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();

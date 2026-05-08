@@ -44,6 +44,7 @@ import {
 } from "../net/index.js";
 import { Renderer, type GhostState } from "../render/index.js";
 import {
+  mountCoordsHud,
   mountInventoryUi,
   mountSidePanel,
   showRegisterModal,
@@ -401,6 +402,24 @@ export function runMain(
     sendUnequip: sendUnequipTool,
   });
   teardowns.push(() => inventoryUi.unmount());
+
+  // Top-left coordinates readout. Pumped from a dedicated rAF loop that
+  // reads the latest authoritative `World` snapshot — independent of the
+  // renderer's animation loop so the readout keeps refreshing even if the
+  // canvas is occluded (rAF still fires when the tab is focused).
+  const coordsHud = mountCoordsHud();
+  let coordsRaf = 0;
+  const pumpCoords = (): void => {
+    const id = localPlayerId;
+    const me = id === null ? null : world.getPlayer(id);
+    coordsHud.update(me ? { x: me.x, y: me.y } : null);
+    coordsRaf = window.requestAnimationFrame(pumpCoords);
+  };
+  coordsRaf = window.requestAnimationFrame(pumpCoords);
+  teardowns.push(() => {
+    window.cancelAnimationFrame(coordsRaf);
+    coordsHud.unmount();
+  });
 
   teardowns.push(attachKeybindings(window, { inventoryUi, renderer }));
   teardowns.push(
