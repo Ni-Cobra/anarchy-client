@@ -76,7 +76,10 @@ export function attachBreakAndPlace(
     };
     const pick = deps.renderer.pickAtCursor(ndc);
     if (!pick) return null;
-    if (pick.layer !== "top") return null;
+    // Both top and ground picks are valid break / place targets — the
+    // server resolves which authoritative path runs (top-break vs
+    // ground-break-via-replace, task 030) per held-item, so the client
+    // doesn't need to gate on layer here.
     const [cx, cy] = pick.chunkCoord;
     const [lx, ly] = pick.localXY;
     const tileCenterX = cx * CHUNK_SIZE + lx + 0.5;
@@ -136,11 +139,12 @@ export function attachBreakAndPlace(
     if (localPlayerId === null) return;
     if (ev.button !== 0 && ev.button !== 2) return;
     if (ev.button === 0) {
-      // Left-click → start the held-break. The cursor's current top-tile
-      // pick (if any, in reach) becomes the initial target. If the
-      // cursor isn't over a valid target the held state still starts —
-      // mousemove updates the target as the cursor scans across the
-      // world; mouseup releases regardless.
+      // Left-click → start the held-break. The cursor's current tile
+      // pick (if any, in reach) becomes the initial target — top or
+      // ground; the server resolves which authoritative path runs. If
+      // the cursor isn't over a valid target the held state still
+      // starts — mousemove updates the target as the cursor scans
+      // across the world; mouseup releases regardless.
       breakHeld = true;
       lastBreakTarget = pickBreakTargetAt(ev.clientX, ev.clientY);
       deps.sendBreakIntent(lastBreakTarget);
@@ -150,27 +154,7 @@ export function attachBreakAndPlace(
     // Right-click → place the selected hotbar slot's block on the tile
     // under the cursor. Server validates reach + top-Air + slot kind.
     const place = pickBreakTargetAt(ev.clientX, ev.clientY);
-    if (place === null) {
-      // Place's reach gate uses the same predicate; if the cursor isn't
-      // on a valid in-reach top tile, the click is silently dropped.
-      const ndc = {
-        x: (ev.clientX / target.innerWidth) * 2 - 1,
-        y: -(ev.clientY / target.innerHeight) * 2 + 1,
-      };
-      const pick = deps.renderer.pickAtCursor(ndc);
-      if (!pick) return;
-      const me = deps.world.getPlayer(localPlayerId);
-      if (!me) return;
-      const [cx, cy] = pick.chunkCoord;
-      const [lx, ly] = pick.localXY;
-      const tileCenterX = cx * CHUNK_SIZE + lx + 0.5;
-      const tileCenterY = cy * CHUNK_SIZE + ly + 0.5;
-      const dx = tileCenterX - me.x;
-      const dy = tileCenterY - me.y;
-      if (dx * dx + dy * dy > REACH_BLOCKS_SQ) return;
-      deps.sendPlaceBlock(cx, cy, lx, ly);
-      return;
-    }
+    if (place === null) return;
     deps.sendPlaceBlock(place.cx, place.cy, place.lx, place.ly);
   };
   target.addEventListener("mousedown", onMousedown);
