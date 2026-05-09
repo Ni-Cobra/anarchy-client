@@ -38,7 +38,6 @@ import {
   connect,
   type LobbyIdentity,
   type LobbyRejectReason,
-  type RegisterResultStatus,
   type WireBlockEditEvent,
   type WireTargetingStateEvent,
 } from "../net/index.js";
@@ -48,15 +47,14 @@ import {
   mountCraftingUi,
   mountInventoryUi,
   mountSidePanel,
-  showRegisterModal,
   type CraftingUiHandle,
   type InventoryUiHandle,
-  type RegisterModalHandle,
   type SidePanelAction,
 } from "../ui/index.js";
 import { createActionSenders } from "./actions.js";
 import { attachBreakAndPlace } from "./break_place.js";
 import { attachKeybindings } from "./keybindings.js";
+import { createRegisterFlow, type RegisterFlow } from "./register_flow.js";
 import { mountToastHost } from "./toast.js";
 
 /**
@@ -256,12 +254,12 @@ export function runMain(
   let observedBlockEditCount = 0;
   let activeTargets: readonly WireTargetingStateEvent[] = [];
 
-  // Pending result handler for an in-flight `RegisterAccount` submission
-  // (ADR 0007). Set when the user submits the modal; cleared by the
-  // server's `RegisterAccountResult` reply (or by `stop()` on disconnect).
-  let pendingRegisterResult: ((status: RegisterResultStatus) => void) | null =
-    null;
-  let registered = false;
+  // Forward-declared like `inventoryUi` above. The connection's
+  // `onRegisterResult` hook needs to dispatch into the flow, but the
+  // flow itself depends on the action senders (which depend on `conn`)
+  // and on the side-panel rebuild closure. The closure-resolves-at-call-
+  // time pattern lets us define everything in dependency order.
+  let registerFlow!: RegisterFlow;
 
   const conn = connect(
     wsUrl,
@@ -303,13 +301,7 @@ export function runMain(
         resolveLobbyReject(reason);
         stop();
       },
-      onRegisterResult: (status) => {
-        if (pendingRegisterResult) {
-          const cb = pendingRegisterResult;
-          pendingRegisterResult = null;
-          cb(status);
-        }
-      },
+      onRegisterResult: (status) => registerFlow.onResult(status),
     },
   );
   teardowns.push(() => conn.close());
@@ -411,31 +403,27 @@ export function runMain(
   const toast = mountToastHost();
   teardowns.push(() => toast.unmount());
 
-  let openRegisterModal: () => void = () => {};
-  let registerModal: RegisterModalHandle | null = null;
-  teardowns.push(() => {
-    registerModal?.close();
-    registerModal = null;
-    pendingRegisterResult = null;
-  });
+  // Side-panel + register flow are mutually referential: `buildSidePanelActions`
+  // reads `registerFlow.isRegistered()` synchronously at mount time, and
+  // `registerFlow` calls `rebuildSidePanel` after a successful registration.
+  // Construct in dependency order — register flow first (with `rebuildSidePanel`
+  // as a closure capturing the still-unset `sidePanel`), then mount the panel.
+  // `rebuildSidePanel` only fires post-registration, by which point `sidePanel`
+  // is bound.
+  let sidePanel!: ReturnType<typeof mountSidePanel>;
 
-  // Action registry for the side panel. New in-game actions go here as
-  // `{ label, onClick }` entries; the panel renders them as a vertical
-  // button stack without per-action DOM scaffolding.
   function buildSidePanelActions(): ReadonlyArray<SidePanelAction> {
     const actions: SidePanelAction[] = [
       { label: "Disconnect", onClick: () => stop() },
     ];
-    if (!registered) {
+    if (!registerFlow.isRegistered()) {
       actions.push({
         label: "Register account",
-        onClick: () => openRegisterModal(),
+        onClick: () => registerFlow.open(),
       });
     }
     return actions;
   }
-  let sidePanel = mountSidePanel({ actions: buildSidePanelActions() });
-  teardowns.push(() => sidePanel.unmount());
 
   function rebuildSidePanel(): void {
     const wasOpen = sidePanel.isOpen();
@@ -444,34 +432,18 @@ export function runMain(
     if (wasOpen) sidePanel.setOpen(true);
   }
 
-  openRegisterModal = (): void => {
-    if (registerModal !== null) return;
-    if (registered) return;
-    if (localPlayerId === null) return;
-    const me = world.getPlayer(localPlayerId);
-    const username = me?.username ?? identity.username;
-    registerModal = showRegisterModal({
-      username,
-      onSubmit: (password) => {
-        registerModal = null;
-        pendingRegisterResult = (status) => {
-          if (status === "ok") {
-            registered = true;
-            toast.show("Account registered.", "ok");
-            rebuildSidePanel();
-          } else if (status === "already-registered") {
-            toast.show("This username is already registered.", "error");
-          } else {
-            toast.show("Registration failed. Please try again.", "error");
-          }
-        };
-        sendRegisterAccount(password);
-      },
-      onCancel: () => {
-        registerModal = null;
-      },
-    });
-  };
+  registerFlow = createRegisterFlow({
+    world,
+    identity,
+    toast,
+    getLocalPlayerId: () => localPlayerId,
+    sendRegisterAccount,
+    onRegisteredChanged: rebuildSidePanel,
+  });
+  teardowns.push(() => registerFlow.unmount());
+
+  sidePanel = mountSidePanel({ actions: buildSidePanelActions() });
+  teardowns.push(() => sidePanel.unmount());
 
   return {
     world,
