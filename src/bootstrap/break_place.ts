@@ -21,8 +21,9 @@
  */
 
 import { BREAK_HEARTBEAT_TICKS, INPUT_TICK_INTERVAL_MS, REACH_BLOCKS } from "../config.js";
-import { BlockType, CHUNK_SIZE, type World } from "../game/index.js";
+import { BlockType, CHUNK_SIZE, type Inventory, ItemId, type World } from "../game/index.js";
 import { type Renderer } from "../render/index.js";
+import { BLOCK_REGISTRY, ToolTier, toolTierDisplayName } from "../textures.js";
 
 const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
@@ -30,6 +31,14 @@ export interface BreakPlaceDeps {
   readonly world: World;
   readonly renderer: Renderer;
   readonly getLocalPlayerId: () => number | null;
+  /**
+   * Local-player inventory mirror — consulted to read the equipped pickaxe
+   * tier for the task-150 mining gate. The gate suppresses
+   * `BreakIntent` / `PlaceBlock` for ore cells the player can't mine and
+   * surfaces a hint near the bottom of the screen. Server is authoritative;
+   * this is purely the affordance.
+   */
+  readonly getInventory: () => Inventory;
   readonly sendBreakIntent: (
     target: { cx: number; cy: number; lx: number; ly: number } | null,
   ) => void;
@@ -39,6 +48,63 @@ export interface BreakPlaceDeps {
     lx: number,
     ly: number,
   ) => void;
+}
+
+/** Equipped pickaxe tier derived from the local-player inventory mirror. */
+function equippedPickaxeTier(inventory: Inventory): ToolTier | null {
+  const item = inventory.getEquipped("pickaxe");
+  if (item === null) return null;
+  switch (item) {
+    case ItemId.WoodPickaxe:
+      return ToolTier.Wood;
+    case ItemId.StonePickaxe:
+      return ToolTier.Stone;
+    case ItemId.CopperPickaxe:
+      return ToolTier.Copper;
+    case ItemId.IronPickaxe:
+      return ToolTier.Iron;
+    case ItemId.TungstenPickaxe:
+      return ToolTier.Tungsten;
+    default:
+      return null;
+  }
+}
+
+const HINT_ID = "anarchy-mining-hint";
+const HINT_STYLE_ID = "anarchy-mining-hint-style";
+
+function ensureMiningHint(): HTMLDivElement {
+  const existing = document.getElementById(HINT_ID);
+  if (existing) return existing as HTMLDivElement;
+  if (!document.getElementById(HINT_STYLE_ID)) {
+    const style = document.createElement("style");
+    style.id = HINT_STYLE_ID;
+    style.textContent = `
+      #${HINT_ID} {
+        position: fixed;
+        bottom: 96px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9700;
+        padding: 6px 14px;
+        background: rgba(20, 24, 30, 0.92);
+        border: 1px solid rgba(255, 100, 100, 0.45);
+        border-radius: 6px;
+        color: #ffb3b3;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 13px;
+        line-height: 1.3;
+        pointer-events: none;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  const el = document.createElement("div");
+  el.id = HINT_ID;
+  document.body.appendChild(el);
+  return el;
 }
 
 /**
@@ -62,10 +128,35 @@ export function attachBreakAndPlace(
     | null = null;
   let breakHeartbeat: ReturnType<typeof setInterval> | null = null;
 
+  const hintEl = ensureMiningHint();
+  function setHint(text: string | null): void {
+    if (text === null) {
+      hintEl.style.display = "none";
+      hintEl.textContent = "";
+      return;
+    }
+    hintEl.textContent = text;
+    hintEl.style.display = "block";
+  }
+
+  /**
+   * Pick the cell currently under the cursor. Returns the target plus a
+   * `gated` flag: `true` means the cell is an ore whose `min_tool_tier`
+   * exceeds the player's currently equipped pickaxe tier — the held-break
+   * suppresses the intent and the hint surfaces the requirement. `null`
+   * when no cell is in reach / loaded / non-Hidden.
+   */
   function pickBreakTargetAt(
     clientX: number,
     clientY: number,
-  ): { cx: number; cy: number; lx: number; ly: number } | null {
+  ): {
+    cx: number;
+    cy: number;
+    lx: number;
+    ly: number;
+    gated: boolean;
+    gatedKind: BlockType | null;
+  } | null {
     const localPlayerId = deps.getLocalPlayerId();
     if (localPlayerId === null) return null;
     const me = deps.world.getPlayer(localPlayerId);
@@ -92,7 +183,13 @@ export function attachBreakAndPlace(
     const dx = tileCenterX - me.x;
     const dy = tileCenterY - me.y;
     if (dx * dx + dy * dy > REACH_BLOCKS_SQ) return null;
-    return { cx, cy, lx, ly };
+    const min = BLOCK_REGISTRY[pick.block.kind]?.minToolTier ?? null;
+    let gated = false;
+    if (min !== null) {
+      const have = equippedPickaxeTier(deps.getInventory());
+      if (have === null || have < min) gated = true;
+    }
+    return { cx, cy, lx, ly, gated, gatedKind: gated ? pick.block.kind : null };
   }
 
   function targetsEqual(
@@ -102,6 +199,32 @@ export function attachBreakAndPlace(
     if (a === null) return b === null;
     if (b === null) return false;
     return a.cx === b.cx && a.cy === b.cy && a.lx === b.lx && a.ly === b.ly;
+  }
+
+  /** Strip the gate metadata from a pick result before storing it as the
+   *  held-break target — the wire shape is just `{cx, cy, lx, ly}`. */
+  function stripPick(
+    pick: { cx: number; cy: number; lx: number; ly: number } | null,
+  ): { cx: number; cy: number; lx: number; ly: number } | null {
+    if (pick === null) return null;
+    return { cx: pick.cx, cy: pick.cy, lx: pick.lx, ly: pick.ly };
+  }
+
+  /** Surface the tier-gate hint for `kind`, or hide it when `kind` is null. */
+  function applyHint(kind: BlockType | null): void {
+    if (kind === null) {
+      setHint(null);
+      return;
+    }
+    const meta = BLOCK_REGISTRY[kind];
+    const min = meta?.minToolTier ?? null;
+    if (min === null) {
+      setHint(null);
+      return;
+    }
+    setHint(
+      `${meta.displayName} requires ${toolTierDisplayName(min)}+ Pickaxe`,
+    );
   }
 
   function startBreakHeartbeat(): void {
@@ -136,6 +259,11 @@ export function attachBreakAndPlace(
       x: (ev.clientX / target.innerWidth) * 2 - 1,
       y: -(ev.clientY / target.innerHeight) * 2 + 1,
     });
+    // Update the tier-gate hint independently of the held-break state so
+    // hovering a too-hard ore explains the rejection even before the
+    // player tries to mine it.
+    const pick = pickBreakTargetAt(ev.clientX, ev.clientY);
+    applyHint(pick?.gatedKind ?? null);
   };
   target.addEventListener("mousemove", onMousemove);
 
@@ -150,8 +278,15 @@ export function attachBreakAndPlace(
       // the cursor isn't over a valid target the held state still
       // starts — mousemove updates the target as the cursor scans
       // across the world; mouseup releases regardless.
+      //
+      // Tier-gate (task 150): a `gated` pick (ore the player can't
+      // mine yet) is treated as "no target" — held state still starts
+      // so the player can scan toward a valid cell, but the intent
+      // ships as a release until they aim at something they can mine.
       breakHeld = true;
-      lastBreakTarget = pickBreakTargetAt(ev.clientX, ev.clientY);
+      const pick = pickBreakTargetAt(ev.clientX, ev.clientY);
+      applyHint(pick?.gatedKind ?? null);
+      lastBreakTarget = pick !== null && !pick.gated ? stripPick(pick) : null;
       deps.sendBreakIntent(lastBreakTarget);
       startBreakHeartbeat();
       return;
@@ -159,7 +294,7 @@ export function attachBreakAndPlace(
     // Right-click → place the selected hotbar slot's block on the tile
     // under the cursor. Server validates reach + top-Air + slot kind.
     const place = pickBreakTargetAt(ev.clientX, ev.clientY);
-    if (place === null) return;
+    if (place === null || place.gated) return;
     deps.sendPlaceBlock(place.cx, place.cy, place.lx, place.ly);
   };
   target.addEventListener("mousedown", onMousedown);
@@ -177,7 +312,8 @@ export function attachBreakAndPlace(
   // the next heartbeat.
   const onMouseMoveBreakRetarget = (ev: MouseEvent): void => {
     if (!breakHeld) return;
-    const next = pickBreakTargetAt(ev.clientX, ev.clientY);
+    const pick = pickBreakTargetAt(ev.clientX, ev.clientY);
+    const next = pick !== null && !pick.gated ? stripPick(pick) : null;
     if (targetsEqual(next, lastBreakTarget)) return;
     lastBreakTarget = next;
     deps.sendBreakIntent(lastBreakTarget);
@@ -196,5 +332,8 @@ export function attachBreakAndPlace(
     target.removeEventListener("mousemove", onMouseMoveBreakRetarget);
     target.removeEventListener("contextmenu", onContextMenu);
     stopBreakHeartbeat();
+    setHint(null);
+    hintEl.remove();
+    document.getElementById(HINT_STYLE_ID)?.remove();
   };
 }

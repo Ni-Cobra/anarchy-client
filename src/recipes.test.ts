@@ -47,6 +47,69 @@ describe("recipes", () => {
         ],
         output: { item: ItemId.StoneAxe, count: 1 },
       },
+      {
+        id: "copper-ingot",
+        ingredients: [{ item: ItemId.RawCopper, count: 1 }],
+        output: { item: ItemId.CopperIngot, count: 1 },
+      },
+      {
+        id: "iron-ingot",
+        ingredients: [{ item: ItemId.RawIron, count: 1 }],
+        output: { item: ItemId.IronIngot, count: 1 },
+      },
+      {
+        id: "tungsten-ingot",
+        ingredients: [{ item: ItemId.RawTungsten, count: 1 }],
+        output: { item: ItemId.TungstenIngot, count: 1 },
+      },
+      {
+        id: "copper-pickaxe",
+        ingredients: [
+          { item: ItemId.CopperIngot, count: 3 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.CopperPickaxe, count: 1 },
+      },
+      {
+        id: "copper-axe",
+        ingredients: [
+          { item: ItemId.CopperIngot, count: 3 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.CopperAxe, count: 1 },
+      },
+      {
+        id: "iron-pickaxe",
+        ingredients: [
+          { item: ItemId.IronIngot, count: 3 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.IronPickaxe, count: 1 },
+      },
+      {
+        id: "iron-axe",
+        ingredients: [
+          { item: ItemId.IronIngot, count: 3 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.IronAxe, count: 1 },
+      },
+      {
+        id: "tungsten-pickaxe",
+        ingredients: [
+          { item: ItemId.TungstenIngot, count: 3 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.TungstenPickaxe, count: 1 },
+      },
+      {
+        id: "tungsten-axe",
+        ingredients: [
+          { item: ItemId.TungstenIngot, count: 3 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.TungstenAxe, count: 1 },
+      },
     ]);
   });
 

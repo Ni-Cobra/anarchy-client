@@ -19,9 +19,40 @@ import { BlockType, ItemId } from "./game/index.js";
 import { ITEM_REGISTRY } from "./item_names.js";
 
 /**
+ * Material tier of a tool item. Mirrors the server's `ToolTier` enum.
+ * Variants are ordered ascending by progression — the numeric ordering
+ * matches the server's derived `Ord` so a comparison `a >= b` reads
+ * "tier `a` is at or above tier `b`".
+ */
+export enum ToolTier {
+  Wood = 0,
+  Stone = 1,
+  Copper = 2,
+  Iron = 3,
+  Tungsten = 4,
+}
+
+/** Display string for a `ToolTier` — used by the client tier-gate hint. */
+export function toolTierDisplayName(tier: ToolTier): string {
+  switch (tier) {
+    case ToolTier.Wood:
+      return "Wood";
+    case ToolTier.Stone:
+      return "Stone";
+    case ToolTier.Copper:
+      return "Copper";
+    case ToolTier.Iron:
+      return "Iron";
+    case ToolTier.Tungsten:
+      return "Tungsten";
+  }
+}
+
+/**
  * Per-kind static data the renderer / UI needs about a block. Mirrors
  * `BlockMeta` on the server; carries only the fields the client uses
- * (rendered texture URL today, display name for future tooltips).
+ * (rendered texture URL today, display name for future tooltips,
+ * minimum-pickaxe tier for the mining gate hint).
  */
 export interface BlockMeta {
   readonly kind: BlockType;
@@ -29,6 +60,14 @@ export interface BlockMeta {
   readonly textureUrl: string | null;
   /** Tooltip / billboard string. */
   readonly displayName: string;
+  /**
+   * Minimum equipped pickaxe tier required to break this block, or `null`
+   * for blocks with no minimum (every kind today except the ores). The
+   * client uses this to grey out the hover indicator with a hint when the
+   * player can't mine the targeted ore — server is authoritative; this is
+   * purely an affordance.
+   */
+  readonly minToolTier: ToolTier | null;
 }
 
 const BLOCK_TEXTURES_BASE = "/textures/blocks";
@@ -50,91 +89,139 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     kind: BlockType.Air,
     textureUrl: null,
     displayName: "Air",
+    minToolTier: null,
   },
   [BlockType.Grass]: {
     kind: BlockType.Grass,
     textureUrl: `${BLOCK_TEXTURES_BASE}/grass.png`,
     displayName: "Grass",
+    minToolTier: null,
   },
   [BlockType.Wood]: {
     kind: BlockType.Wood,
     textureUrl: `${BLOCK_TEXTURES_BASE}/wood.png`,
     displayName: "Wood",
+    minToolTier: null,
   },
   [BlockType.Stone]: {
     kind: BlockType.Stone,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone.png`,
     displayName: "Stone",
+    minToolTier: null,
   },
   [BlockType.Gold]: {
     kind: BlockType.Gold,
     textureUrl: `${BLOCK_TEXTURES_BASE}/gold.png`,
     displayName: "Gold",
+    minToolTier: null,
   },
   [BlockType.Tree]: {
     kind: BlockType.Tree,
     textureUrl: `${BLOCK_TEXTURES_BASE}/tree.png`,
     displayName: "Tree",
+    minToolTier: null,
   },
   [BlockType.Sticks]: {
     kind: BlockType.Sticks,
     textureUrl: `${BLOCK_TEXTURES_BASE}/sticks.png`,
     displayName: "Sticks",
+    minToolTier: null,
   },
   [BlockType.Hidden]: {
     kind: BlockType.Hidden,
     textureUrl: null,
     displayName: "Hidden",
+    minToolTier: null,
   },
   [BlockType.FlowerRed]: {
     kind: BlockType.FlowerRed,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-red.png`,
     displayName: "Red Flower",
+    minToolTier: null,
   },
   [BlockType.FlowerYellow]: {
     kind: BlockType.FlowerYellow,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-yellow.png`,
     displayName: "Yellow Flower",
+    minToolTier: null,
   },
   [BlockType.FlowerBlue]: {
     kind: BlockType.FlowerBlue,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-blue.png`,
     displayName: "Blue Flower",
+    minToolTier: null,
   },
   [BlockType.FlowerWhite]: {
     kind: BlockType.FlowerWhite,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-white.png`,
     displayName: "White Flower",
+    minToolTier: null,
   },
   [BlockType.Bush]: {
     kind: BlockType.Bush,
     textureUrl: `${BLOCK_TEXTURES_BASE}/bush.png`,
     displayName: "Bush",
+    minToolTier: null,
   },
   [BlockType.Dirt]: {
     kind: BlockType.Dirt,
     textureUrl: `${BLOCK_TEXTURES_BASE}/dirt.png`,
     displayName: "Dirt",
+    minToolTier: null,
   },
   [BlockType.Sand]: {
     kind: BlockType.Sand,
     textureUrl: `${BLOCK_TEXTURES_BASE}/sand.png`,
     displayName: "Sand",
+    minToolTier: null,
   },
   [BlockType.Gravel]: {
     kind: BlockType.Gravel,
     textureUrl: `${BLOCK_TEXTURES_BASE}/gravel.png`,
     displayName: "Gravel",
+    minToolTier: null,
   },
   [BlockType.StoneLight]: {
     kind: BlockType.StoneLight,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone-light.png`,
     displayName: "Light Stone",
+    minToolTier: null,
   },
   [BlockType.StoneDark]: {
     kind: BlockType.StoneDark,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone-dark.png`,
     displayName: "Dark Stone",
+    minToolTier: null,
+  },
+  [BlockType.CopperOre]: {
+    kind: BlockType.CopperOre,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/copper-ore.png`,
+    displayName: "Copper Ore",
+    minToolTier: ToolTier.Stone,
+  },
+  [BlockType.IronOre]: {
+    kind: BlockType.IronOre,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/iron-ore.png`,
+    displayName: "Iron Ore",
+    minToolTier: ToolTier.Copper,
+  },
+  [BlockType.TungstenOre]: {
+    kind: BlockType.TungstenOre,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/tungsten-ore.png`,
+    displayName: "Tungsten Ore",
+    minToolTier: ToolTier.Iron,
+  },
+  [BlockType.CoalOre]: {
+    kind: BlockType.CoalOre,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/coal-ore.png`,
+    displayName: "Coal Ore",
+    minToolTier: ToolTier.Wood,
+  },
+  [BlockType.DiamondOre]: {
+    kind: BlockType.DiamondOre,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/diamond-ore.png`,
+    displayName: "Diamond Ore",
+    minToolTier: ToolTier.Iron,
   },
 };
 

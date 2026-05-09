@@ -80,6 +80,71 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.StoneAxe, count: 1 },
   },
+  // Task 150 smelting recipes — 1 raw → 1 ingot.
+  {
+    id: "copper-ingot",
+    ingredients: [{ item: ItemId.RawCopper, count: 1 }],
+    output: { item: ItemId.CopperIngot, count: 1 },
+  },
+  {
+    id: "iron-ingot",
+    ingredients: [{ item: ItemId.RawIron, count: 1 }],
+    output: { item: ItemId.IronIngot, count: 1 },
+  },
+  {
+    id: "tungsten-ingot",
+    ingredients: [{ item: ItemId.RawTungsten, count: 1 }],
+    output: { item: ItemId.TungstenIngot, count: 1 },
+  },
+  // Task 150 tool-tier upgrades.
+  {
+    id: "copper-pickaxe",
+    ingredients: [
+      { item: ItemId.CopperIngot, count: 3 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.CopperPickaxe, count: 1 },
+  },
+  {
+    id: "copper-axe",
+    ingredients: [
+      { item: ItemId.CopperIngot, count: 3 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.CopperAxe, count: 1 },
+  },
+  {
+    id: "iron-pickaxe",
+    ingredients: [
+      { item: ItemId.IronIngot, count: 3 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.IronPickaxe, count: 1 },
+  },
+  {
+    id: "iron-axe",
+    ingredients: [
+      { item: ItemId.IronIngot, count: 3 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.IronAxe, count: 1 },
+  },
+  {
+    id: "tungsten-pickaxe",
+    ingredients: [
+      { item: ItemId.TungstenIngot, count: 3 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.TungstenPickaxe, count: 1 },
+  },
+  {
+    id: "tungsten-axe",
+    ingredients: [
+      { item: ItemId.TungstenIngot, count: 3 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.TungstenAxe, count: 1 },
+  },
 ];
 
 const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(

@@ -472,6 +472,7 @@ export function runMain(
       world,
       renderer,
       getLocalPlayerId: () => localPlayerId,
+      getInventory: () => inventory,
       sendBreakIntent,
       sendPlaceBlock,
     }),

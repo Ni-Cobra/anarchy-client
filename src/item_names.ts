@@ -182,6 +182,54 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: BlockType.StoneDark,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone-dark.png`,
   },
+  [ItemId.RawCopper]: {
+    id: ItemId.RawCopper,
+    displayName: "Raw Copper",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/raw-copper.png`,
+  },
+  [ItemId.RawIron]: {
+    id: ItemId.RawIron,
+    displayName: "Raw Iron",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/raw-iron.png`,
+  },
+  [ItemId.RawTungsten]: {
+    id: ItemId.RawTungsten,
+    displayName: "Raw Tungsten",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/raw-tungsten.png`,
+  },
+  [ItemId.Coal]: {
+    id: ItemId.Coal,
+    displayName: "Coal",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/coal.png`,
+  },
+  [ItemId.Diamond]: {
+    id: ItemId.Diamond,
+    displayName: "Diamond",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/diamond.png`,
+  },
+  [ItemId.CopperIngot]: {
+    id: ItemId.CopperIngot,
+    displayName: "Copper Ingot",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/copper-ingot.png`,
+  },
+  [ItemId.IronIngot]: {
+    id: ItemId.IronIngot,
+    displayName: "Iron Ingot",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/iron-ingot.png`,
+  },
+  [ItemId.TungstenIngot]: {
+    id: ItemId.TungstenIngot,
+    displayName: "Tungsten Ingot",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/tungsten-ingot.png`,
+  },
 };
 
 /**

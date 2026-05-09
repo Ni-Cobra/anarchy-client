@@ -73,6 +73,22 @@ export enum ItemId {
   Gravel = 22,
   StoneLight = 23,
   StoneDark = 24,
+  /**
+   * Task 150 raw ore drops. `RawCopper` / `RawIron` / `RawTungsten` smelt
+   * via the crafting menu; `Coal` / `Diamond` are gem-form (no smelting).
+   */
+  RawCopper = 25,
+  RawIron = 26,
+  RawTungsten = 27,
+  Coal = 28,
+  Diamond = 29,
+  /**
+   * Refined ingots — produced by the smelting recipes. Tool recipes for the
+   * copper / iron / tungsten tiers consume the matching ingot.
+   */
+  CopperIngot = 30,
+  IronIngot = 31,
+  TungstenIngot = 32,
 }
 
 /** A non-empty pile of one item kind. */

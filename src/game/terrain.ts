@@ -63,6 +63,18 @@ export enum BlockType {
   Gravel = 15,
   StoneLight = 16,
   StoneDark = 17,
+  /**
+   * Task 150 ore set. Solid full blocks scattered into the top layer by the
+   * server's ore worldgen pass. Each ore gates breaking on a minimum
+   * pickaxe tier (server `BlockMeta::min_tool_tier`); the client mirror
+   * lives in [`textures.ts`] so the break_place gate can refuse to send a
+   * `BreakIntent` for a tier-gated block the player can't mine.
+   */
+  CopperOre = 18,
+  IronOre = 19,
+  TungstenOre = 20,
+  CoalOre = 21,
+  DiamondOre = 22,
 }
 
 /**

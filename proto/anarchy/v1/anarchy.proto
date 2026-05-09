@@ -511,6 +511,16 @@ enum BlockType {
   BLOCK_TYPE_GRAVEL = 15;
   BLOCK_TYPE_STONE_LIGHT = 16;
   BLOCK_TYPE_STONE_DARK = 17;
+  // Ore content (task 150). Solid full blocks scattered into the top layer
+  // by the ore worldgen pass between `stone_pass` and `gold_pass`. Each ore
+  // gates breaking on a minimum pickaxe tier (server `BlockMeta::min_tool_tier`)
+  // and drops a raw item — `Coal` / `Diamond` are already gem-form and don't
+  // smelt; the rest smelt to ingots via the crafting recipe table.
+  BLOCK_TYPE_COPPER_ORE = 18;
+  BLOCK_TYPE_IRON_ORE = 19;
+  BLOCK_TYPE_TUNGSTEN_ORE = 20;
+  BLOCK_TYPE_COAL_ORE = 21;
+  BLOCK_TYPE_DIAMOND_ORE = 22;
 }
 
 // One tile. Field set is intentionally minimal today — the wrapper
@@ -596,6 +606,21 @@ enum ItemId {
   ITEM_ID_GRAVEL = 22;
   ITEM_ID_STONE_LIGHT = 23;
   ITEM_ID_STONE_DARK = 24;
+  // Task 150 raw ore drops. `RawCopper` / `RawIron` / `RawTungsten` smelt to
+  // their matching ingot via the crafting recipe table; `Coal` and `Diamond`
+  // are gem-form and used directly (Diamond as a tool ingredient, Coal as a
+  // future fuel reserve — currently just stackable inventory loot).
+  ITEM_ID_RAW_COPPER = 25;
+  ITEM_ID_RAW_IRON = 26;
+  ITEM_ID_RAW_TUNGSTEN = 27;
+  ITEM_ID_COAL = 28;
+  ITEM_ID_DIAMOND = 29;
+  // Refined ingots crafted from the matching raw via the smelting recipes
+  // (`copper-ingot`, `iron-ingot`, `tungsten-ingot`). Tool recipes for the
+  // copper / iron / tungsten tiers consume these.
+  ITEM_ID_COPPER_INGOT = 30;
+  ITEM_ID_IRON_INGOT = 31;
+  ITEM_ID_TUNGSTEN_INGOT = 32;
 }
 
 // One inventory cell. `count == 0` is the canonical empty slot — the server

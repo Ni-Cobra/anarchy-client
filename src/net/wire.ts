@@ -258,6 +258,22 @@ function itemIdFromWire(
       return ItemId.StoneLight;
     case anarchy.v1.ItemId.ITEM_ID_STONE_DARK:
       return ItemId.StoneDark;
+    case anarchy.v1.ItemId.ITEM_ID_RAW_COPPER:
+      return ItemId.RawCopper;
+    case anarchy.v1.ItemId.ITEM_ID_RAW_IRON:
+      return ItemId.RawIron;
+    case anarchy.v1.ItemId.ITEM_ID_RAW_TUNGSTEN:
+      return ItemId.RawTungsten;
+    case anarchy.v1.ItemId.ITEM_ID_COAL:
+      return ItemId.Coal;
+    case anarchy.v1.ItemId.ITEM_ID_DIAMOND:
+      return ItemId.Diamond;
+    case anarchy.v1.ItemId.ITEM_ID_COPPER_INGOT:
+      return ItemId.CopperIngot;
+    case anarchy.v1.ItemId.ITEM_ID_IRON_INGOT:
+      return ItemId.IronIngot;
+    case anarchy.v1.ItemId.ITEM_ID_TUNGSTEN_INGOT:
+      return ItemId.TungstenIngot;
     default:
       return null;
   }
@@ -482,6 +498,16 @@ function blockTypeFromWire(
       return BlockType.StoneLight;
     case anarchy.v1.BlockType.BLOCK_TYPE_STONE_DARK:
       return BlockType.StoneDark;
+    case anarchy.v1.BlockType.BLOCK_TYPE_COPPER_ORE:
+      return BlockType.CopperOre;
+    case anarchy.v1.BlockType.BLOCK_TYPE_IRON_ORE:
+      return BlockType.IronOre;
+    case anarchy.v1.BlockType.BLOCK_TYPE_TUNGSTEN_ORE:
+      return BlockType.TungstenOre;
+    case anarchy.v1.BlockType.BLOCK_TYPE_COAL_ORE:
+      return BlockType.CoalOre;
+    case anarchy.v1.BlockType.BLOCK_TYPE_DIAMOND_ORE:
+      return BlockType.DiamondOre;
     case anarchy.v1.BlockType.BLOCK_TYPE_AIR:
     default:
       return BlockType.Air;

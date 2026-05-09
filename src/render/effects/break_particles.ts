@@ -188,6 +188,11 @@ export const DEFAULT_BREAK_PARTICLE_COLORS: Readonly<Record<BlockType, number>> 
   [BlockType.Gravel]: 0x888276,
   [BlockType.StoneLight]: 0xa8aeb6,
   [BlockType.StoneDark]: 0x525255,
+  [BlockType.CopperOre]: 0xc86e36,
+  [BlockType.IronOre]: 0xb89070,
+  [BlockType.TungstenOre]: 0x4d5560,
+  [BlockType.CoalOre]: 0x18181a,
+  [BlockType.DiamondOre]: 0x4ac2e5,
 };
 
 export function defaultBreakParticleColor(kind: BlockType): number {
