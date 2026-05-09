@@ -3,7 +3,7 @@
  * listeners, no callbacks. The orchestration in `index.ts` calls into
  * these on every paint pass.
  *
- * Items render as 16×16 pixel-art textures sourced from `src/textures.ts`
+ * Items render as 64×64 pixel-art textures sourced from `src/textures.ts`
  * — the same file that feeds the world renderer, so a slot icon and the
  * placed block share a pixel-perfect visual identity.
  * `image-rendering: pixelated` keeps the upscale crisp, mirroring the

@@ -7,7 +7,7 @@
  *
  * One `BlockTextureSet` is built at renderer construction time and shared
  * across every chunk-mesh build, the ghost preview, and any future
- * texture-consuming visual. Sharing matters for memory: a single 16×16
+ * texture-consuming visual. Sharing matters for memory: a single 64×64
  * texture is cheap, but a fresh upload per chunk-build (chunks rebuild on
  * every block edit) would burn GPU bandwidth needlessly.
  */

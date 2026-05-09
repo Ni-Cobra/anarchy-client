@@ -23,7 +23,7 @@ export interface ItemMeta {
   readonly displayName: string;
   /** Block the item places when the player right-clicks. `null` for tools. */
   readonly placesBlock: BlockType | null;
-  /** URL of the 16×16 PNG icon, or `null` if there's no rendered texture. */
+  /** URL of the 64×64 PNG icon, or `null` if there's no rendered texture. */
   readonly textureUrl: string | null;
 }
 

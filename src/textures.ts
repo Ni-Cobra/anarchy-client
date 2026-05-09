@@ -25,7 +25,7 @@ import { ITEM_REGISTRY } from "./item_names.js";
  */
 export interface BlockMeta {
   readonly kind: BlockType;
-  /** URL of the 16×16 PNG, or `null` for kinds with no rendered texture. */
+  /** URL of the 64×64 PNG, or `null` for kinds with no rendered texture. */
   readonly textureUrl: string | null;
   /** Tooltip / billboard string. */
   readonly displayName: string;
@@ -89,7 +89,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
 };
 
 /**
- * URL of the 16×16 PNG for each visible block kind. Compatibility facade —
+ * URL of the 64×64 PNG for each visible block kind. Compatibility facade —
  * driven by `BLOCK_REGISTRY`. `Air` / `Hidden` are deliberately absent
  * (neither has a texture); the renderer's per-kind branches all guard
  * against `Air` before reaching the texture lookup.
