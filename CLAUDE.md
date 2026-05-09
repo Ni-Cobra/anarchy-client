@@ -17,8 +17,26 @@ Boundaries have been audited; new code must respect them.
   `three`, `../net/`, `../render/`, or `../gen/`. Pure data + math.
 - **`src/net/`** — WebSocket transport + the wire bridge that translates
   decoded `ServerMessage` payloads into mutations on `World` /
-  `SnapshotBuffer` / `LocalPredictor`. **Only place** `../gen/anarchy.js`
-  (protobufjs output) may be imported. **Only place** `WebSocket` is used.
+  `SnapshotBuffer` / `Terrain` / `Inventory`. **Only place**
+  `../gen/anarchy.js` (protobufjs output) may be imported. **Only place**
+  `WebSocket` is used. Siblings:
+  - `connection.ts` — WebSocket lifecycle, hello frame, heartbeat/timeout,
+    and the lobby/register-result hook routing. Owns the per-connection
+    `seq` counter.
+  - `wire.ts` — top-level dispatcher. `applyServerMessage` routes
+    `welcome` / `tickUpdate` / `inventoryUpdate` to the per-message-kind
+    handlers below; owns the shared `WireDeps` and `LocalPlayerSink`.
+  - `wire_tick.ts` — `TickUpdate` ingest: implicit unload, full-state
+    chunk apply, World rebuild, snapshot-buffer push, and the per-tick
+    edits + targets effects fan-out. Owns `TerrainSink` / `EffectsSink`
+    and the chunk / layer / block / edit / targeting decoders.
+  - `wire_inventory.ts` — `InventoryUpdate` ingest. Defensive slot-count
+    check + `Inventory.replaceFromWire`. Owns the `ItemId` enum decoder.
+  - `wire_codec.ts` — shared decode primitives (`blockTypeFromWire`,
+    `facingFromWire`, `coordKey`, `toNumber`). Side-effect-free, used by
+    both per-handler modules.
+  Land new code in the narrowest sibling so the dispatcher in `wire.ts`
+  stays focused on routing.
 - **`src/render/`** — Three.js view. Reads `LocalPredictor` for the local
   player and `SnapshotBuffer` for remote players. **Only place** `three` may
   be imported. **Should not** touch `window` / `document` directly: the

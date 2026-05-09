@@ -1,25 +1,46 @@
+/**
+ * Top-level dispatcher for the wire bridge: route a decoded
+ * `ServerMessage` to the per-message-kind handler that owns its
+ * translation. Per-handler logic (and the small types they own) lives in
+ * `wire_tick.ts` (steady-state per-tick state-sync) and
+ * `wire_inventory.ts` (local-player inventory updates). Shared decode
+ * primitives live in `wire_codec.ts`. This file owns only the dispatcher
+ * itself, the deps object every handler shares, and the local-player id
+ * sink — anything specific to a single message kind belongs in its
+ * sibling, not here.
+ *
+ * This is the only place protobuf types touch `World` / `SnapshotBuffer`
+ * / `Terrain` / `LocalPlayerSink` (transitively via the per-handler
+ * modules).
+ */
 import { anarchy } from "../gen/anarchy.js";
 import {
-  type Block,
-  BlockType,
-  type Chunk,
   type ChunkCoord,
   type Inventory,
-  LAYER_AREA,
-  type Layer,
-  type Player,
   type PlayerId,
   type SnapshotBuffer,
   type Terrain,
   type World,
 } from "../game/index.js";
-import {
-  blockTypeFromWire,
-  coordKey,
-  facingFromWire,
-  toNumber,
-} from "./wire_codec.js";
+
+import { toNumber } from "./wire_codec.js";
 import { applyInventoryUpdate } from "./wire_inventory.js";
+import {
+  applyTickUpdate,
+  type EffectsSink,
+  type TerrainSink,
+  type WireBlockEditEvent,
+  type WireBlockEditKind,
+  type WireTargetingStateEvent,
+} from "./wire_tick.js";
+
+export type {
+  EffectsSink,
+  TerrainSink,
+  WireBlockEditEvent,
+  WireBlockEditKind,
+  WireTargetingStateEvent,
+};
 
 /**
  * The bridge through which the wire layer publishes (and reads back) the
@@ -30,57 +51,6 @@ import { applyInventoryUpdate } from "./wire_inventory.js";
 export interface LocalPlayerSink {
   setLocalPlayerId(id: PlayerId | null): void;
   getLocalPlayerId(): PlayerId | null;
-}
-
-/**
- * Notifications for the renderer (or any other observer) when chunks
- * mutate from the wire side. Per ADR 0003 every per-tick update may
- * insert new chunks (full state), keep some unchanged, or implicitly
- * unload chunks that fell out of view; the renderer rebuilds the affected
- * sub-meshes after each tick.
- */
-export interface TerrainSink {
-  /** A chunk at `(cx, cy)` was inserted or replaced (full state). */
-  onChunkLoaded?(cx: number, cy: number): void;
-  /** A chunk at `(cx, cy)` was implicitly unloaded (fell out of view). */
-  onChunkUnloaded?(cx: number, cy: number): void;
-}
-
-/**
- * Per-tick block-edit + targeting feed (task 070). The wire layer reads
- * the new `TickUpdate.edits` / `TickUpdate.targets` fields and routes
- * them here so the renderer can spawn / advance / cull effects without
- * the bridge importing `three`. The shape mirrors
- * `render/effects.BlockEditEvent` / `TargetingStateEvent` so the bridge
- * stays free of `three`-dependent types.
- */
-export type WireBlockEditKind = "placed" | "broken";
-export interface WireBlockEditEvent {
-  readonly playerId: number;
-  readonly kind: WireBlockEditKind;
-  readonly cx: number;
-  readonly cy: number;
-  readonly lx: number;
-  readonly ly: number;
-  /**
-   * The top-layer block kind involved in this edit — placed kind for
-   * `placed`, removed kind for `broken`. Mirrors `BlockEdit.block_type`
-   * on the wire and lets the renderer specialize visuals (e.g. the
-   * break-particle tint) without re-reading the chunk.
-   */
-  readonly blockType: BlockType;
-}
-export interface WireTargetingStateEvent {
-  readonly playerId: number;
-  readonly cx: number;
-  readonly cy: number;
-  readonly lx: number;
-  readonly ly: number;
-  readonly durabilityPct: number;
-}
-export interface EffectsSink {
-  onBlockEdit?(event: WireBlockEditEvent): void;
-  applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
 }
 
 export interface WireDeps {
@@ -112,27 +82,6 @@ export interface WireDeps {
   readonly now?: () => number;
 }
 
-/**
- * Translate one decoded `ServerMessage` into mutations on the game-state
- * mirror. This is the only place protobuf types touch `World` /
- * `SnapshotBuffer` / `Terrain` / `LocalPlayerSink`.
- *
- * Per ADR 0003 the steady-state wire shape is `TickUpdate`:
- *   - `full_state_chunks` carries chunks newly entering the view window
- *     OR known chunks whose state changed this tick. Each chunk includes
- *     its terrain layers AND the players whose center currently falls
- *     inside it. The wire layer overwrites the matching `Terrain` entry
- *     and pushes one snapshot-buffer sample per player in the chunk.
- *   - `unmodified_chunks` is an explicit list of "still in view, no
- *     state change this tick"; receivers leave these alone.
- *   - Implicit unload: any chunk in the receiver's last-known view that
- *     does not appear in either field is dropped.
- *
- * After applying the tick, the World is replaced wholesale with the union
- * of players across the post-tick terrain, so any player whose chunk
- * dropped out of view (or who left the chunk to a neighbor we've also
- * dropped) disappears the same way.
- */
 export function applyServerMessage(
   msg: anarchy.v1.IServerMessage,
   deps: WireDeps,
@@ -167,185 +116,3 @@ export function applyServerMessage(
     return;
   }
 }
-
-function applyTickUpdate(
-  tick: anarchy.v1.ITickUpdate,
-  deps: WireDeps,
-  timeMs: number,
-): void {
-  const fullStateChunks = tick.fullStateChunks ?? [];
-  const unmodifiedChunks = tick.unmodifiedChunks ?? [];
-
-  // Compute the new known window (full + unmodified). Anything in the
-  // current terrain that's not in the window will be implicitly unloaded.
-  const newWindow = new Set<string>();
-  for (const wireChunk of fullStateChunks) {
-    const c = wireChunk.coord;
-    if (!c) continue;
-    newWindow.add(coordKey(c.cx ?? 0, c.cy ?? 0));
-  }
-  for (const c of unmodifiedChunks) {
-    newWindow.add(coordKey(c.cx ?? 0, c.cy ?? 0));
-  }
-
-  if (deps.terrain) {
-    // Implicit unload: drop chunks no longer in view.
-    const stale: ChunkCoord[] = [];
-    for (const [coord] of deps.terrain.iter()) {
-      const [cx, cy] = coord;
-      if (!newWindow.has(coordKey(cx, cy))) stale.push([cx, cy]);
-    }
-    for (const [cx, cy] of stale) {
-      deps.terrain.remove(cx, cy);
-      deps.terrainSink?.onChunkUnloaded?.(cx, cy);
-    }
-  }
-
-  // Apply each full-state chunk and push samples for its players.
-  for (const wireChunk of fullStateChunks) {
-    const decoded = chunkFromWire(wireChunk);
-    if (!decoded) continue;
-    const [[cx, cy], chunk] = decoded;
-    if (deps.terrain) {
-      deps.terrain.insert(cx, cy, chunk);
-      deps.terrainSink?.onChunkLoaded?.(cx, cy);
-    }
-    for (const p of chunk.players.values()) {
-      deps.buffer.push(p.id, p.x, p.y, timeMs);
-    }
-  }
-
-  // Rebuild the World player set from the union across post-tick terrain.
-  // Players whose chunk fell out of view (or whose chunk no longer
-  // references them) drop out automatically.
-  const players: Player[] = [];
-  if (deps.terrain) {
-    for (const [, chunk] of deps.terrain.iter()) {
-      for (const p of chunk.players.values()) players.push(p);
-    }
-  } else {
-    // Without a terrain reference, fall back to just the players in this
-    // tick's full-state chunks. Tests that don't exercise terrain hit
-    // this path.
-    for (const wireChunk of fullStateChunks) {
-      const decoded = chunkFromWire(wireChunk);
-      if (!decoded) continue;
-      for (const p of decoded[1].players.values()) players.push(p);
-    }
-  }
-  deps.world.applySnapshot(players);
-
-  // Drop buffer entries for ids no longer in view.
-  const visible = new Set(players.map((p) => p.id));
-  for (const id of deps.buffer.knownIds()) {
-    if (!visible.has(id)) deps.buffer.drop(id);
-  }
-
-  // Per-tick effects feed (task 070): block edits one-shot, targeting
-  // states are an authoritative replace. Both are scoped to this client's
-  // view window server-side, so the bridge fans them out as-is.
-  const effects = deps.effectsSink;
-  if (effects) {
-    if (effects.onBlockEdit) {
-      for (const wire of tick.edits ?? []) {
-        const event = blockEditFromWire(wire);
-        if (event) effects.onBlockEdit(event);
-      }
-    }
-    if (effects.applyTargets) {
-      const targets: WireTargetingStateEvent[] = [];
-      for (const wire of tick.targets ?? []) {
-        const t = targetingStateFromWire(wire);
-        if (t) targets.push(t);
-      }
-      effects.applyTargets(targets);
-    }
-  }
-}
-
-function blockEditFromWire(
-  wire: anarchy.v1.IBlockEdit,
-): WireBlockEditEvent | null {
-  const coord = wire.chunkCoord;
-  if (!coord) return null;
-  const kind = blockEditKindFromWire(wire.kind);
-  if (kind === null) return null;
-  return {
-    playerId: toNumber(wire.playerId),
-    kind,
-    cx: coord.cx ?? 0,
-    cy: coord.cy ?? 0,
-    lx: wire.localX ?? 0,
-    ly: wire.localY ?? 0,
-    blockType: blockTypeFromWire(wire.blockType),
-  };
-}
-
-function blockEditKindFromWire(
-  kind: anarchy.v1.BlockEdit.Kind | null | undefined,
-): WireBlockEditKind | null {
-  switch (kind) {
-    case anarchy.v1.BlockEdit.Kind.BLOCK_EDIT_KIND_PLACED:
-      return "placed";
-    case anarchy.v1.BlockEdit.Kind.BLOCK_EDIT_KIND_BROKEN:
-      return "broken";
-    default:
-      return null;
-  }
-}
-
-function targetingStateFromWire(
-  wire: anarchy.v1.ITargetingState,
-): WireTargetingStateEvent | null {
-  const coord = wire.chunkCoord;
-  if (!coord) return null;
-  return {
-    playerId: toNumber(wire.playerId),
-    cx: coord.cx ?? 0,
-    cy: coord.cy ?? 0,
-    lx: wire.localX ?? 0,
-    ly: wire.localY ?? 0,
-    durabilityPct: wire.durabilityPct ?? 0,
-  };
-}
-
-function chunkFromWire(
-  wire: anarchy.v1.IChunk,
-): readonly [ChunkCoord, Chunk] | null {
-  const coord = wire.coord;
-  if (!coord) return null;
-  const cx = coord.cx ?? 0;
-  const cy = coord.cy ?? 0;
-  if (!wire.ground || !wire.top) return null;
-  const ground = layerFromWire(wire.ground);
-  const top = layerFromWire(wire.top);
-  if (!ground || !top) return null;
-  const players = new Map<PlayerId, Player>();
-  for (const p of wire.players ?? []) {
-    const id = toNumber(p.id);
-    players.set(id, {
-      id,
-      x: p.x ?? 0,
-      y: p.y ?? 0,
-      facing: facingFromWire(p.facing),
-      username: p.username ?? "",
-      colorIndex: p.colorIndex ?? 0,
-    });
-  }
-  return [[cx, cy] as const, { ground, top, players }];
-}
-
-function layerFromWire(wire: anarchy.v1.ILayer): Layer | null {
-  const wireBlocks = wire.blocks ?? [];
-  if (wireBlocks.length !== LAYER_AREA) return null;
-  const blocks = new Array<Block>(LAYER_AREA);
-  for (let i = 0; i < LAYER_AREA; i++) {
-    blocks[i] = blockFromWire(wireBlocks[i]);
-  }
-  return { blocks };
-}
-
-function blockFromWire(wire: anarchy.v1.IBlock): Block {
-  return { kind: blockTypeFromWire(wire.kind) };
-}
-
