@@ -36,33 +36,56 @@ describe("dayPhaseFromSeconds", () => {
 });
 
 describe("sampleDaylight angle / intensity", () => {
-  it("at sunrise the sun sits on the +x horizon", () => {
+  // Half-diagonal arc (task 440): sunrise / sunset still lie on the
+  // horizon (y == 0) because the around-+x rotation fixes the +x axis,
+  // but the 45° azimuth puts them on the (+x, -z) and (-x, +z) diagonals
+  // rather than pure ±x. Noon / midnight inherit the small tilt off the
+  // y axis (cos(22°) ≈ 0.927 vs 1.0 previously).
+  const COS_AZ_45 = Math.SQRT1_2;
+  const NOON_TILT_RAD = (22 * Math.PI) / 180;
+  const COS_TILT = Math.cos(NOON_TILT_RAD);
+
+  it("at sunrise the sun sits on the horizon along the half-diagonal", () => {
     const s = sampleDaylight(0);
     expect(s.phase).toBe(0);
-    expect(s.sunDir.x).toBeCloseTo(1);
+    expect(s.sunDir.x).toBeCloseTo(COS_AZ_45);
     expect(s.sunDir.y).toBeCloseTo(0);
-    expect(s.sunDir.z).toBe(0);
+    expect(s.sunDir.z).toBeCloseTo(-COS_AZ_45);
   });
 
-  it("at noon the sun is straight up at full intensity", () => {
+  it("at noon the sun is near zenith with a slight off-axis tilt at full intensity", () => {
     const s = sampleDaylight(DAY_LENGTH_SECONDS * PHASE_NOON);
-    expect(s.sunDir.x).toBeCloseTo(0);
-    expect(s.sunDir.y).toBeCloseTo(1);
+    expect(s.sunDir.y).toBeCloseTo(COS_TILT);
+    // x and z share the tilt equally (azimuth = 45°) and are both
+    // positive: noon sits on the +x/+z diagonal in scene space.
+    expect(s.sunDir.x).toBeGreaterThan(0);
+    expect(s.sunDir.z).toBeCloseTo(s.sunDir.x);
+    // Intensity tracks `Math.sin(theta)` (the arc-zenith parameter),
+    // not the geometric y, so noon still maxes the envelope.
     expect(s.sunIntensity).toBeCloseTo(SUN_PEAK_INTENSITY);
     expect(s.ambientIntensity).toBeCloseTo(DAY_AMBIENT);
   });
 
-  it("at sunset the sun returns to the horizon along -x", () => {
+  it("at sunset the sun returns to the horizon on the opposite diagonal", () => {
     const s = sampleDaylight(DAY_LENGTH_SECONDS * PHASE_SUNSET);
-    expect(s.sunDir.x).toBeCloseTo(-1);
+    expect(s.sunDir.x).toBeCloseTo(-COS_AZ_45);
     expect(s.sunDir.y).toBeCloseTo(0);
+    expect(s.sunDir.z).toBeCloseTo(COS_AZ_45);
   });
 
   it("at midnight the sun is below the world and intensity floors", () => {
     const s = sampleDaylight(DAY_LENGTH_SECONDS * PHASE_MIDNIGHT);
-    expect(s.sunDir.y).toBeCloseTo(-1);
+    expect(s.sunDir.y).toBeCloseTo(-COS_TILT);
     expect(s.sunIntensity).toBeCloseTo(NIGHT_FLOOR_INTENSITY);
     expect(s.ambientIntensity).toBeCloseTo(NIGHT_AMBIENT);
+  });
+
+  it("sunDir is unit length across the arc", () => {
+    for (const phase of [0, 0.1, PHASE_NOON, 0.35, PHASE_SUNSET, 0.6, PHASE_MIDNIGHT, 0.9]) {
+      const s = sampleDaylight(DAY_LENGTH_SECONDS * phase);
+      const len = Math.hypot(s.sunDir.x, s.sunDir.y, s.sunDir.z);
+      expect(len).toBeCloseTo(1);
+    }
   });
 
   it("nightFactor is 0 from sunrise through sunset and 1 at midnight (task 350)", () => {

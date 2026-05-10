@@ -51,7 +51,25 @@ export interface DaylightSample {
 export const SUN_PEAK_INTENSITY = 1.1;
 export const NIGHT_FLOOR_INTENSITY = 0.05;
 export const DAY_AMBIENT = 0.55;
-export const NIGHT_AMBIENT = 0.18;
+// Bumped slightly (task 440): the previous 0.18 floor read too dark for
+// comfortable play. 0.26 keeps a clear day-vs-night contrast against the
+// 0.55 day ambient while making the world legible without a torch.
+export const NIGHT_AMBIENT = 0.26;
+
+// Sun-arc orientation (task 440). The arc is originally a great circle in
+// the xz=0 plane — noon sat at the +y zenith, so shaded faces read flat.
+// We rotate the arc twice so the noon zenith lands on a half-diagonal in
+// the xz plane (small off-vertical tilt + 45° azimuth in the xz plane).
+// First rotate around +x by `NOON_TILT_RAD` (pushes noon zenith toward +z),
+// then around +y by `NOON_AZIMUTH_RAD` (rotates the arc so noon ends up
+// equally toward +x and +z). Sunrise / sunset stay on the horizon because
+// the around-+x rotation fixes points on the +x axis (where sin(theta)=0).
+const NOON_TILT_RAD = (22 * Math.PI) / 180;
+const NOON_AZIMUTH_RAD = Math.PI / 4;
+const NOON_TILT_COS = Math.cos(NOON_TILT_RAD);
+const NOON_TILT_SIN = Math.sin(NOON_TILT_RAD);
+const NOON_AZ_COS = Math.cos(NOON_AZIMUTH_RAD);
+const NOON_AZ_SIN = Math.sin(NOON_AZIMUTH_RAD);
 
 // Palette stops. The renderer interpolates between these along the
 // `daylight` curve below; the goal is "noon reads cooler / whiter than
@@ -85,13 +103,26 @@ export function dayPhaseFromSeconds(seconds: number): number {
  */
 export function sampleDaylight(seconds: number): DaylightSample {
   const phase = dayPhaseFromSeconds(seconds);
-  // theta = 0 at sunrise (sun on +x horizon), increases so theta = π/2
-  // puts the sun at zenith (+y, noon), theta = π drops it on -x (sunset),
-  // theta = 3π/2 sends it under (-y, midnight). Three.js Y is up so
-  // y = sin(theta) is the elevation.
+  // theta = 0 at sunrise, π/2 at noon (arc-zenith), π at sunset, 3π/2 at
+  // midnight. `elevation = sin(theta)` is the sun's height along its arc;
+  // we keep it as the envelope variable for intensity + colour (so noon
+  // is always the bright extreme regardless of arc tilt) and derive the
+  // tilted sunDir below from the same theta. With NOON_TILT_RAD = 0 the
+  // two are identical (sunDir.y == elevation).
   const theta = phase * 2 * Math.PI;
   const elevation = Math.sin(theta);
-  const sunDir = { x: Math.cos(theta), y: elevation, z: 0 };
+  // Un-tilted basis: arc lives in the xz=0 plane with x = cos(theta),
+  // y = sin(theta) = elevation, z = 0. Rotate around +x by the tilt
+  // (mixes a slice of y into z), then around +y by the azimuth (mixes
+  // x and z so the noon zenith ends up half-diagonal rather than +z-only).
+  const baseX = Math.cos(theta);
+  const tiltedY = elevation * NOON_TILT_COS;
+  const tiltedZ = elevation * NOON_TILT_SIN;
+  const sunDir = {
+    x: baseX * NOON_AZ_COS + tiltedZ * NOON_AZ_SIN,
+    y: tiltedY,
+    z: -baseX * NOON_AZ_SIN + tiltedZ * NOON_AZ_COS,
+  };
 
   // Two-stage colour blend.
   //   1. dayColor lerps between horizon (sun on horizon, |elevation| ≈ 0)
