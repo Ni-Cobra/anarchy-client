@@ -89,6 +89,15 @@ export const ZOOM_STEP_FACTOR = 1.2;
  */
 export const ZOOM_TWEEN_MS = 180;
 
+/**
+ * Length of a full day-cycle in seconds (task 310). Mirrors the server's
+ * `DAY_LENGTH_SECONDS` — must stay equal so the client's renderer phases
+ * the directional sun the same way the operator's tuning intends. The
+ * server ships only the raw monotonic `time_of_day_seconds` scalar; the
+ * client folds it modulo this constant to derive `phase ∈ [0, 1)`.
+ */
+export const DAY_LENGTH_SECONDS = 600;
+
 // ---- Input ----
 
 /**

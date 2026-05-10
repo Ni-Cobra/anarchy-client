@@ -94,6 +94,17 @@ export interface EffectsSink {
   applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
 }
 
+/**
+ * Day-cycle hook (task 310). Each tick the server ships a monotonically
+ * growing `time_of_day_seconds` scalar; the wire layer plumbs it here so
+ * the renderer can drive the directional sun + ambient envelope from a
+ * server-authoritative clock. Optional — tests / headless paths leave
+ * it absent and the bridge silently drops the value.
+ */
+export interface DaylightSink {
+  onTimeOfDay?(seconds: number): void;
+}
+
 export function applyTickUpdate(
   tick: anarchy.v1.ITickUpdate,
   deps: WireDeps,
@@ -173,6 +184,19 @@ export function applyTickUpdate(
   const visible = new Set(players.map((p) => p.id));
   for (const id of deps.buffer.knownIds()) {
     if (!visible.has(id)) deps.buffer.drop(id);
+  }
+
+  // Day-cycle scalar (task 310). The server ships
+  // `time_of_day_seconds` on every TickUpdate so a freshly arrived
+  // client doesn't have to wait for a state change. Forward it to the
+  // renderer through the optional sink — tests / headless paths leave
+  // the sink absent and the value is silently dropped.
+  const daylight = deps.daylightSink;
+  if (daylight?.onTimeOfDay) {
+    const raw = tick.timeOfDaySeconds;
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      daylight.onTimeOfDay(raw);
+    }
   }
 
   // Per-tick effects feed (task 070): block edits one-shot, targeting

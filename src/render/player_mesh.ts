@@ -80,6 +80,11 @@ export const defaultPlayerMeshFactory: PlayerMeshFactory = {
     // distinguishable by camera follow + their own billboard).
     const bodyMat = buildBodyMaterial(paletteColorHex(entity.colorIndex));
     const body = new THREE.Mesh(bodyGeom, bodyMat);
+    // Day-cycle shadows (task 310). Players cast onto terrain and receive
+    // from neighbouring blocks, so a player walking into a tree's shade
+    // visually darkens.
+    body.castShadow = true;
+    body.receiveShadow = true;
 
     if (entity.username.length > 0) {
       const billboard = buildUsernameBillboard(entity.username);

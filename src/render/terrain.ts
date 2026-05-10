@@ -260,6 +260,9 @@ export function buildChunkMesh(
         const mesh = new THREE.Mesh(groundGeom, materialFor(groundBlock.kind));
         const scene = tileCenterToScene(cx, cy, x, y);
         mesh.position.set(scene.x, GROUND_Y, scene.z);
+        // Ground tiles only receive — a flat slab casting a shadow on its
+        // identical neighbours produces dark seams under the day-cycle sun.
+        mesh.receiveShadow = true;
         group.add(mesh);
       }
       const topBlock = getBlock(chunk.top, x, y);
@@ -284,9 +287,13 @@ export function buildChunkMesh(
           canopyMat = buildBlockMaterial(BlockType.Tree, textures, TREE_CANOPY_COLOR);
         const trunk = new THREE.Mesh(trunkGeom, trunkMat);
         trunk.position.set(scene.x, TREE_TRUNK_Y, scene.z);
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
         group.add(trunk);
         const canopy = new THREE.Mesh(canopyGeom, canopyMat);
         canopy.position.set(scene.x, TREE_CANOPY_Y, scene.z);
+        canopy.castShadow = true;
+        canopy.receiveShadow = true;
         group.add(canopy);
       } else if (topBlock.kind === BlockType.Sticks) {
         if (!sticksGeom)
@@ -295,6 +302,7 @@ export function buildChunkMesh(
           sticksMat = buildBlockMaterial(BlockType.Sticks, textures, STICKS_COLOR);
         const decal = new THREE.Mesh(sticksGeom, sticksMat);
         decal.position.set(scene.x, STICKS_Y, scene.z);
+        decal.receiveShadow = true;
         group.add(decal);
       } else if (
         topBlock.kind === BlockType.FlowerRed ||
@@ -306,12 +314,16 @@ export function buildChunkMesh(
           flowerGeom = new THREE.BoxGeometry(FLOWER_WIDTH, FLOWER_HEIGHT, FLOWER_WIDTH);
         const mesh = new THREE.Mesh(flowerGeom, materialFor(topBlock.kind));
         mesh.position.set(scene.x, FLOWER_Y, scene.z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         group.add(mesh);
       } else if (topBlock.kind === BlockType.Bush) {
         if (!bushGeom)
           bushGeom = new THREE.BoxGeometry(BUSH_WIDTH, BUSH_HEIGHT, BUSH_WIDTH);
         const mesh = new THREE.Mesh(bushGeom, materialFor(BlockType.Bush));
         mesh.position.set(scene.x, BUSH_Y, scene.z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         group.add(mesh);
       } else {
         // Standard full-cell top block. Tree/Sticks/flowers/bushes branch
@@ -320,15 +332,14 @@ export function buildChunkMesh(
         // (the cell would fail the all-four-full predicate). The branches
         // above therefore cannot border Hidden in practice.
         const mask = hiddenMaskAt(chunk, terrain, cx, cy, x, y);
-        if (mask === AO_MASK_NONE) {
-          const mesh = new THREE.Mesh(topGeom, materialFor(topBlock.kind));
-          mesh.position.set(scene.x, TOP_BOX_Y, scene.z);
-          group.add(mesh);
-        } else {
-          const mesh = new THREE.Mesh(aoGeomFor(mask), aoMaterialFor(topBlock.kind));
-          mesh.position.set(scene.x, TOP_BOX_Y, scene.z);
-          group.add(mesh);
-        }
+        const mesh =
+          mask === AO_MASK_NONE
+            ? new THREE.Mesh(topGeom, materialFor(topBlock.kind))
+            : new THREE.Mesh(aoGeomFor(mask), aoMaterialFor(topBlock.kind));
+        mesh.position.set(scene.x, TOP_BOX_Y, scene.z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
       }
     }
   }

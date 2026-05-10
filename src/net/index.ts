@@ -16,6 +16,7 @@ export type {
 } from "./connection.js";
 export { applyServerMessage } from "./wire.js";
 export type {
+  DaylightSink,
   EffectsSink,
   TerrainSink,
   WireBlockEditEvent,

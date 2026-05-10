@@ -32,6 +32,7 @@ import {
   disposeTerrainMesh,
   tileCenterToScene,
 } from "./terrain.js";
+import { sampleDaylight } from "./daylight.js";
 import {
   BeamLayer,
   BreakParticles,
@@ -54,6 +55,16 @@ const AXIS_HALF_LENGTH = 10000;
 const AXIS_Y_OFFSET = 0.01;
 const AXIS_X_COLOR = 0xff5050;
 const AXIS_Y_COLOR = 0x60a0ff;
+
+// Day-cycle directional sun (task 310). The sun sits on a sphere of this
+// radius around the camera focus so its world-space angle reads correctly
+// from any viewpoint while keeping the shadow camera frustum bounded. The
+// shadow camera is a square orthographic frustum sized to the camera's
+// reach — bigger than the visible window so blocks just past the edge can
+// still cast into it.
+const SUN_DISTANCE = 60;
+const SHADOW_HALF_EXTENT = 50;
+const SHADOW_MAP_SIZE = 1024;
 
 // Chunk-border debug overlay (only visible in zoom-out mode). The grid
 // covers a fixed bounded region in world coords — large enough that the
@@ -111,6 +122,17 @@ export class Renderer {
   private readonly beams: BeamLayer;
   private readonly breakParticles: BreakParticles;
   private readonly chunkBorderGrid: THREE.LineSegments;
+  // Day-cycle lights (task 310). Both update each frame from the server-
+  // authoritative `time_of_day_seconds` scalar; intensity, colour, and the
+  // sun's world position all derive from `sampleDaylight`.
+  private readonly sun: THREE.DirectionalLight;
+  private readonly ambient: THREE.AmbientLight;
+  private readonly ground: THREE.Mesh;
+  // Latest synced `time_of_day_seconds` from the wire layer. The renderer
+  // reads this every frame to compute the current sample. Initialised to
+  // `0` (sunrise) so the very first frame, before any TickUpdate has
+  // landed, has a sane envelope rather than a random uninitialized number.
+  private timeOfDaySeconds = 0;
   // Camera-height tween (see `render/zoom.ts`). Holds the source-of-truth
   // for both the M preset toggle and the continuous +/- / Ctrl+Wheel
   // bindings. Sampled once per frame in `updateCamera`. `zoomedOut` is
@@ -161,19 +183,36 @@ export class Renderer {
     this.webgl = new THREE.WebGLRenderer({ antialias: true });
     this.webgl.setPixelRatio(viewport.pixelRatio);
     this.webgl.setSize(viewport.width, viewport.height);
+    this.webgl.shadowMap.enabled = true;
+    this.webgl.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.webgl.domElement);
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(6, 12, 4);
-    this.scene.add(sun);
+    // Day-cycle lights (task 310). Plain values set here are placeholders;
+    // the per-frame `updateDaylight` resamples colour + intensity + sun
+    // position every frame from the synced `time_of_day_seconds`.
+    this.ambient = new THREE.AmbientLight(0xffffff, 0.55);
+    this.scene.add(this.ambient);
+    this.sun = new THREE.DirectionalLight(0xffffff, 0.8);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    const shadowCam = this.sun.shadow.camera as THREE.OrthographicCamera;
+    shadowCam.left = -SHADOW_HALF_EXTENT;
+    shadowCam.right = SHADOW_HALF_EXTENT;
+    shadowCam.top = SHADOW_HALF_EXTENT;
+    shadowCam.bottom = -SHADOW_HALF_EXTENT;
+    shadowCam.near = 0.5;
+    shadowCam.far = SUN_DISTANCE * 2 + SHADOW_HALF_EXTENT;
+    shadowCam.updateProjectionMatrix();
+    this.scene.add(this.sun);
+    this.scene.add(this.sun.target);
 
-    const ground = new THREE.Mesh(
+    this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(500, 500),
       new THREE.MeshLambertMaterial({ color: 0x2a4d2a }),
     );
-    ground.rotation.x = -Math.PI / 2;
-    this.scene.add(ground);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.receiveShadow = true;
+    this.scene.add(this.ground);
 
     this.scene.add(
       buildAxisLine(
@@ -231,6 +270,18 @@ export class Renderer {
     this.zoom = new ZoomController(CAMERA_HEIGHT, ZOOM_TWEEN_MS, this.now());
 
     this.webgl.setAnimationLoop(this.frame);
+  }
+
+  /**
+   * Wire-layer hook (task 310). The latest `time_of_day_seconds` scalar
+   * shipped on the most recent `TickUpdate`. Each frame `updateDaylight`
+   * reads this and resamples sun direction / colour / ambient tint. The
+   * scalar is monotonic per server (advances with each tick), so the
+   * client just stores it verbatim — no easing or smoothing here; the
+   * server-side advance is already a tick-rate-derivative scalar.
+   */
+  setTimeOfDaySeconds(seconds: number): void {
+    this.timeOfDaySeconds = seconds;
   }
 
   setLocalPlayerId(id: PlayerId | null): void {
@@ -427,6 +478,7 @@ export class Renderer {
       dtMs,
     );
     this.updateCamera(entities);
+    this.updateDaylight(entities);
     this.refreshHoverBillboards();
     this.refreshGhostPreview();
     this.effects.update(nowMs);
@@ -469,6 +521,45 @@ export class Renderer {
         ? null
         : pickPlayerUnderCursor(this.cursorNdc, this.camera, this.meshes);
     applyHoverBillboards(this.meshes, hoveredId);
+  }
+
+  /**
+   * Sample the day cycle at the latest synced `time_of_day_seconds` and
+   * push the result into the directional sun + ambient + sky background.
+   * Anchors the sun and its shadow camera at the local player's focus
+   * point so the shadow frustum stays glued to where the camera is
+   * looking — chunks well outside the visible window aren't paying
+   * shadow-render cost.
+   */
+  private updateDaylight(
+    entities: readonly { id: PlayerId; x: number; y: number }[],
+  ): void {
+    const sample = sampleDaylight(this.timeOfDaySeconds);
+    this.ambient.color.setHex(sample.ambientColor);
+    this.ambient.intensity = sample.ambientIntensity;
+    this.sun.color.setHex(sample.sunColor);
+    this.sun.intensity = sample.sunIntensity;
+    (this.scene.background as THREE.Color).setHex(sample.skyColor);
+
+    const local =
+      this.localPlayerId !== null
+        ? entities.find((e) => e.id === this.localPlayerId)
+        : undefined;
+    const focus = local
+      ? tileToScene(local.x, local.y)
+      : new THREE.Vector3(0, 0, 0);
+    this.sun.target.position.copy(focus);
+    this.sun.target.updateMatrixWorld();
+    this.sun.position.set(
+      focus.x + sample.sunDir.x * SUN_DISTANCE,
+      focus.y + sample.sunDir.y * SUN_DISTANCE,
+      focus.z + sample.sunDir.z * SUN_DISTANCE,
+    );
+    // The shadow map is computed in the sun's local frame, which derives
+    // from `sun.position` + `sun.target.position`. Telling Three.js to
+    // refresh the shadow camera matrix every frame is cheap (one matrix
+    // multiply) and avoids ghost-shadows from a stale frustum.
+    this.sun.shadow.camera.updateProjectionMatrix();
   }
 
   private updateCamera(entities: readonly { id: PlayerId; x: number; y: number }[]) {

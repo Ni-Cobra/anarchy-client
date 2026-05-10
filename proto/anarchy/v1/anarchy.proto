@@ -361,6 +361,15 @@ message TickUpdate {
   // targets so visuals stay consistent. Scope mirrors `edits` — entries whose
   // `chunk_coord` is outside the recipient's window are suppressed.
   repeated TargetingState targets = 4;
+  // Server-authoritative time-of-day scalar (task 310). Monotonically growing
+  // seconds since the world was created — persisted in the world save so a
+  // restart picks up where it left off. The client computes the day phase as
+  // `(time_of_day_seconds % DAY_LENGTH_SECONDS) / DAY_LENGTH_SECONDS` and
+  // drives the directional sun + ambient tint from it; the server never
+  // ships a phase, only the raw scalar, so client-side day length tweaks
+  // stay possible without a wire change. Re-shipped every tick so a freshly
+  // arrived client sees the world clock without waiting for a state change.
+  double time_of_day_seconds = 5;
 }
 
 // One block edit emitted by the server this tick. `Placed` covers

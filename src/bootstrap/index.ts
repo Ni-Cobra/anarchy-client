@@ -149,6 +149,13 @@ export interface AnarchyHandle {
    */
   getObservedBlockEditCount: () => number;
   /**
+   * Test handle (task 310): latest server-synced `time_of_day_seconds`
+   * scalar. Returns `0` before the first `TickUpdate` lands. Lets e2e
+   * specs assert the synced field is non-zero and advances across ticks
+   * without parsing protobuf themselves.
+   */
+  getTimeOfDaySeconds: () => number;
+  /**
    * Test handle (task 020): latest ghost-block preview state computed by
    * the renderer's per-frame driver, or `null` when no preview is shown
    * (held slot empty / non-placeable, or no valid target under cursor).
@@ -259,6 +266,11 @@ export function runMain(
   // that the new wire surface is being delivered end-to-end.
   let observedBlockEditCount = 0;
   let activeTargets: readonly WireTargetingStateEvent[] = [];
+  // Latest server-authoritative `time_of_day_seconds` (task 310) — the
+  // wire layer plumbs this through the daylight sink and we mirror it
+  // for the test handle so e2e specs can pin the synced scalar without
+  // reaching into Three.js.
+  let lastTimeOfDaySeconds = 0;
 
   // Forward-declared like `inventoryUi` above. The connection's
   // `onRegisterResult` hook needs to dispatch into the flow, but the
@@ -287,6 +299,12 @@ export function runMain(
           applyTargets: (targets: readonly WireTargetingStateEvent[]) => {
             activeTargets = targets;
             renderer.applyTargetingStates(targets);
+          },
+        },
+        daylightSink: {
+          onTimeOfDay: (seconds) => {
+            lastTimeOfDaySeconds = seconds;
+            renderer.setTimeOfDaySeconds(seconds);
           },
         },
         inventory,
@@ -469,6 +487,7 @@ export function runMain(
     canPlaceAt,
     getActiveTargetingStates: () => activeTargets,
     getObservedBlockEditCount: () => observedBlockEditCount,
+    getTimeOfDaySeconds: () => lastTimeOfDaySeconds,
     getGhostState: () => renderer.getGhostState(),
     setCursorNdc: (ndc) => renderer.setCursorNdc(ndc),
     stop,

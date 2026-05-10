@@ -27,6 +27,7 @@ import { toNumber } from "./wire_codec.js";
 import { applyInventoryUpdate } from "./wire_inventory.js";
 import {
   applyTickUpdate,
+  type DaylightSink,
   type EffectsSink,
   type TerrainSink,
   type WireBlockEditEvent,
@@ -35,6 +36,7 @@ import {
 } from "./wire_tick.js";
 
 export type {
+  DaylightSink,
   EffectsSink,
   TerrainSink,
   WireBlockEditEvent,
@@ -71,6 +73,12 @@ export interface WireDeps {
    * it absent and the bridge silently drops the events.
    */
   readonly effectsSink?: EffectsSink;
+  /**
+   * Renderer day-cycle hook; see `DaylightSink`. Optional — tests / wire-
+   * level specs that don't exercise rendering leave it absent and the
+   * bridge silently drops the synced `time_of_day_seconds` scalar.
+   */
+  readonly daylightSink?: DaylightSink;
   /**
    * Local-player inventory mirror. Mutated in place when `InventoryUpdate`
    * arrives. Per-player only — the server never ships another player's
