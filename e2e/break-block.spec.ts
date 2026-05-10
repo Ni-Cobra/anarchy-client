@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { adminSetBlock } from "./admin";
 
 // Browser-driven e2e for the top-layer block destroy flow.
 //
@@ -177,6 +178,81 @@ test("held break: out-of-reach intent never breaks the target", async ({
     // The server is reused across tests; clear the seeded block so it
     // doesn't perturb later specs that move clients through chunk (0, 0).
     await seedTopBlock(0, 0, 10, 0, "air").catch(() => {});
+  }
+});
+
+test("ground-replace held break drops the broken kind into the breaker's inventory", async ({
+  page,
+}) => {
+  // Plant Wood on the ground at (3, 0). The default loadout has 10 Gold in
+  // slot 0 (`places_block = Gold`, `is_full = true`), so a held break
+  // resolves as a ground-replace: ground swaps to Gold, slot 0 drops to 9,
+  // and the broken Wood drops into the breaker's inventory in the same
+  // tick (numeric `ItemId.Wood` = 2 / `BlockType.Gold` = 4 mirror the
+  // server registry).
+  const cx = 0,
+    cy = 0,
+    lx = 3,
+    ly = 0;
+  await adminSetBlock(cx, cy, "ground", lx, ly, "wood");
+
+  try {
+    await page.goto(`/?username=ground-drop&color=0`);
+    await page.waitForFunction(() => window.__anarchy !== undefined);
+    await page.waitForFunction(() => {
+      const a = window.__anarchy;
+      if (!a) return false;
+      return a.getLocalPlayerId() !== null && a.inventory.countOf(4) === 10;
+    });
+
+    await page.waitForFunction(
+      ({ cx, cy, lx, ly }) => {
+        const a = window.__anarchy;
+        if (!a) return false;
+        const chunk = a.terrain.get(cx, cy);
+        if (!chunk) return false;
+        const idx = ly * 16 + lx;
+        const ground = chunk.ground.blocks[idx];
+        return !!ground && ground.kind === 2;
+      },
+      { cx, cy, lx, ly },
+    );
+    expect(
+      await page.evaluate(() => window.__anarchy!.inventory.countOf(2)),
+    ).toBe(0);
+
+    // Wood max_durability = 10 → ~10 ticks at 20 Hz ≈ 500 ms with no tool.
+    await page.evaluate((coords) => {
+      const [cx, cy, lx, ly] = coords;
+      window.__anarchy!.sendBreakIntent({ cx, cy, lx, ly });
+    }, [cx, cy, lx, ly] as const);
+
+    await page.waitForFunction(
+      ({ cx, cy, lx, ly }) => {
+        const a = window.__anarchy;
+        if (!a) return false;
+        const chunk = a.terrain.get(cx, cy);
+        if (!chunk) return false;
+        const idx = ly * 16 + lx;
+        const ground = chunk.ground.blocks[idx];
+        return !!ground && ground.kind === 4;
+      },
+      { cx, cy, lx, ly },
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(
+      () =>
+        window.__anarchy!.inventory.countOf(2) === 1 &&
+        window.__anarchy!.inventory.countOf(4) === 9,
+      undefined,
+      { timeout: 5000 },
+    );
+
+    await page.evaluate(() => window.__anarchy!.sendBreakIntent(null));
+  } finally {
+    // Restore the natural Grass ground so later specs see the seeded
+    // worldgen at (3, 0).
+    await adminSetBlock(cx, cy, "ground", lx, ly, "grass").catch(() => {});
   }
 });
 
