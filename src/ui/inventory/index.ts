@@ -84,6 +84,14 @@ export interface InventoryUiOptions {
   readonly sendSelect: (slot: number) => void;
   /** Ship a `MoveSlot` drag-drop action up to the server. */
   readonly sendMove: (src: number, dst: number) => void;
+  /**
+   * Ship a `TransferItems(src, dst, count)` action — BACKLOG 410's
+   * right-click split flow. The drag-drop machinery here calls with
+   * `count = 1` per ramp tick. Optional because the existing test suite
+   * predates the right-click split surface and mounts the UI without
+   * caring about transfers; production callers always pass it.
+   */
+  readonly sendTransfer?: (src: number, dst: number, count: number) => void;
   /** Ship an `EquipTool` action up to the server (task 100). */
   readonly sendEquip: (sourceSlot: number, kind: ToolKind) => void;
   /** Ship an `UnequipTool` action up to the server (task 100). */
@@ -258,6 +266,12 @@ export function mountInventoryUi(
     for (const { kind, cell } of equipmentCells) {
       paintEquipmentSlot(cell, kind, inv.getEquipped(kind));
     }
+    // After re-painting, ask the dragdrop machinery to reconcile its
+    // right-click split source — if a hold-transfer just drained the
+    // source cell, the yellow border should clear. Guard with a runtime
+    // check because `render` is captured into a subscription before
+    // `dragdrop` is assigned.
+    dragdrop?.refreshSplitSource();
   };
 
   const dragdrop = attachDragDrop({
@@ -267,6 +281,7 @@ export function mountInventoryUi(
     getInventory: options.getInventory,
     getSelectedHotbarSlot: () => selectedSlot,
     sendMove: options.sendMove,
+    sendTransfer: options.sendTransfer ?? (() => {}),
     sendEquip: options.sendEquip,
     sendUnequip: options.sendUnequip,
   });

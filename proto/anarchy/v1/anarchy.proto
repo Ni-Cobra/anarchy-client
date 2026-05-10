@@ -28,6 +28,7 @@ message ClientMessage {
     EquipTool equip_tool = 25;
     UnequipTool unequip_tool = 26;
     CraftRequest craft = 27;
+    TransferItems transfer_items = 28;
   }
 }
 
@@ -321,6 +322,22 @@ message UnequipTool {
 message CraftRequest {
   string recipe_id = 1;
   uint64 client_seq = 2;
+}
+
+// Client→server "transfer up to `count` items from `src` into `dst`" — the
+// right-click split flow (BACKLOG 410). The server validates indices, that
+// `src` is non-empty, and that `dst` is empty or holds the same item kind,
+// then moves `min(count, src.count, dst_max - dst.count)` items. Mismatched
+// destination kind is a no-op (no swap fallback — that path is `MoveSlot`'s
+// job). The drag-and-drop UX uses `MoveSlot` for full-stack moves with
+// merge-or-swap semantics; `TransferItems` exists for partial transfers
+// where the right-click hold flow ships repeated `count = 1` frames as it
+// ramps up. Failures are silently dropped — same posture as `MoveSlot`.
+message TransferItems {
+  uint32 src = 1;
+  uint32 dst = 2;
+  uint32 count = 3;
+  uint64 client_seq = 4;
 }
 
 // === Server -> client world state ===

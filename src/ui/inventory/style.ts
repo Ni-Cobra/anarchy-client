@@ -139,6 +139,13 @@ const STYLE = `
     pointer-events: none;
   }
   .anarchy-inventory-slot.drag-source { opacity: 0.4; }
+  /* BACKLOG 410: yellow border on the right-click "split source" cell.
+     Sticky until the user left-clicks elsewhere. Wins over the white
+     hover border thanks to specificity (class + class). */
+  .anarchy-inventory-slot.split-source {
+    border-color: #ffd34a;
+    box-shadow: 0 0 0 2px rgba(255, 211, 74, 0.5) inset;
+  }
   .anarchy-inventory-drag-preview {
     position: fixed;
     width: ${SLOT_PX}px;

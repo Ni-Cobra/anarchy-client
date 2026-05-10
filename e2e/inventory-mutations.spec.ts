@@ -151,6 +151,107 @@ test("clicking a panel cell ships MoveSlot to the selected hotbar slot", async (
   });
 });
 
+test("TransferItems splits a stack between two slots", async ({
+  page,
+}) => {
+  // BACKLOG 410: programmatic `sendTransferItems(0, 5, 3)` splits the
+  // seeded 10-Gold stack into 7 + 3 across slot 0 and slot 5 — the
+  // partial-transfer primitive the right-click hold flow ships per
+  // ramp tick. A second transfer of 99 into the same destination caps
+  // at the source count and drains slot 0 entirely.
+  await openClient(page, "inv-transfer");
+
+  await page.evaluate(() => {
+    window.__anarchy!.sendTransferItems(0, 5, 3);
+  });
+  await page.waitForFunction(() => {
+    const a = window.__anarchy;
+    if (!a) return false;
+    const s0 = a.inventory.slot(0);
+    const s5 = a.inventory.slot(5);
+    return (
+      s0 !== null && s0.count === 7 && s0.item === 4 &&
+      s5 !== null && s5.count === 3 && s5.item === 4
+    );
+  });
+
+  await page.evaluate(() => {
+    window.__anarchy!.sendTransferItems(0, 5, 99);
+  });
+  await page.waitForFunction(() => {
+    const a = window.__anarchy;
+    if (!a) return false;
+    const s5 = a.inventory.slot(5);
+    return a.inventory.slot(0) === null && s5 !== null && s5.count === 10;
+  });
+});
+
+test("right-click hold transfer ramps items between slots, releases on pointer-up", async ({
+  page,
+}) => {
+  // BACKLOG 410 user-facing flow: arm slot 0 (hotbar) as the split
+  // source, then press-and-hold right-click on a panel cell. The first
+  // press fires one transfer immediately; the timer ramps from 500 ms
+  // to 100 ms over 2 s. We hold ~1.5 s — enough for at least 3 frames
+  // (immediate + two timer ticks) but bounded so the test stays fast.
+  // After release we sample the count, sleep past the ramp, and assert
+  // the count hasn't moved any further (release stops the timer).
+  await openClient(page, "inv-rclick");
+
+  await page.keyboard.press("KeyE");
+  await page.waitForFunction(() => window.__anarchy!.isInventoryOpen());
+
+  const sourceCell = page.locator(
+    ".anarchy-hotbar .anarchy-inventory-slot",
+  ).first();
+  const destCell = page.locator(
+    ".anarchy-inventory-panel .anarchy-inventory-slot",
+  ).first();
+
+  // Arm the split source on the seeded 10-Gold hotbar slot.
+  await sourceCell.dispatchEvent("pointerdown", { button: 2 });
+  await expect(sourceCell).toHaveClass(/split-source/);
+
+  // Begin a hold on the empty panel cell. The first frame fires on
+  // press; subsequent frames pace from 500 ms initially.
+  await destCell.dispatchEvent("pointerdown", { button: 2 });
+
+  // Wait until the destination has received at least 3 items — proves
+  // the timer is firing past the initial press frame. Bounded at 5 s
+  // (well under the slow-start 500 ms × 3 + safety margin).
+  await page.waitForFunction(
+    () => {
+      const s9 = window.__anarchy!.inventory.slot(9);
+      return s9 !== null && s9.count >= 3;
+    },
+    undefined,
+    { timeout: 5000 },
+  );
+  // Release: pointer-up at the document level stops the timer.
+  await page.dispatchEvent("body", "pointerup", { button: 2 });
+
+  // Snapshot the post-release count, wait past the fast-interval, and
+  // assert no further movement. The source border stays armed (the
+  // spec is "release stops the transfer; re-press resumes").
+  const afterRelease = await page.evaluate(() => {
+    return {
+      panel: window.__anarchy!.inventory.slot(9)?.count ?? 0,
+      hotbar: window.__anarchy!.inventory.slot(0)?.count ?? 0,
+    };
+  });
+  expect(afterRelease.panel).toBeGreaterThanOrEqual(3);
+  expect(afterRelease.panel + afterRelease.hotbar).toBe(10);
+  await page.waitForTimeout(400);
+  const final = await page.evaluate(() => {
+    return {
+      panel: window.__anarchy!.inventory.slot(9)?.count ?? 0,
+      hotbar: window.__anarchy!.inventory.slot(0)?.count ?? 0,
+    };
+  });
+  expect(final).toEqual(afterRelease);
+  await expect(sourceCell).toHaveClass(/split-source/);
+});
+
 test("SelectSlot mirror locally tracks digit-key selection", async ({
   page,
 }) => {

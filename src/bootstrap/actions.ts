@@ -25,6 +25,14 @@ export interface ActionSenders {
   sendPlaceBlock(cx: number, cy: number, lx: number, ly: number): void;
   sendSelectSlot(slot: number): void;
   sendMoveSlot(src: number, dst: number): void;
+  /**
+   * Ship a `TransferItems(src, dst, count)` action up to the server
+   * (BACKLOG 410 right-click split). Strict partial transfer — the server
+   * refuses mismatched-kind destinations rather than swapping. The
+   * right-click hold UI ships repeated `count = 1` frames as the timer
+   * ramps up; drag-and-drop full-stack moves still go through `sendMoveSlot`.
+   */
+  sendTransferItems(src: number, dst: number, count: number): void;
   sendCraft(recipeId: string): void;
   sendEquipTool(sourceSlot: number, kind: ToolKind): void;
   sendUnequipTool(kind: ToolKind): void;
@@ -88,6 +96,10 @@ export function createActionSenders(conn: Connection): ActionSenders {
     sendMoveSlot(src, dst) {
       const seq = ++actionSeq;
       conn.send({ moveSlot: { src, dst, clientSeq: seq } });
+    },
+    sendTransferItems(src, dst, count) {
+      const seq = ++actionSeq;
+      conn.send({ transferItems: { src, dst, count, clientSeq: seq } });
     },
     sendCraft(recipeId) {
       const seq = ++actionSeq;

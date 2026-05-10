@@ -1346,6 +1346,143 @@ describe("inventory UI", () => {
       expect(panelCells[0].classList.contains("equipped-axe")).toBe(false);
     });
 
+    it("right-click on a non-empty cell arms the split source with a yellow border", () => {
+      // BACKLOG 410: first right-click on a non-empty cell paints
+      // `.split-source`. Sticky until a left-click clears it.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(panelCell.classList.contains("split-source")).toBe(true);
+    });
+
+    it("right-click on an empty cell does not arm a split source", () => {
+      // No item to split — the right-click is inert.
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(panelCell.classList.contains("split-source")).toBe(false);
+    });
+
+    it("right-click on a destination after arming ships TransferItems(src, dst, 1)", () => {
+      // After arming the source, a right-click on a different cell
+      // ships one transfer immediately (the press itself is the first
+      // frame; the timer ramps from there for held presses).
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      const transfers: Array<[number, number, number]> = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: (src, dst, count) => transfers.push([src, dst, count]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const sourceCell = panelCells[0] as HTMLElement;
+      const destCell = panelCells[1] as HTMLElement;
+      // Arm.
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      // Press on dest — first frame fires immediately.
+      destCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(transfers).toEqual([[HOTBAR_SLOTS, HOTBAR_SLOTS + 1, 1]]);
+      // Release stops any future timer ticks; release does not clear
+      // the source — re-pressing resumes.
+      document.dispatchEvent(
+        new PointerEvent("pointerup", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(true);
+    });
+
+    it("a left-click clears the sticky split source", () => {
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const sourceCell = panelCells[0] as HTMLElement;
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(true);
+      // Left-click anywhere clears the source. Use the same cell here
+      // — the per-cell left-click handler clears split.
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 0, bubbles: true }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", { button: 0, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(false);
+    });
+
+    it("right-click on the armed source toggles the selection off", () => {
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const sourceCell = panelCells[0] as HTMLElement;
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(true);
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(false);
+    });
+
     it("re-points the equipped highlight when InventoryUpdate moves the tool", () => {
       // The flag-on-cell model means the highlight follows the slot
       // index the server ships. A subsequent `InventoryUpdate` whose

@@ -107,6 +107,12 @@ export interface AnarchyHandle {
   /** Send an inventory drag-drop action; bumps the local action seq. */
   sendMoveSlot: (src: number, dst: number) => void;
   /**
+   * Send a `TransferItems(src, dst, count)` action — the BACKLOG 410
+   * right-click split flow. Strict partial transfer (no swap fallback for
+   * mismatched-kind destinations). Bumps the local action seq.
+   */
+  sendTransferItems: (src: number, dst: number, count: number) => void;
+  /**
    * Ship a `CraftRequest(recipe_id)` action up to the server (task 090
    * client wiring). The server re-validates ingredient availability and
    * inventory fit; failures are silently dropped, success surfaces in the
@@ -344,6 +350,7 @@ export function runMain(
     sendPlaceBlock,
     sendSelectSlot,
     sendMoveSlot,
+    sendTransferItems,
     sendCraft,
     sendEquipTool,
     sendUnequipTool,
@@ -367,6 +374,7 @@ export function runMain(
     getInventory: () => inventory,
     sendSelect: sendSelectSlot,
     sendMove: sendMoveSlot,
+    sendTransfer: sendTransferItems,
     sendEquip: sendEquipTool,
     sendUnequip: sendUnequipTool,
   });
@@ -487,6 +495,7 @@ export function runMain(
     sendPlaceBlock,
     sendSelectSlot,
     sendMoveSlot,
+    sendTransferItems,
     sendCraft,
     sendEquipTool,
     sendUnequipTool,
