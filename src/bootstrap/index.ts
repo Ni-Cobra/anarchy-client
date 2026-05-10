@@ -31,6 +31,7 @@
  */
 
 import {
+  ChestState,
   Inventory,
   SnapshotBuffer,
   Terrain,
@@ -49,6 +50,7 @@ import {
 } from "../net/index.js";
 import { Renderer, type GhostState } from "../render/index.js";
 import {
+  mountChestUi,
   mountCoordsHud,
   mountCraftingUi,
   mountInventoryUi,
@@ -83,6 +85,12 @@ export interface AnarchyHandle {
    * e2e specs can pin the wire surface end-to-end.
    */
   inventory: Inventory;
+  /**
+   * Task 420 open-chest mirror. Populated by `ChestUpdate` frames the
+   * server ships when the local player opens / mutates / closes a chest.
+   * `location() === null` means no chest is open.
+   */
+  chestState: ChestState;
   getLocalPlayerId: () => number | null;
   sendMoveIntent: (dx: number, dy: number) => void;
   /**
@@ -132,6 +140,14 @@ export interface AnarchyHandle {
    * silently if the inventory is full.
    */
   sendUnequipTool: (kind: ToolKind) => void;
+  /**
+   * Task 420: open the chest at `(cx, cy, lx, ly)`. The server validates
+   * range and that the cell holds a chest block; failures are silently
+   * dropped. Bumps the local action seq.
+   */
+  sendOpenChest: (cx: number, cy: number, lx: number, ly: number) => void;
+  /** Task 420: close the currently-open chest. Bumps the local action seq. */
+  sendCloseChest: () => void;
   /** Index of the locally-mirrored selected hotbar slot. */
   getSelectedHotbarSlot: () => number;
   /** True while the inventory side panel is open (toggled with `E`). */
@@ -242,6 +258,7 @@ export function runMain(
   const buffer = new SnapshotBuffer();
   const terrain = new Terrain();
   const inventory = new Inventory();
+  const chestState = new ChestState();
   // Forward-declared so the renderer's per-frame ghost driver can read the
   // currently-selected hotbar slot. The UI is mounted later in this
   // function (it depends on `sendSelectSlot` / `sendMoveSlot`, which in
@@ -322,6 +339,7 @@ export function runMain(
           },
         },
         inventory,
+        chestSink: { chestState },
         local: {
           setLocalPlayerId: (id) => {
             localPlayerId = id;
@@ -355,6 +373,8 @@ export function runMain(
     sendEquipTool,
     sendUnequipTool,
     sendRegisterAccount,
+    sendOpenChest,
+    sendCloseChest,
   } = createActionSenders(conn);
 
   const input = new InputController({ sendMoveIntent });
@@ -389,6 +409,27 @@ export function runMain(
     sendCraft,
   });
   teardowns.push(() => craftingUi.unmount());
+
+  // Task 420 chest panel — opens automatically when `ChestUpdate` lands
+  // with a non-null `chest` and closes when the server ships a closed
+  // sentinel (range loss / explicit close / chest broken).
+  const chestUi = mountChestUi({
+    chestState,
+    getPlayerInventory: () => inventory,
+    sendMoveSlot,
+  });
+  teardowns.push(() => chestUi.unmount());
+
+  // ESC closes an open chest. Bound at window-level so it works whether
+  // the inventory panel is open or not; falls through to other handlers
+  // if no chest is open.
+  const onEscape = (ev: KeyboardEvent): void => {
+    if (ev.key !== "Escape") return;
+    if (chestState.location() === null) return;
+    sendCloseChest();
+  };
+  window.addEventListener("keydown", onEscape);
+  teardowns.push(() => window.removeEventListener("keydown", onEscape));
 
   // Wrap the inventory handle so every open/close path also drives the
   // crafting panel. Both panels carry the same `open` state — the
@@ -437,6 +478,7 @@ export function runMain(
       getInventory: () => inventory,
       sendBreakIntent,
       sendPlaceBlock,
+      sendOpenChest,
     }),
   );
 
@@ -489,6 +531,7 @@ export function runMain(
     world,
     terrain,
     inventory,
+    chestState,
     getLocalPlayerId: () => localPlayerId,
     sendMoveIntent,
     sendBreakIntent,
@@ -499,6 +542,8 @@ export function runMain(
     sendCraft,
     sendEquipTool,
     sendUnequipTool,
+    sendOpenChest,
+    sendCloseChest,
     getSelectedHotbarSlot: () => inventoryUi.selectedHotbarSlot(),
     isInventoryOpen: () => inventoryUi.isOpen(),
     canPlaceAt,

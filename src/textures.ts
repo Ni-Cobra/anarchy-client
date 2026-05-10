@@ -199,6 +199,12 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     displayName: "Torch",
     minToolTier: null,
   },
+  [BlockType.Chest]: {
+    kind: BlockType.Chest,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/chest.png`,
+    displayName: "Chest",
+    minToolTier: null,
+  },
 };
 
 /**

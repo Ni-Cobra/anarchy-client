@@ -23,6 +23,7 @@ import {
   type World,
 } from "../game/index.js";
 
+import { applyChestUpdate, type ChestSink } from "./wire_chest.js";
 import { toNumber } from "./wire_codec.js";
 import { applyInventoryUpdate } from "./wire_inventory.js";
 import {
@@ -86,6 +87,12 @@ export interface WireDeps {
    * tests that don't exercise inventory.
    */
   readonly inventory?: Inventory;
+  /**
+   * Task 420 open-chest mirror sink. Optional — tests that don't
+   * exercise the chest UI leave it absent; production bootstrap mounts
+   * a `ChestState` here so `ChestUpdate` frames feed the chest panel.
+   */
+  readonly chestSink?: ChestSink;
   /** Wall-clock for stamping samples. Override in tests. */
   readonly now?: () => number;
 }
@@ -121,6 +128,11 @@ export function applyServerMessage(
 
   if (msg.inventoryUpdate) {
     applyInventoryUpdate(msg.inventoryUpdate, deps);
+    return;
+  }
+
+  if (msg.chestUpdate) {
+    applyChestUpdate(msg.chestUpdate, deps.chestSink);
     return;
   }
 }

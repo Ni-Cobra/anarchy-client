@@ -19,6 +19,11 @@ export type {
   CraftingUiHandle,
   CraftingUiOptions,
 } from "./crafting/index.js";
+export { mountChestUi } from "./chest/index.js";
+export type {
+  ChestUiHandle,
+  ChestUiOptions,
+} from "./chest/index.js";
 export { showRegisterModal, MIN_PASSWORD_LEN } from "./register_modal.js";
 export type {
   RegisterModalHandle,

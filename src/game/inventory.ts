@@ -109,6 +109,11 @@ export enum ItemId {
    * craft into Wood blocks (1 Log → 1 Wood) or sticks (1 Log → 4 Sticks).
    */
   Log = 35,
+  /**
+   * Task 420 placeable storage. Crafted from 8 Wood; places `BlockType.Chest`
+   * via the standard right-click flow.
+   */
+  Chest = 36,
 }
 
 /** A non-empty pile of one item kind. */

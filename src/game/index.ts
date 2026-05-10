@@ -33,6 +33,8 @@ export {
   toolKindOf,
 } from "./inventory.js";
 export type { ItemStack, Slot, ToolKind } from "./inventory.js";
+export { ChestState } from "./chest_state.js";
+export type { ChestLocation } from "./chest_state.js";
 export {
   MAX_USERNAME_LEN,
   MIN_USERNAME_LEN,

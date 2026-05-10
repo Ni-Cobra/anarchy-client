@@ -29,6 +29,8 @@ message ClientMessage {
     UnequipTool unequip_tool = 26;
     CraftRequest craft = 27;
     TransferItems transfer_items = 28;
+    OpenChest open_chest = 29;
+    CloseChest close_chest = 30;
   }
 }
 
@@ -42,6 +44,7 @@ message ServerMessage {
     RegisterAccountResult register_account_result = 13;
     TickUpdate tick_update = 20;
     InventoryUpdate inventory_update = 30;
+    ChestUpdate chest_update = 31;
   }
 }
 
@@ -267,6 +270,13 @@ message MoveSlot {
   uint32 src = 1;
   uint32 dst = 2;
   uint64 client_seq = 3;
+  // Task 420: identify whether the source / destination slot index refers
+  // to the open chest's inventory (`true`) or the player's own inventory
+  // (`false`, the default). Cross-grid moves require an open chest server-
+  // side; the server silently drops any frame that names the chest grid
+  // without one.
+  bool src_chest = 4;
+  bool dst_chest = 5;
 }
 
 // Identifies which equipment slot a wire `EquipTool` / `UnequipTool` action
@@ -338,6 +348,58 @@ message TransferItems {
   uint32 dst = 2;
   uint32 count = 3;
   uint64 client_seq = 4;
+  // Task 420: identify whether the source / destination slot index refers
+  // to the open chest's inventory (`true`) or the player's own inventory
+  // (`false`, the default). See `MoveSlot` for the cross-grid semantics.
+  bool src_chest = 5;
+  bool dst_chest = 6;
+}
+
+// Client→server "open the chest at `(chunk_coord, local_x, local_y)`" — task
+// 420. Server validates that the cell holds a chest block and that the player
+// is within `crate::config::REACH_BLOCKS` of the tile center, then records
+// the chest as the player's currently-open chest. The very next
+// `ChestUpdate` ships the chest's full slot array; subsequent ticks
+// re-emit it when content mutates. Failures are silently dropped.
+message OpenChest {
+  ChunkCoord chunk_coord = 1;
+  uint32 local_x = 2;
+  uint32 local_y = 3;
+  uint64 client_seq = 4;
+}
+
+// Client→server "close my currently-open chest" — task 420. Cleared
+// server-side; the next `ChestUpdate` ships with no `chest` field set to
+// tell the client to retire its chest grid. No-op if no chest is open.
+message CloseChest {
+  uint64 client_seq = 1;
+}
+
+// === Server -> client per-tick chest state (task 420) ===
+
+// One open-chest location: the chunk and local cell hosting the chest.
+message ChestLocation {
+  ChunkCoord chunk_coord = 1;
+  uint32 local_x = 2;
+  uint32 local_y = 3;
+}
+
+// Per-player chest state. Shipped (a) immediately after the server records
+// an `OpenChest` so the client gets the chest's contents, (b) each tick a
+// player's open chest mutates (deposit, withdraw, broken-chest close), and
+// (c) when the chest closes (range loss, explicit `CloseChest`, chest
+// broken) — in which case `chest` is absent and `slots` is empty.
+//
+// `slots` carries the full slot array of the chest's `Inventory` (45 slots
+// today, mirroring the player inventory size). The client validates the
+// length and rejects unexpected counts defensively.
+message ChestUpdate {
+  // Absent when the chest is closed (or no chest is open). Present
+  // otherwise, naming the chest cell whose contents `slots` reflects.
+  ChestLocation chest = 1;
+  // Full slot array of the open chest's inventory. Empty when `chest` is
+  // absent.
+  repeated ItemSlot slots = 2;
 }
 
 // === Server -> client world state ===
@@ -564,6 +626,12 @@ enum BlockType {
   // low durability, axe-broken or hand-broken. Renders as a torch sprite +
   // a per-block point light whose intensity scales with the night factor.
   BLOCK_TYPE_TORCH = 23;
+  // Task 420 placeable storage. Top-layer-only, solid, axe-broken; right-
+  // clicking a chest in range opens its inventory alongside the player's
+  // grid. Broken chest drops the chest item plus the entirety of its
+  // contents back into the breaker's inventory (anything that doesn't
+  // fit is discarded). Worldgen never generates chests.
+  BLOCK_TYPE_CHEST = 24;
 }
 
 // One tile. Field set is intentionally minimal today — the wrapper
@@ -678,6 +746,9 @@ enum ItemId {
   // placeable; they craft into Wood blocks (1 Log → 1 Wood) or sticks
   // (1 Log → 4 Sticks).
   ITEM_ID_LOG = 35;
+  // Task 420 placeable storage. Crafted from 8 Wood; places `BLOCK_TYPE_CHEST`
+  // via the standard right-click flow. Stacks like a normal block item.
+  ITEM_ID_CHEST = 36;
 }
 
 // One inventory cell. `count == 0` is the canonical empty slot — the server

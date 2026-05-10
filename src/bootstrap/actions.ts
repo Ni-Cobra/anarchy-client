@@ -24,19 +24,40 @@ export interface ActionSenders {
   ): void;
   sendPlaceBlock(cx: number, cy: number, lx: number, ly: number): void;
   sendSelectSlot(slot: number): void;
-  sendMoveSlot(src: number, dst: number): void;
+  /**
+   * Ship a `MoveSlot` drag-drop action up to the server. Task 420 added
+   * the `srcChest` / `dstChest` flags so the same action can move items
+   * between the player's inventory and an open chest's grid.
+   */
+  sendMoveSlot(
+    src: number,
+    dst: number,
+    srcChest?: boolean,
+    dstChest?: boolean,
+  ): void;
   /**
    * Ship a `TransferItems(src, dst, count)` action up to the server
    * (BACKLOG 410 right-click split). Strict partial transfer — the server
    * refuses mismatched-kind destinations rather than swapping. The
    * right-click hold UI ships repeated `count = 1` frames as the timer
    * ramps up; drag-and-drop full-stack moves still go through `sendMoveSlot`.
+   * Task 420 added the cross-grid flags.
    */
-  sendTransferItems(src: number, dst: number, count: number): void;
+  sendTransferItems(
+    src: number,
+    dst: number,
+    count: number,
+    srcChest?: boolean,
+    dstChest?: boolean,
+  ): void;
   sendCraft(recipeId: string): void;
   sendEquipTool(sourceSlot: number, kind: ToolKind): void;
   sendUnequipTool(kind: ToolKind): void;
   sendRegisterAccount(password: string): void;
+  /** Task 420: open the chest at `(cx, cy, lx, ly)`. */
+  sendOpenChest(cx: number, cy: number, lx: number, ly: number): void;
+  /** Task 420: close the currently-open chest. */
+  sendCloseChest(): void;
 }
 
 /**
@@ -93,13 +114,30 @@ export function createActionSenders(conn: Connection): ActionSenders {
       const seq = ++actionSeq;
       conn.send({ selectSlot: { slot, clientSeq: seq } });
     },
-    sendMoveSlot(src, dst) {
+    sendMoveSlot(src, dst, srcChest = false, dstChest = false) {
       const seq = ++actionSeq;
-      conn.send({ moveSlot: { src, dst, clientSeq: seq } });
+      conn.send({
+        moveSlot: {
+          src,
+          dst,
+          clientSeq: seq,
+          srcChest,
+          dstChest,
+        },
+      });
     },
-    sendTransferItems(src, dst, count) {
+    sendTransferItems(src, dst, count, srcChest = false, dstChest = false) {
       const seq = ++actionSeq;
-      conn.send({ transferItems: { src, dst, count, clientSeq: seq } });
+      conn.send({
+        transferItems: {
+          src,
+          dst,
+          count,
+          clientSeq: seq,
+          srcChest,
+          dstChest,
+        },
+      });
     },
     sendCraft(recipeId) {
       const seq = ++actionSeq;
@@ -123,6 +161,21 @@ export function createActionSenders(conn: Connection): ActionSenders {
     },
     sendRegisterAccount(password) {
       conn.send({ registerAccount: { password } });
+    },
+    sendOpenChest(cx, cy, lx, ly) {
+      const seq = ++actionSeq;
+      conn.send({
+        openChest: {
+          chunkCoord: { cx, cy },
+          localX: lx,
+          localY: ly,
+          clientSeq: seq,
+        },
+      });
+    },
+    sendCloseChest() {
+      const seq = ++actionSeq;
+      conn.send({ closeChest: { clientSeq: seq } });
     },
   };
 }

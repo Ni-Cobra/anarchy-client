@@ -82,6 +82,13 @@ export enum BlockType {
    * `THREE.PointLight` whose intensity scales with the night factor.
    */
   Torch = 23,
+  /**
+   * Task 420 placeable storage. Top-layer-only, solid, axe-broken. Right-
+   * clicking a chest in range opens its inventory alongside the player's
+   * grid; the server tracks the open chest server-side and ships
+   * `ChestUpdate` per tick the contents change.
+   */
+  Chest = 24,
 }
 
 /**

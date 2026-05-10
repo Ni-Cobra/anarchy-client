@@ -85,6 +85,8 @@ export function blockTypeFromWire(
       return BlockType.DiamondOre;
     case anarchy.v1.BlockType.BLOCK_TYPE_TORCH:
       return BlockType.Torch;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CHEST:
+      return BlockType.Chest;
     case anarchy.v1.BlockType.BLOCK_TYPE_AIR:
     default:
       return BlockType.Air;

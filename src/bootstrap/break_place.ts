@@ -49,6 +49,16 @@ export interface BreakPlaceDeps {
     lx: number,
     ly: number,
   ) => void;
+  /**
+   * Task 420: right-click on a chest in range opens it. Optional — tests
+   * that don't exercise the chest path leave it absent.
+   */
+  readonly sendOpenChest?: (
+    cx: number,
+    cy: number,
+    lx: number,
+    ly: number,
+  ) => void;
 }
 
 /** Equipped pickaxe tier derived from the local-player inventory mirror. */
@@ -157,6 +167,10 @@ export function attachBreakAndPlace(
     ly: number;
     gated: boolean;
     gatedKind: BlockType | null;
+    /** Block kind currently sitting under the cursor (top or ground — same
+     *  pick the renderer surfaces). Used by the right-click router to
+     *  decide between `PlaceBlock` and the task-420 `OpenChest` path. */
+    targetBlock: BlockType;
   } | null {
     const localPlayerId = deps.getLocalPlayerId();
     if (localPlayerId === null) return null;
@@ -190,7 +204,15 @@ export function attachBreakAndPlace(
       const have = equippedPickaxeTier(deps.getInventory());
       if (have === null || have < min) gated = true;
     }
-    return { cx, cy, lx, ly, gated, gatedKind: gated ? pick.block.kind : null };
+    return {
+      cx,
+      cy,
+      lx,
+      ly,
+      gated,
+      gatedKind: gated ? pick.block.kind : null,
+      targetBlock: pick.block.kind,
+    };
   }
 
   function targetsEqual(
@@ -292,10 +314,16 @@ export function attachBreakAndPlace(
       startBreakHeartbeat();
       return;
     }
-    // Right-click → place the selected hotbar slot's block on the tile
-    // under the cursor. Server validates reach + top-Air + slot kind.
+    // Right-click on a chest in range → open it (task 420). The pick path
+    // resolves the cursor's current cell; if its top block is a chest we
+    // ship `OpenChest` instead of `PlaceBlock`. Server validates reach +
+    // cell-is-chest.
     const place = pickBreakTargetAt(ev.clientX, ev.clientY);
     if (place === null || place.gated) return;
+    if (place.targetBlock === BlockType.Chest && deps.sendOpenChest) {
+      deps.sendOpenChest(place.cx, place.cy, place.lx, place.ly);
+      return;
+    }
     deps.sendPlaceBlock(place.cx, place.cy, place.lx, place.ly);
   };
   target.addEventListener("mousedown", onMousedown);
