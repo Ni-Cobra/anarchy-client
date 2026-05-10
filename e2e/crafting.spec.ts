@@ -127,8 +127,7 @@ test("clicking a row ships CraftRequest; server consumes ingredients and inserts
 
   // Server applies the recipe: 3 wood + 2 sticks consumed, 1 wood
   // pickaxe inserted. The next InventoryUpdate makes it visible to the
-  // client mirror; the row disappears because the ingredients no longer
-  // satisfy the recipe.
+  // client mirror.
   await page.waitForFunction(
     (start: number) => {
       const inv = window.__anarchy!.inventory;
@@ -140,11 +139,18 @@ test("clicking a row ships CraftRequest; server consumes ingredients and inserts
     },
     startingPickaxe,
   );
-  // `wood-pickaxe` is no longer satisfiable (no wood, no sticks); panel
-  // should drop the row.
-  await expect(
-    page.locator(".anarchy-crafting-row[data-recipe-id='wood-pickaxe']"),
-  ).toHaveCount(0);
+  // Task 460: the cursor is still hovering the row (Playwright moves it
+  // there for the click), so the row stays in the list as an `uncraftable`
+  // orphan — that's what prevents stray clicks from drifting onto a
+  // sibling row that just shifted into place.
+  const orphan = page.locator(
+    ".anarchy-crafting-row[data-recipe-id='wood-pickaxe']",
+  );
+  await expect(orphan).toHaveClass(/uncraftable/);
+  // Once the cursor leaves the panel, the orphan is dropped and the
+  // natural layout takes over.
+  await page.mouse.move(10, 10);
+  await expect(orphan).toHaveCount(0);
 });
 
 test("multi-stack ingredient row renders both ingredient stacks on the left half", async ({

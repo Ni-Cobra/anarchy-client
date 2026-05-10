@@ -263,6 +263,145 @@ describe("crafting UI", () => {
     }
   });
 
+  it("keeps a hovered recipe in the list as an uncraftable orphan when it stops being craftable", () => {
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+      null,
+      null,
+      ["sticks", "wood-pickaxe"],
+    );
+    const sent: string[] = [];
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: (id) => sent.push(id),
+    });
+    const sticks = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="sticks"]',
+    )!;
+    sticks.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+
+    // Inventory churn: sticks drops off the craftable list (e.g. wood was
+    // consumed by another action). The hovered row must stay visible so
+    // an in-flight click doesn't land on a sibling that shifted under the
+    // cursor.
+    inventory.replaceFromWire(
+      emptySlots(),
+      null,
+      null,
+      ["wood-pickaxe"],
+    );
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+    );
+    expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+      "sticks",
+      "wood-pickaxe",
+    ]);
+    const orphan = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="sticks"]',
+    )!;
+    expect(orphan.classList.contains("uncraftable")).toBe(true);
+    expect(orphan.getAttribute("aria-disabled")).toBe("true");
+    // A click while it's the orphan must not ship CraftRequest — that's
+    // the bug this whole anchoring dance prevents.
+    orphan.click();
+    expect(sent).toEqual([]);
+  });
+
+  it("drops the orphan and snaps back to natural order once the cursor leaves the panel", () => {
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+      null,
+      null,
+      ["sticks", "wood-pickaxe"],
+    );
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: () => {},
+    });
+    const sticks = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="sticks"]',
+    )!;
+    sticks.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    inventory.replaceFromWire(emptySlots(), null, null, ["wood-pickaxe"]);
+    expect(
+      document.querySelectorAll(".anarchy-crafting-row"),
+    ).toHaveLength(2);
+
+    const panel = document.querySelector<HTMLElement>(
+      ".anarchy-crafting-panel",
+    )!;
+    panel.dispatchEvent(new MouseEvent("mouseleave"));
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+    );
+    expect(rows.map((r) => r.dataset.recipeId)).toEqual(["wood-pickaxe"]);
+  });
+
+  it("drops the orphan when the cursor moves onto a different row", () => {
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+      null,
+      null,
+      ["sticks", "wood-pickaxe"],
+    );
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: () => {},
+    });
+    const sticks = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="sticks"]',
+    )!;
+    sticks.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    inventory.replaceFromWire(emptySlots(), null, null, ["wood-pickaxe"]);
+
+    const woodPickaxe = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
+    )!;
+    woodPickaxe.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+    );
+    expect(rows.map((r) => r.dataset.recipeId)).toEqual(["wood-pickaxe"]);
+  });
+
+  it("does not orphan-pin a recipe the cursor never entered", () => {
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+      null,
+      null,
+      ["sticks", "wood-pickaxe"],
+    );
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: () => {},
+    });
+    // No mousemove on any row — inventory removes sticks; the natural
+    // shrink-to-1 layout takes effect immediately.
+    inventory.replaceFromWire(emptySlots(), null, null, ["wood-pickaxe"]);
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+    );
+    expect(rows.map((r) => r.dataset.recipeId)).toEqual(["wood-pickaxe"]);
+  });
+
+  it("rows live inside a .anarchy-crafting-list wrapper so the slide-in transform stays separate from the anchor translate", () => {
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
+      null,
+      null,
+      ["sticks"],
+    );
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: () => {},
+    });
+    const wrapper = document.querySelector(".anarchy-crafting-list");
+    expect(wrapper).not.toBeNull();
+    const row = document.querySelector<HTMLElement>(".anarchy-crafting-row")!;
+    expect(row.parentElement).toBe(wrapper);
+  });
+
   it("stops mousedown / contextmenu inside the panel from reaching window", () => {
     inventory.replaceFromWire(
       emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),

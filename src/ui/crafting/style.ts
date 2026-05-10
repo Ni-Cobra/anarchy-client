@@ -58,11 +58,18 @@ const STYLE = `
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
     box-sizing: border-box;
     padding: ${PANEL_PAD_PX}px;
+  }
+  .anarchy-crafting-panel.open { transform: translate(0, -50%); }
+  /*
+   * Inner wrapper that owns the row flow. The hover-anchor logic in
+   * index.ts applies a translateY here (not on the panel) so the slide-in
+   * transition above is undisturbed.
+   */
+  .anarchy-crafting-list {
     display: flex;
     flex-direction: column;
     gap: ${PANEL_GAP_PX}px;
   }
-  .anarchy-crafting-panel.open { transform: translate(0, -50%); }
   .anarchy-crafting-empty {
     color: rgba(240, 240, 240, 0.55);
     font-size: 13px;
@@ -89,6 +96,20 @@ const STYLE = `
   .anarchy-crafting-row:focus-visible {
     outline: 2px solid #5aa0ff;
     outline-offset: 1px;
+  }
+  /*
+   * Hovered recipe that just stopped being craftable (task 460). It stays
+   * in the list so a click already on its way doesn't end up crafting a
+   * different row; visually grayed and inert until the cursor leaves.
+   */
+  .anarchy-crafting-row.uncraftable {
+    opacity: 0.4;
+    filter: grayscale(0.8);
+    cursor: not-allowed;
+  }
+  .anarchy-crafting-row.uncraftable:hover {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.1);
   }
   .anarchy-crafting-side {
     display: flex;

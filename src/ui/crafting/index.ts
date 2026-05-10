@@ -16,9 +16,14 @@
  * - [`./style`] — CSS injection + the panel-width constants.
  * - [`./row`] — pure DOM stamp-out for one recipe row.
  *
- * The list render order is `recipe.id` ascending (sort happens in
- * `Inventory::replaceFromWire`), so the panel doesn't reshuffle as the
- * inventory mutates around its edges.
+ * ## Hover anchoring (task 460)
+ *
+ * Rows live inside a `.anarchy-crafting-list` wrapper so the panel's
+ * slide-in transform is decoupled from a vertical `translateY` we apply to
+ * keep the currently-hovered row pinned to its viewport position across
+ * inventory churn. If the hovered recipe stops being craftable, it stays
+ * in the list as a disabled "orphan" until the cursor moves off, so a
+ * click that lands mid-update never crafts a different recipe.
  */
 
 import type { Inventory } from "../../game/index.js";
@@ -60,24 +65,79 @@ export function mountCraftingUi(
   panel.setAttribute("aria-label", "Crafting");
   root.appendChild(panel);
 
+  const list = document.createElement("div");
+  list.className = "anarchy-crafting-list";
+  panel.appendChild(list);
+
   let open = false;
+  let hoveredRecipeId: string | null = null;
+  // Accumulated translateY (in CSS pixels) on `list` that keeps the hovered
+  // row visually pinned across re-renders. Reset to 0 when no row is hovered.
+  let anchorOffset = 0;
+
+  const applyAnchor = (): void => {
+    list.style.transform = anchorOffset === 0 ? "" : `translateY(${anchorOffset}px)`;
+  };
+
+  const findRow = (id: string): HTMLElement | null =>
+    list.querySelector<HTMLElement>(
+      `.anarchy-crafting-row[data-recipe-id="${id}"]`,
+    );
 
   const render = (): void => {
-    panel.replaceChildren();
-    const ids = options.getInventory().getCraftableRecipeIds();
-    if (ids.length === 0) {
+    const naturalIds = options.getInventory().getCraftableRecipeIds();
+    let displayIds: readonly string[] = naturalIds;
+    let orphanId: string | null = null;
+    if (hoveredRecipeId !== null && !naturalIds.includes(hoveredRecipeId)) {
+      orphanId = hoveredRecipeId;
+      displayIds = insertSorted(naturalIds, hoveredRecipeId);
+    }
+
+    // Capture the hovered row's viewport-y *before* the DOM mutates so we
+    // can re-pin it after re-rendering. If nothing is hovered, drop any
+    // residual anchor offset so the next render lays out naturally.
+    let prevTop: number | null = null;
+    if (hoveredRecipeId !== null) {
+      const prevRow = findRow(hoveredRecipeId);
+      if (prevRow) prevTop = prevRow.getBoundingClientRect().top;
+    } else if (anchorOffset !== 0) {
+      anchorOffset = 0;
+      applyAnchor();
+    }
+
+    list.replaceChildren();
+    if (displayIds.length === 0) {
       const empty = document.createElement("div");
       empty.className = "anarchy-crafting-empty";
       empty.textContent = "No craftable recipes.";
-      panel.appendChild(empty);
+      list.appendChild(empty);
       return;
     }
-    for (const id of ids) {
+    for (const id of displayIds) {
       const recipe = recipeById(id);
       if (!recipe) continue;
       const row = makeRecipeRow(recipe);
-      row.addEventListener("click", () => options.sendCraft(recipe.id));
-      panel.appendChild(row);
+      if (id === orphanId) {
+        row.classList.add("uncraftable");
+        row.setAttribute("aria-disabled", "true");
+      }
+      row.addEventListener("click", () => {
+        if (id === orphanId) return;
+        options.sendCraft(recipe.id);
+      });
+      list.appendChild(row);
+    }
+
+    if (hoveredRecipeId !== null && prevTop !== null) {
+      const newRow = findRow(hoveredRecipeId);
+      if (newRow) {
+        const newTop = newRow.getBoundingClientRect().top;
+        const delta = prevTop - newTop;
+        if (delta !== 0) {
+          anchorOffset += delta;
+          applyAnchor();
+        }
+      }
     }
   };
 
@@ -85,6 +145,31 @@ export function mountCraftingUi(
     if (open === next) return;
     open = next;
     panel.classList.toggle("open", open);
+  };
+
+  const setHovered = (next: string | null): void => {
+    if (next === hoveredRecipeId) return;
+    hoveredRecipeId = next;
+    render();
+  };
+
+  // Hover is tracked at the document level rather than via panel-scoped
+  // mouseenter/leave: in headless Chromium under Playwright, leaving the
+  // panel in a single `mouse.move(x, y)` step doesn't reliably dispatch
+  // `mouseleave` on the panel. A document `mousemove` listener catches
+  // both transitions — into and out of the panel — from the same signal.
+  // `panel.contains(target)` keeps the check scoped to our own DOM.
+  const onDocMouseMove = (e: MouseEvent): void => {
+    const target = e.target as HTMLElement | null;
+    if (!target || !panel.contains(target)) {
+      setHovered(null);
+      return;
+    }
+    const row = target.closest<HTMLElement>(".anarchy-crafting-row");
+    setHovered(row?.dataset.recipeId ?? null);
+  };
+  const onPanelMouseLeave = (): void => {
+    setHovered(null);
   };
 
   const unsubscribe = options.getInventory().subscribe(render);
@@ -95,6 +180,8 @@ export function mountCraftingUi(
   for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
+  panel.addEventListener("mouseleave", onPanelMouseLeave);
+  document.addEventListener("mousemove", onDocMouseMove);
 
   document.body.appendChild(root);
   render();
@@ -106,7 +193,22 @@ export function mountCraftingUi(
     render,
     unmount: () => {
       unsubscribe();
+      document.removeEventListener("mousemove", onDocMouseMove);
       root.remove();
     },
   };
+}
+
+function insertSorted(arr: readonly string[], value: string): string[] {
+  const out: string[] = [];
+  let inserted = false;
+  for (const id of arr) {
+    if (!inserted && value < id) {
+      out.push(value);
+      inserted = true;
+    }
+    out.push(id);
+  }
+  if (!inserted) out.push(value);
+  return out;
 }
