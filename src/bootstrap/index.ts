@@ -392,6 +392,8 @@ export function runMain(
   // next `InventoryUpdate` is the canonical state.
   const inventoryUiInner = mountInventoryUi({
     getInventory: () => inventory,
+    getChestInventory: () =>
+      chestState.location() !== null ? chestState.inventory() : null,
     sendSelect: sendSelectSlot,
     sendMove: sendMoveSlot,
     sendTransfer: sendTransferItems,
@@ -412,11 +414,13 @@ export function runMain(
 
   // Task 420 chest panel — opens automatically when `ChestUpdate` lands
   // with a non-null `chest` and closes when the server ships a closed
-  // sentinel (range loss / explicit close / chest broken).
+  // sentinel (range loss / explicit close / chest broken). Task 535
+  // unified drag/drop + right-click split + click-to-withdraw through
+  // the inventory UI's shared dragdrop state machine — the chest UI
+  // registers its cells through `inventoryUiInner.wireChestSlot`.
   const chestUi = mountChestUi({
     chestState,
-    getPlayerInventory: () => inventory,
-    sendMoveSlot,
+    inventoryUi: inventoryUiInner,
   });
   teardowns.push(() => chestUi.unmount());
 
@@ -447,6 +451,7 @@ export function runMain(
     },
     selectedHotbarSlot: () => inventoryUiInner.selectedHotbarSlot(),
     selectHotbarSlot: (slot) => inventoryUiInner.selectHotbarSlot(slot),
+    wireChestSlot: (idx, cell) => inventoryUiInner.wireChestSlot(idx, cell),
     render: () => inventoryUiInner.render(),
     unmount: () => inventoryUiInner.unmount(),
   };

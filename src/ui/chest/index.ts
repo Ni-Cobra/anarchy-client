@@ -1,30 +1,25 @@
 /**
- * Chest panel UI (task 420).
+ * Chest panel UI (task 420 + 535).
  *
  * Renders the open chest's 45-slot inventory in a side-panel sibling to
  * the player's main inventory grid. Mounts only when `chestState.location()`
  * is non-null (the server tracks the open chest and ships
  * `ChestUpdate` per tick the contents mutate).
  *
- * Today's interaction model is minimal click-to-transfer:
- * - Click a chest slot → cross-grid `MoveSlot(chest → player)` ships the
- *   stack into the first empty / mergeable player slot (server's
- *   merge-or-swap path picks the destination).
- *
- * The follow-up backlog item extends this with full drag/drop and
- * right-click split across the two grids — for v1 the simpler click
- * interaction is enough to deposit / withdraw items and prove the wire
- * round-trip.
+ * Interaction model (task 535): the chest cells share the same drag-and-
+ * drop machinery as the player grid. Each cell is registered with the
+ * inventory UI's `wireChestSlot` at mount time so pointerdown / drag /
+ * right-click split / click-to-withdraw all flow through the same state
+ * machine and ship `MoveSlot` / `TransferItems` with the right cross-grid
+ * `srcChest` / `dstChest` flags filled in.
  */
 import {
   type ChestState,
-  HOTBAR_SLOTS,
   INVENTORY_SIZE,
-  type Inventory,
-  MAIN_SLOTS,
 } from "../../game/index.js";
 import { itemDisplayName } from "../../item_names.js";
 import { textureUrlForItem } from "../../textures.js";
+import type { InventoryUiHandle } from "../inventory/index.js";
 
 const STYLE_ID = "anarchy-chest-style";
 
@@ -73,6 +68,7 @@ const STYLE = `
     position: relative;
     cursor: pointer;
     user-select: none;
+    box-sizing: border-box;
   }
   .anarchy-chest-slot:hover { background: rgba(255, 255, 255, 0.10); }
   .anarchy-chest-slot img {
@@ -87,19 +83,24 @@ const STYLE = `
     color: #ffffff;
     text-shadow: 1px 1px 0 #000;
   }
+  /* Mirror the player-grid affordances so the cross-grid drag/split
+     state reads identically. */
+  .anarchy-chest-slot.drag-source { opacity: 0.4; }
+  .anarchy-chest-slot.split-source {
+    border-color: #ffd34a;
+    box-shadow: 0 0 0 2px rgba(255, 211, 74, 0.5) inset;
+  }
 `;
 
 export interface ChestUiOptions {
   readonly chestState: ChestState;
-  /** Read the player's own inventory so we can resolve "deposit empty" etc. */
-  readonly getPlayerInventory: () => Inventory;
-  /** Ship a cross-grid `MoveSlot` to the server. */
-  readonly sendMoveSlot: (
-    src: number,
-    dst: number,
-    srcChest: boolean,
-    dstChest: boolean,
-  ) => void;
+  /**
+   * Inventory UI handle (task 535). The chest UI registers each of its
+   * cells with this handle's `wireChestSlot` so the cross-grid drag /
+   * right-click split / click-to-withdraw flows route through the
+   * shared dragdrop state machine.
+   */
+  readonly inventoryUi: InventoryUiHandle;
 }
 
 export interface ChestUiHandle {
@@ -133,28 +134,22 @@ export function mountChestUi(options: ChestUiOptions): ChestUiHandle {
   for (let i = 0; i < INVENTORY_SIZE; i++) {
     const cell = document.createElement("div");
     cell.className = "anarchy-chest-slot";
-    cell.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      // Cross-grid move: chest[i] → first empty / mergeable player slot.
-      // The server's `merge_stacks` / `swap_slots` finds the destination;
-      // we just name "any panel slot" and let it route. Pick the panel
-      // start (HOTBAR_SLOTS) as the canonical destination — the server
-      // merges into any same-kind cell across the inventory pool.
-      const dst = findPlayerDestination(options.getPlayerInventory(), i);
-      if (dst === null) return;
-      options.sendMoveSlot(i, dst, true, false);
-    });
+    // Suppress the browser context menu so right-click can drive the
+    // split flow without the OS overlay stealing focus. Pointerdown is
+    // owned by the dragdrop state machine via `wireChestSlot`.
     cell.addEventListener("contextmenu", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
     });
+    options.inventoryUi.wireChestSlot(i, cell);
     panel.appendChild(cell);
     cells.push(cell);
   }
 
   // Stop pointer events from reaching `window` so the bootstrap-level
   // mousedown / contextmenu handlers don't fire destroy / place when a
-  // click lands on the chest panel.
+  // click lands on the chest panel. The dragdrop machinery still sees
+  // them — it attaches at the cell level + at the document level.
   for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
@@ -202,34 +197,4 @@ export function mountChestUi(options: ChestUiOptions): ChestUiHandle {
       root.remove();
     },
   };
-}
-
-/**
- * Resolve "any player slot" for a chest→player move. Prefers an
- * existing same-kind slot in the player's inventory; falls back to the
- * first empty cell. Returns `null` if the player inventory has no
- * destination (in which case the server would also reject the move).
- */
-function findPlayerDestination(
-  playerInv: Inventory,
-  chestSrcIdx: number,
-): number | null {
-  // We have the chest source's item kind only via the chest_state's
-  // inventory — the caller in the click handler knows we want the kind
-  // of cells[chestSrcIdx]; route through a fresh slot lookup from the
-  // closure's perspective by accepting the source idx and recovering
-  // the item from the chest cell at render time. For now, scan empty
-  // first: the server's merge_stacks falls back to swap if the cell is
-  // mismatched, so a click that lands on an empty cell is a clean move.
-  // Tracking the chest item here would require also reading the chest
-  // state from the helper — left as a v1 simplification.
-  void chestSrcIdx;
-  for (let i = HOTBAR_SLOTS; i < HOTBAR_SLOTS + MAIN_SLOTS; i++) {
-    if (playerInv.slot(i) === null) return i;
-  }
-  // Try the hotbar as a fallback.
-  for (let i = 0; i < HOTBAR_SLOTS; i++) {
-    if (playerInv.slot(i) === null) return i;
-  }
-  return null;
 }

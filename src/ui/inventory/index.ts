@@ -24,7 +24,10 @@
  *   `paintEquipmentSlot`, `applyItemIconStyle`).
  * - [`./dragdrop`] — pointer state machine (pending click vs. promoted
  *   drag) plus the routing matrix that turns a release into the right
- *   wire action (`MoveSlot` / `EquipTool` / `UnequipTool`).
+ *   wire action (`MoveSlot` / `EquipTool` / `UnequipTool`). Task 535
+ *   added the cross-grid surface: the chest UI registers its cells
+ *   through `wireChestSlot` and the dragdrop ships the right
+ *   `srcChest` / `dstChest` flags on the wire.
  *
  * Selection state (the highlighted hotbar cell) is mirrored locally so the
  * UI can repaint without a server round-trip; the wire-driven `sendSelect`
@@ -52,9 +55,7 @@
 
 import {
   HOTBAR_SLOTS,
-  INVENTORY_SIZE,
   type Inventory,
-  type ItemId,
   MAIN_SLOTS,
   type ToolKind,
 } from "../../game/index.js";
@@ -63,17 +64,24 @@ import { attachTooltip, type TooltipHandle } from "../tooltip.js";
 import { makeSlotCell, paintEquipmentSlot, paintSlot } from "./cells.js";
 import {
   attachDragDrop,
+  type DragDropHandle,
   EQUIP_AXE_SLOT_ID,
   EQUIP_PICKAXE_SLOT_ID,
   EQUIP_SHOVEL_SLOT_ID,
   EQUIP_UTILITY_SLOT_ID,
-  equipKindForSentinel,
+  type SlotRef,
 } from "./dragdrop.js";
 import { injectStyle } from "./style.js";
 
 export interface InventoryUiOptions {
   /** Reads the current inventory mirror. Called on every render. */
   readonly getInventory: () => Inventory;
+  /**
+   * Reads the open chest's inventory mirror, or `null` if no chest is
+   * open. Optional because the existing test suite predates the chest
+   * surface; production wires this through `bootstrap.ts`.
+   */
+  readonly getChestInventory?: () => Inventory | null;
   /**
    * Ship a `SelectSlot` action up to the server. Called by the keymap +
    * wheel hooks any time the local selection changes; the local mirror
@@ -83,16 +91,31 @@ export interface InventoryUiOptions {
    * authoritatively applied per place validation).
    */
   readonly sendSelect: (slot: number) => void;
-  /** Ship a `MoveSlot` drag-drop action up to the server. */
-  readonly sendMove: (src: number, dst: number) => void;
   /**
-   * Ship a `TransferItems(src, dst, count)` action — BACKLOG 410's
-   * right-click split flow. The drag-drop machinery here calls with
-   * `count = 1` per ramp tick. Optional because the existing test suite
-   * predates the right-click split surface and mounts the UI without
-   * caring about transfers; production callers always pass it.
+   * Ship a `MoveSlot` drag-drop action up to the server. The optional
+   * cross-grid flags carry the chest source / destination per task 535;
+   * legacy callers that don't open chests can ignore them.
    */
-  readonly sendTransfer?: (src: number, dst: number, count: number) => void;
+  readonly sendMove: (
+    src: number,
+    dst: number,
+    srcChest?: boolean,
+    dstChest?: boolean,
+  ) => void;
+  /**
+   * Ship a `TransferItems(src, dst, count)` action — the right-click
+   * split flow. The drag-drop machinery here calls with `count = 1` per
+   * ramp tick. Optional because the existing test suite predates the
+   * right-click split surface and mounts the UI without caring about
+   * transfers; production callers always pass it.
+   */
+  readonly sendTransfer?: (
+    src: number,
+    dst: number,
+    count: number,
+    srcChest?: boolean,
+    dstChest?: boolean,
+  ) => void;
   /** Ship an `EquipTool` action up to the server (task 100). */
   readonly sendEquip: (sourceSlot: number, kind: ToolKind) => void;
   /** Ship an `UnequipTool` action up to the server (task 100). */
@@ -110,6 +133,13 @@ export interface InventoryUiHandle {
    * `sendSelect`). Called by `bootstrap.ts`'s number-key + wheel handlers.
    */
   selectHotbarSlot(slot: number): void;
+  /**
+   * Register a chest-grid cell with the shared drag-and-drop machinery
+   * (task 535). The chest UI calls this for every chest slot at mount
+   * time so cross-grid drag / right-click split / click-to-withdraw
+   * route through the same state machine as the player grid.
+   */
+  wireChestSlot(idx: number, cell: HTMLDivElement): void;
   /** Force a re-render — exposed for tests; the live mirror notifies on its own. */
   render(): void;
   unmount(): void;
@@ -220,34 +250,26 @@ export function mountInventoryUi(
   let open = false;
   let selectedSlot = 0;
 
-  const cellByIndex = (idx: number): HTMLDivElement | null => {
-    if (idx === EQUIP_PICKAXE_SLOT_ID) return equipmentCells[0].cell;
-    if (idx === EQUIP_AXE_SLOT_ID) return equipmentCells[1].cell;
-    if (idx === EQUIP_SHOVEL_SLOT_ID) return equipmentCells[2].cell;
-    if (idx === EQUIP_UTILITY_SLOT_ID) return equipmentCells[3].cell;
-    if (idx < 0 || idx >= INVENTORY_SIZE) return null;
-    if (idx < HOTBAR_SLOTS) return hotbarCells[idx];
-    return panelCells[idx - HOTBAR_SLOTS];
+  // Wire-frame adapters. Equipment sentinels short-circuit before
+  // hitting the wire (they're translated into EquipTool / UnequipTool
+  // by the dragdrop's drop resolver). Regular cells unpack the slot
+  // ref into the cross-grid flags the server expects.
+  const sendMove = (src: SlotRef, dst: SlotRef): void => {
+    options.sendMove(src.idx, dst.idx, src.chest, dst.chest);
+  };
+  const sendTransfer = (src: SlotRef, dst: SlotRef, count: number): void => {
+    options.sendTransfer?.(src.idx, dst.idx, count, src.chest, dst.chest);
   };
 
-  const slotIndexFromCell = (cell: HTMLElement): number | null => {
-    const hotbarIdx = hotbarCells.indexOf(cell as HTMLDivElement);
-    if (hotbarIdx >= 0) return hotbarIdx;
-    const panelIdx = panelCells.indexOf(cell as HTMLDivElement);
-    if (panelIdx >= 0) return HOTBAR_SLOTS + panelIdx;
-    if (cell === equipmentCells[0].cell) return EQUIP_PICKAXE_SLOT_ID;
-    if (cell === equipmentCells[1].cell) return EQUIP_AXE_SLOT_ID;
-    if (cell === equipmentCells[2].cell) return EQUIP_SHOVEL_SLOT_ID;
-    if (cell === equipmentCells[3].cell) return EQUIP_UTILITY_SLOT_ID;
-    return null;
-  };
-
-  const itemAtIndex = (idx: number): ItemId | null => {
-    const inv = options.getInventory();
-    const kind = equipKindForSentinel(idx);
-    if (kind !== null) return inv.getEquipped(kind);
-    return inv.slot(idx)?.item ?? null;
-  };
+  const dragdrop: DragDropHandle = attachDragDrop({
+    getInventory: options.getInventory,
+    getChestInventory: options.getChestInventory ?? (() => null),
+    getSelectedHotbarSlot: () => selectedSlot,
+    sendMove,
+    sendTransfer,
+    sendEquip: options.sendEquip,
+    sendUnequip: options.sendUnequip,
+  });
 
   const render = (): void => {
     const inv = options.getInventory();
@@ -255,9 +277,7 @@ export function mountInventoryUi(
     const axeSlot = inv.getEquippedSlot("axe");
     const shovelSlot = inv.getEquippedSlot("shovel");
     const utilitySlot = inv.getEquippedSlot("utility");
-    const equipMarkAt = (
-      idx: number,
-    ): ToolKind | null => {
+    const equipMarkAt = (idx: number): ToolKind | null => {
       if (idx === pickaxeSlot) return "pickaxe";
       if (idx === axeSlot) return "axe";
       if (idx === shovelSlot) return "shovel";
@@ -276,34 +296,35 @@ export function mountInventoryUi(
     }
     // After re-painting, ask the dragdrop machinery to reconcile its
     // right-click split source — if a hold-transfer just drained the
-    // source cell, the yellow border should clear. Guard with a runtime
-    // check because `render` is captured into a subscription before
-    // `dragdrop` is assigned.
-    dragdrop?.refreshSplitSource();
+    // source cell, the yellow border should clear.
+    dragdrop.refreshSplitSource();
   };
 
-  const dragdrop = attachDragDrop({
-    cellByIndex,
-    slotIndexFromCell,
-    itemAtIndex,
-    getInventory: options.getInventory,
-    getSelectedHotbarSlot: () => selectedSlot,
-    sendMove: options.sendMove,
-    sendTransfer: options.sendTransfer ?? (() => {}),
-    sendEquip: options.sendEquip,
-    sendUnequip: options.sendUnequip,
-  });
-
   for (let i = 0; i < HOTBAR_SLOTS; i++) {
-    dragdrop.wireSlotPointerDown(i, hotbarCells[i]);
+    dragdrop.wireSlotPointerDown({ idx: i, chest: false }, hotbarCells[i]);
   }
   for (let i = 0; i < MAIN_SLOTS; i++) {
-    dragdrop.wireSlotPointerDown(HOTBAR_SLOTS + i, panelCells[i]);
+    dragdrop.wireSlotPointerDown(
+      { idx: HOTBAR_SLOTS + i, chest: false },
+      panelCells[i],
+    );
   }
-  dragdrop.wireSlotPointerDown(EQUIP_PICKAXE_SLOT_ID, equipmentCells[0].cell);
-  dragdrop.wireSlotPointerDown(EQUIP_AXE_SLOT_ID, equipmentCells[1].cell);
-  dragdrop.wireSlotPointerDown(EQUIP_SHOVEL_SLOT_ID, equipmentCells[2].cell);
-  dragdrop.wireSlotPointerDown(EQUIP_UTILITY_SLOT_ID, equipmentCells[3].cell);
+  dragdrop.wireSlotPointerDown(
+    { idx: EQUIP_PICKAXE_SLOT_ID, chest: false },
+    equipmentCells[0].cell,
+  );
+  dragdrop.wireSlotPointerDown(
+    { idx: EQUIP_AXE_SLOT_ID, chest: false },
+    equipmentCells[1].cell,
+  );
+  dragdrop.wireSlotPointerDown(
+    { idx: EQUIP_SHOVEL_SLOT_ID, chest: false },
+    equipmentCells[2].cell,
+  );
+  dragdrop.wireSlotPointerDown(
+    { idx: EQUIP_UTILITY_SLOT_ID, chest: false },
+    equipmentCells[3].cell,
+  );
 
   // Hotbar click → select. Bound on `click` (vs. pointerdown) so a drag
   // gesture starting on a hotbar cell doesn't also flip selection on the
@@ -345,6 +366,10 @@ export function mountInventoryUi(
     render();
   };
 
+  const wireChestSlot = (idx: number, cell: HTMLDivElement): void => {
+    dragdrop.wireSlotPointerDown({ idx, chest: true }, cell);
+  };
+
   const unsubscribe = options.getInventory().subscribe(render);
 
   // Stop pointer events from reaching `window` so the bootstrap-level
@@ -365,6 +390,7 @@ export function mountInventoryUi(
     toggle: () => setOpen(!open),
     selectedHotbarSlot: () => selectedSlot,
     selectHotbarSlot,
+    wireChestSlot,
     render,
     unmount: () => {
       unsubscribe();
