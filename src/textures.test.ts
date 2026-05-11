@@ -4,6 +4,7 @@ import { BlockType, ItemId } from "./game/index.js";
 import { ITEM_REGISTRY } from "./item_names.js";
 import {
   BLOCK_REGISTRY,
+  isSolidTopBlock,
   textureUrlForBlock,
   textureUrlForItem,
 } from "./textures.js";
@@ -55,6 +56,49 @@ describe("textureUrlForBlock", () => {
       if (meta.textureUrl === null) continue;
       expect(seen.has(meta.textureUrl)).toBe(false);
       seen.add(meta.textureUrl);
+    }
+  });
+});
+
+describe("isSolidTopBlock", () => {
+  it("returns false for the walk-through decoratives (task 510 signal)", () => {
+    // The break-anim layer uses `!isSolidTopBlock(kind)` to decide whether
+    // to scale down the shatter + puff for small / walkable top blocks.
+    // Locking the set down so a future ADR can't silently drop a kind into
+    // the softer-feedback bucket without an explicit registry change.
+    for (const kind of [
+      BlockType.Sticks,
+      BlockType.FlowerRed,
+      BlockType.FlowerYellow,
+      BlockType.FlowerBlue,
+      BlockType.FlowerWhite,
+      BlockType.Bush,
+      BlockType.Torch,
+    ]) {
+      expect(isSolidTopBlock(kind)).toBe(false);
+    }
+  });
+
+  it("returns true for full-cell solids, Tree, and Chest", () => {
+    for (const kind of [
+      BlockType.Grass,
+      BlockType.Wood,
+      BlockType.Stone,
+      BlockType.Gold,
+      BlockType.Tree,
+      BlockType.Dirt,
+      BlockType.Sand,
+      BlockType.Gravel,
+      BlockType.StoneLight,
+      BlockType.StoneDark,
+      BlockType.CopperOre,
+      BlockType.IronOre,
+      BlockType.TungstenOre,
+      BlockType.CoalOre,
+      BlockType.DiamondOre,
+      BlockType.Chest,
+    ]) {
+      expect(isSolidTopBlock(kind)).toBe(true);
     }
   });
 });

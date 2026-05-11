@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { BlockType } from "../../game/index.js";
@@ -122,5 +123,38 @@ describe("EffectsLayer", () => {
     expect(countChildren(layer)).toBe(2);
     layer.dispose();
     expect(countChildren(layer)).toBe(0);
+  });
+
+  it("uses a smaller, shorter shatter for non-solid top blocks (task 510)", () => {
+    // Stone is solid-top → full-cell shatter cube + standard duration.
+    const solid = makeLayer();
+    solid.onBlockEdit(
+      { playerId: 1, kind: "broken", cx: 0, cy: 0, lx: 0, ly: 0, blockType: BlockType.Stone },
+      0,
+    );
+    const solidGeom = (solid.scene().children[0] as THREE.Mesh)
+      .geometry as THREE.BoxGeometry;
+    // Solid keeps the legacy unit-cube starting geometry.
+    expect(solidGeom.parameters.width).toBeCloseTo(1, 6);
+
+    // Sticks is non-solid → softer (smaller) cube *and* shorter
+    // lifetime. A timestamp past the soft duration should expire the
+    // shatter while a solid one would still be alive.
+    const soft = makeLayer();
+    soft.onBlockEdit(
+      { playerId: 1, kind: "broken", cx: 0, cy: 0, lx: 0, ly: 0, blockType: BlockType.Sticks },
+      0,
+    );
+    const softGeom = (soft.scene().children[0] as THREE.Mesh)
+      .geometry as THREE.BoxGeometry;
+    expect(softGeom.parameters.width).toBeLessThan(1);
+
+    // Pin the duration cut: the standard shatter is 350ms; the soft
+    // one should be shorter. Check that at 200ms (still mid-life for
+    // solid, past-end for soft) the counts split.
+    solid.update(200);
+    soft.update(200);
+    expect(solid.scene().children).toHaveLength(1);
+    expect(soft.scene().children).toHaveLength(0);
   });
 });

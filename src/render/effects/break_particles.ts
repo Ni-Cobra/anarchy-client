@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { BlockType } from "../../game/index.js";
+import { isSolidTopBlock } from "../../textures.js";
 
 /**
  * Cosmetic puff that fires the moment a top-layer cell breaks. The wire
@@ -39,6 +40,14 @@ const PARTICLE_SPEED_VERTICAL = 1.5;
 const PARTICLE_GRAVITY = 5;
 const PARTICLE_OPACITY = 0.95;
 const PARTICLE_CAP = 64;
+// Single intensity multiplier applied to the puff when the broken kind
+// is a non-solid / walk-through top block (task 510 — `Sticks`, flowers,
+// `Bush`, `Torch`). Scales particle size, horizontal + vertical speeds,
+// and gravity by the same factor: with `v_y` and `g` scaled together the
+// arc keeps its shape but lower-amplitude, so the puff still reads as
+// a puff — just a smaller, softer one. Mirrors the same multiplier in
+// `effects.ts`.
+const SOFT_BREAK_INTENSITY = 0.45;
 
 interface Particle {
   readonly mesh: THREE.Mesh;
@@ -49,6 +58,7 @@ interface Particle {
   readonly velocityX: number;
   readonly velocityZ: number;
   readonly velocityY: number;
+  readonly gravity: number;
   readonly startMs: number;
   readonly endMs: number;
 }
@@ -79,6 +89,12 @@ export class BreakParticles {
    */
   spawn(sceneX: number, sceneZ: number, kind: BlockType, nowMs: number): void {
     const tint = this.colorFor(kind);
+    const soft = !isSolidTopBlock(kind);
+    const k = soft ? SOFT_BREAK_INTENSITY : 1;
+    const size = PARTICLE_SIZE * k;
+    const speedH = PARTICLE_SPEED_HORIZONTAL * k;
+    const speedV = PARTICLE_SPEED_VERTICAL * k;
+    const gravity = PARTICLE_GRAVITY * k;
     for (let i = 0; i < PARTICLES_PER_BREAK; i++) {
       if (this.particles.length >= PARTICLE_CAP) {
         // Drop oldest — the live array is FIFO so index 0 is the
@@ -86,13 +102,9 @@ export class BreakParticles {
         this.disposeAt(0);
       }
       const angle = (i / PARTICLES_PER_BREAK) * Math.PI * 2;
-      const vx = Math.cos(angle) * PARTICLE_SPEED_HORIZONTAL;
-      const vz = Math.sin(angle) * PARTICLE_SPEED_HORIZONTAL;
-      const geometry = new THREE.BoxGeometry(
-        PARTICLE_SIZE,
-        PARTICLE_SIZE,
-        PARTICLE_SIZE,
-      );
+      const vx = Math.cos(angle) * speedH;
+      const vz = Math.sin(angle) * speedH;
+      const geometry = new THREE.BoxGeometry(size, size, size);
       const material = new THREE.MeshBasicMaterial({
         color: tint,
         transparent: true,
@@ -110,7 +122,8 @@ export class BreakParticles {
         originZ: sceneZ,
         velocityX: vx,
         velocityZ: vz,
-        velocityY: PARTICLE_SPEED_VERTICAL,
+        velocityY: speedV,
+        gravity,
         startMs: nowMs,
         endMs: nowMs + PARTICLE_LIFETIME_MS,
       });
@@ -135,7 +148,7 @@ export class BreakParticles {
       const x = p.originX + p.velocityX * dtSec;
       const z = p.originZ + p.velocityZ * dtSec;
       const y =
-        PARTICLE_SPAWN_Y + p.velocityY * dtSec - 0.5 * PARTICLE_GRAVITY * dtSec * dtSec;
+        PARTICLE_SPAWN_Y + p.velocityY * dtSec - 0.5 * p.gravity * dtSec * dtSec;
       p.mesh.position.set(x, y, z);
       p.material.opacity = PARTICLE_OPACITY * (1 - t);
     }

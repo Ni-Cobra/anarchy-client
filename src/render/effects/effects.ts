@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { type BlockType, paletteColorHex } from "../../game/index.js";
+import { isSolidTopBlock } from "../../textures.js";
 import { tileCenterToScene } from "../terrain.js";
 
 /**
@@ -56,6 +57,13 @@ const PLACE_PULSE_OPACITY = 0.85;
 // effect is unmistakable but doesn't linger past the next tick.
 const BREAK_SHATTER_MIN_SCALE = 0.2;
 const BREAK_SHATTER_OPACITY = 0.9;
+// Single intensity multiplier applied to the break animation when the
+// broken kind is a non-solid / walk-through top block (task 510 —
+// `Sticks`, flowers, `Bush`, `Torch`). Scales the shatter's starting
+// size *and* its lifetime so the effect reads as a subtle tap instead
+// of the full-cell "crunching rock" feedback used for solids. Mirrors
+// the same multiplier in `break_particles.ts`.
+const SOFT_BREAK_INTENSITY = 0.45;
 // Targeting frame: faint outlined cube tinted by the targeting player's
 // color. Slightly inset from the cell so a stack of overlays from
 // different players reads as concentric, not coincident.
@@ -143,7 +151,7 @@ export class EffectsLayer {
     if (event.kind === "placed") {
       this.spawnPlacePulse(center.x, center.z, tint, nowMs);
     } else {
-      this.spawnBreakShatter(center.x, center.z, tint, nowMs);
+      this.spawnBreakShatter(center.x, center.z, tint, event.blockType, nowMs);
     }
   }
 
@@ -251,11 +259,19 @@ export class EffectsLayer {
     sceneX: number,
     sceneZ: number,
     tint: number,
+    kind: BlockType,
     nowMs: number,
   ): void {
     // Cube that shrinks + fades — same world position the broken block
-    // occupied, so the eye stays put.
-    const geom = new THREE.BoxGeometry(1, 1, 1);
+    // occupied, so the eye stays put. Non-solid / walk-through top kinds
+    // ride a smaller starting cube and a proportionally shorter lifetime
+    // so the destruction feedback reads as a tap, not a crunch.
+    const soft = !isSolidTopBlock(kind);
+    const size = soft ? SOFT_BREAK_INTENSITY : 1;
+    const durationMs = soft
+      ? BREAK_SHATTER_DURATION_MS * SOFT_BREAK_INTENSITY
+      : BREAK_SHATTER_DURATION_MS;
+    const geom = new THREE.BoxGeometry(size, size, size);
     const mat = new THREE.MeshBasicMaterial({
       color: tint,
       transparent: true,
@@ -269,7 +285,7 @@ export class EffectsLayer {
       mesh,
       material: mat,
       startMs: nowMs,
-      endMs: nowMs + BREAK_SHATTER_DURATION_MS,
+      endMs: nowMs + durationMs,
     });
   }
 

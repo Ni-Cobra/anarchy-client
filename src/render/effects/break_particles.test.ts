@@ -122,4 +122,48 @@ describe("BreakParticles", () => {
     expect(e.count()).toBe(0);
     expect(e.scene().children).toHaveLength(0);
   });
+
+  it("emits a softer puff for non-solid / walk-through top blocks (task 510)", () => {
+    // Reference burst: a solid kind (Stone) at t=0. Particle 0 moves
+    // along +x at the unmodified horizontal speed.
+    const solid = makeEmitter();
+    solid.spawn(0, 0, BlockType.Stone, 0);
+    solid.update(100);
+    const refX = (solid.scene().children[0] as THREE.Mesh).position.x;
+    const refSize = ((solid.scene().children[0] as THREE.Mesh).geometry as THREE.BoxGeometry)
+      .parameters.width;
+
+    // Soft burst: Sticks is non-solid. Same i=0 angle, same dt → x
+    // displacement should be smaller (speed scaled) and the cube geom
+    // should be smaller (size scaled) by the same factor.
+    const soft = makeEmitter();
+    soft.spawn(0, 0, BlockType.Sticks, 0);
+    soft.update(100);
+    const softX = (soft.scene().children[0] as THREE.Mesh).position.x;
+    const softSize = ((soft.scene().children[0] as THREE.Mesh).geometry as THREE.BoxGeometry)
+      .parameters.width;
+
+    expect(softX).toBeLessThan(refX);
+    expect(softSize).toBeLessThan(refSize);
+    // Same multiplier on both — i.e. a single intensity knob.
+    expect(softX / refX).toBeCloseTo(softSize / refSize, 5);
+  });
+
+  it("uses the unscaled puff for full-cell solids", () => {
+    // Verifies the path that handles "regular crunching rock" is not
+    // accidentally muted by the soft-break gate. Two reference solid
+    // kinds produce identical particle displacements at the same dt.
+    const a = makeEmitter();
+    a.spawn(0, 0, BlockType.Stone, 0);
+    a.update(100);
+    const b = makeEmitter();
+    b.spawn(0, 0, BlockType.Dirt, 0);
+    b.update(100);
+    const ax = (a.scene().children[0] as THREE.Mesh).position.x;
+    const bx = (b.scene().children[0] as THREE.Mesh).position.x;
+    expect(ax).toBeCloseTo(bx, 6);
+    // Pin the literal value too: unchanged from the legacy
+    // gravity-shape test above (0.15 at t=0.1s with speed=1.5).
+    expect(ax).toBeCloseTo(0.15, 5);
+  });
 });

@@ -39,6 +39,16 @@ export interface BlockMeta {
    * purely an affordance.
    */
   readonly minToolTier: ToolTier | null;
+  /**
+   * Whether a top-layer block of this kind blocks player movement.
+   * Mirrors `BlockMeta::is_solid_top` on the server — `false` for the
+   * walk-through decoratives (`Sticks`, flowers, `Bush`, `Torch`),
+   * `true` for full-cell solids and `Tree` / `Chest`. Renderer-only on
+   * the client: drives the softer break animation for non-solid top
+   * cells (task 510). `Air` and the wire-only `Hidden` sentinel are
+   * `false`; neither is ever a real break target.
+   */
+  readonly isSolidTop: boolean;
 }
 
 const BLOCK_TEXTURES_BASE = "/textures/blocks";
@@ -60,150 +70,175 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     textureUrl: null,
     displayName: "Air",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.Grass]: {
     kind: BlockType.Grass,
     textureUrl: `${BLOCK_TEXTURES_BASE}/grass.png`,
     displayName: "Grass",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Wood]: {
     kind: BlockType.Wood,
     textureUrl: `${BLOCK_TEXTURES_BASE}/wood.png`,
     displayName: "Wood",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Stone]: {
     kind: BlockType.Stone,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone.png`,
     displayName: "Stone",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Gold]: {
     kind: BlockType.Gold,
     textureUrl: `${BLOCK_TEXTURES_BASE}/gold.png`,
     displayName: "Gold",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Tree]: {
     kind: BlockType.Tree,
     textureUrl: `${BLOCK_TEXTURES_BASE}/tree.png`,
     displayName: "Tree",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Sticks]: {
     kind: BlockType.Sticks,
     textureUrl: `${BLOCK_TEXTURES_BASE}/sticks.png`,
     displayName: "Sticks",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.Hidden]: {
     kind: BlockType.Hidden,
     textureUrl: null,
     displayName: "Hidden",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.FlowerRed]: {
     kind: BlockType.FlowerRed,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-red.png`,
     displayName: "Red Flower",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.FlowerYellow]: {
     kind: BlockType.FlowerYellow,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-yellow.png`,
     displayName: "Yellow Flower",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.FlowerBlue]: {
     kind: BlockType.FlowerBlue,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-blue.png`,
     displayName: "Blue Flower",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.FlowerWhite]: {
     kind: BlockType.FlowerWhite,
     textureUrl: `${BLOCK_TEXTURES_BASE}/flower-white.png`,
     displayName: "White Flower",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.Bush]: {
     kind: BlockType.Bush,
     textureUrl: `${BLOCK_TEXTURES_BASE}/bush.png`,
     displayName: "Bush",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.Dirt]: {
     kind: BlockType.Dirt,
     textureUrl: `${BLOCK_TEXTURES_BASE}/dirt.png`,
     displayName: "Dirt",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Sand]: {
     kind: BlockType.Sand,
     textureUrl: `${BLOCK_TEXTURES_BASE}/sand.png`,
     displayName: "Sand",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.Gravel]: {
     kind: BlockType.Gravel,
     textureUrl: `${BLOCK_TEXTURES_BASE}/gravel.png`,
     displayName: "Gravel",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.StoneLight]: {
     kind: BlockType.StoneLight,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone-light.png`,
     displayName: "Light Stone",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.StoneDark]: {
     kind: BlockType.StoneDark,
     textureUrl: `${BLOCK_TEXTURES_BASE}/stone-dark.png`,
     displayName: "Dark Stone",
     minToolTier: null,
+    isSolidTop: true,
   },
   [BlockType.CopperOre]: {
     kind: BlockType.CopperOre,
     textureUrl: `${BLOCK_TEXTURES_BASE}/copper-ore.png`,
     displayName: "Copper Ore",
     minToolTier: ToolTier.Stone,
+    isSolidTop: true,
   },
   [BlockType.IronOre]: {
     kind: BlockType.IronOre,
     textureUrl: `${BLOCK_TEXTURES_BASE}/iron-ore.png`,
     displayName: "Iron Ore",
     minToolTier: ToolTier.Copper,
+    isSolidTop: true,
   },
   [BlockType.TungstenOre]: {
     kind: BlockType.TungstenOre,
     textureUrl: `${BLOCK_TEXTURES_BASE}/tungsten-ore.png`,
     displayName: "Tungsten Ore",
     minToolTier: ToolTier.Iron,
+    isSolidTop: true,
   },
   [BlockType.CoalOre]: {
     kind: BlockType.CoalOre,
     textureUrl: `${BLOCK_TEXTURES_BASE}/coal-ore.png`,
     displayName: "Coal Ore",
     minToolTier: ToolTier.Wood,
+    isSolidTop: true,
   },
   [BlockType.DiamondOre]: {
     kind: BlockType.DiamondOre,
     textureUrl: `${BLOCK_TEXTURES_BASE}/diamond-ore.png`,
     displayName: "Diamond Ore",
     minToolTier: ToolTier.Iron,
+    isSolidTop: true,
   },
   [BlockType.Torch]: {
     kind: BlockType.Torch,
     textureUrl: `${BLOCK_TEXTURES_BASE}/torch.png`,
     displayName: "Torch",
     minToolTier: null,
+    isSolidTop: false,
   },
   [BlockType.Chest]: {
     kind: BlockType.Chest,
     textureUrl: `${BLOCK_TEXTURES_BASE}/chest.png`,
     displayName: "Chest",
     minToolTier: null,
+    isSolidTop: true,
   },
 };
 
@@ -213,6 +248,18 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
  */
 export function textureUrlForBlock(kind: BlockType): string | null {
   return BLOCK_REGISTRY[kind]?.textureUrl ?? null;
+}
+
+/**
+ * Whether a top-layer block of this kind blocks player movement. Mirrors
+ * the server's `BlockType::is_solid_top`. Renderer-only consumer today:
+ * the break animation scales down for non-solid-top kinds (task 510).
+ * Unknown kinds default to `true` — being conservative here means a
+ * surprise variant still gets the full "real block broke" feedback
+ * rather than a silently muted puff.
+ */
+export function isSolidTopBlock(kind: BlockType): boolean {
+  return BLOCK_REGISTRY[kind]?.isSolidTop ?? true;
 }
 
 /**
