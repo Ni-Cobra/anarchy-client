@@ -408,6 +408,25 @@ describe("chest cross-grid drag/drop + split (task 535)", () => {
     expect(sourceCell.classList.contains("split-source")).toBe(false);
   });
 
+  it("suppresses the native context menu on both chest cells and the panel root", () => {
+    mountUis();
+
+    const cellCtx = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    chestCells()[0].dispatchEvent(cellCtx);
+    expect(cellCtx.defaultPrevented).toBe(true);
+
+    const panel = document.querySelector(".anarchy-chest-panel")! as HTMLElement;
+    const panelCtx = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    panel.dispatchEvent(panelCtx);
+    expect(panelCtx.defaultPrevented).toBe(true);
+  });
+
   it("dragging from a chest cell paints the source highlight on the chest cell", () => {
     const chest = emptySlots();
     chest[1] = { item: ItemId.Gold, count: 10 };

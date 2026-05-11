@@ -436,7 +436,12 @@ describe("crafting UI", () => {
       ".anarchy-crafting-panel",
     )! as HTMLElement;
     panel.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    panel.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    const ctx = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    panel.dispatchEvent(ctx);
+    expect(ctx.defaultPrevented).toBe(true);
     expect(windowHits).toBe(0);
 
     document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));

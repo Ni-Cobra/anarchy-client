@@ -944,12 +944,33 @@ describe("inventory UI", () => {
 
     const hotbar = document.querySelector(".anarchy-hotbar")! as HTMLElement;
     hotbar.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    hotbar.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    const hotbarCtx = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    hotbar.dispatchEvent(hotbarCtx);
+    expect(hotbarCtx.defaultPrevented).toBe(true);
 
     const panel = document.querySelector(
       ".anarchy-inventory-panel",
     )! as HTMLElement;
     panel.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    const panelCtx = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    panel.dispatchEvent(panelCtx);
+    expect(panelCtx.defaultPrevented).toBe(true);
+
+    const equipmentBar = document.querySelector(
+      ".anarchy-equipment-bar",
+    )! as HTMLElement;
+    const equipmentCtx = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    equipmentBar.dispatchEvent(equipmentCtx);
+    expect(equipmentCtx.defaultPrevented).toBe(true);
 
     expect(windowHits).toBe(0);
 

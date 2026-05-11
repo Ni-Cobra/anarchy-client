@@ -374,12 +374,22 @@ export function mountInventoryUi(
 
   // Stop pointer events from reaching `window` so the bootstrap-level
   // mousedown / contextmenu handlers don't fire destroy / place when a
-  // click lands on the hotbar or the panel.
-  for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
+  // click lands on the hotbar or the panel. `contextmenu` also gets
+  // `preventDefault` so the browser's native context menu doesn't
+  // surface over the overlay — the world canvas gets the same
+  // suppression in `bootstrap/break_place.ts`.
+  for (const ev of ["mousedown", "mouseup", "click"] as const) {
     hotbar.addEventListener(ev, (e) => e.stopPropagation());
     equipmentBar.addEventListener(ev, (e) => e.stopPropagation());
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
+  const onContextMenu = (e: Event): void => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  hotbar.addEventListener("contextmenu", onContextMenu);
+  equipmentBar.addEventListener("contextmenu", onContextMenu);
+  panel.addEventListener("contextmenu", onContextMenu);
 
   document.body.appendChild(root);
   render();

@@ -150,9 +150,16 @@ export function mountChestUi(options: ChestUiOptions): ChestUiHandle {
   // mousedown / contextmenu handlers don't fire destroy / place when a
   // click lands on the chest panel. The dragdrop machinery still sees
   // them — it attaches at the cell level + at the document level.
-  for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
+  // `contextmenu` at the panel root also gets `preventDefault` so the
+  // browser's native menu doesn't pop up over panel padding/gaps (cells
+  // already prevent it themselves above).
+  for (const ev of ["mousedown", "mouseup", "click"] as const) {
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
+  panel.addEventListener("contextmenu", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
 
   root.appendChild(panel);
   document.body.appendChild(root);

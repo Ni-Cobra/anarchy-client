@@ -191,10 +191,16 @@ export function mountCraftingUi(
 
   // Stop pointer events from reaching `window` so the bootstrap-level
   // mousedown / contextmenu handlers don't fire destroy / place when a
-  // click lands on the crafting panel.
-  for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
+  // click lands on the crafting panel. `contextmenu` also gets
+  // `preventDefault` so the browser's native context menu doesn't
+  // surface over the panel.
+  for (const ev of ["mousedown", "mouseup", "click"] as const) {
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
+  panel.addEventListener("contextmenu", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
   panel.addEventListener("mouseleave", onPanelMouseLeave);
   document.addEventListener("mousemove", onDocMouseMove);
 

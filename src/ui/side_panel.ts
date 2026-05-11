@@ -183,10 +183,16 @@ export function mountSidePanel(options: SidePanelOptions): SidePanelHandle {
 
   // Stop pointer events from reaching `window` so the bootstrap-level
   // mousedown / contextmenu handlers don't fire destroy/place when a click
-  // lands on the panel or the toggle button.
-  for (const ev of ["mousedown", "mouseup", "click", "contextmenu"] as const) {
+  // lands on the panel or the toggle button. `contextmenu` also gets
+  // `preventDefault` so the browser's native context menu doesn't pop up
+  // over the panel.
+  for (const ev of ["mousedown", "mouseup", "click"] as const) {
     root.addEventListener(ev, (e) => e.stopPropagation());
   }
+  root.addEventListener("contextmenu", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
 
   const onKeydown = (ev: KeyboardEvent): void => {
     if (ev.code === "Escape" && open) {
