@@ -148,13 +148,31 @@ const STYLE = `
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
     pointer-events: none;
   }
-  .anarchy-crafting-arrow {
+  /*
+   * Column wrapper for the arrow glyph + the max-craft-count badge below
+   * (task 490). Sits between the two sides as a flex item so the arrow
+   * stays centered horizontally while the count tucks directly beneath.
+   */
+  .anarchy-crafting-arrow-cell {
     flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 0 2px;
+    user-select: none;
+  }
+  .anarchy-crafting-arrow {
     color: rgba(240, 240, 240, 0.7);
     font-size: 22px;
     line-height: 1;
-    padding: 0 2px;
-    user-select: none;
+  }
+  .anarchy-crafting-arrow-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(240, 240, 240, 0.6);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
   }
   /*
    * Recipe hover tooltip (task 470). Rendered inside the shared

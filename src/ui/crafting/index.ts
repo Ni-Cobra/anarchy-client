@@ -29,6 +29,7 @@
 import type { Inventory } from "../../game/index.js";
 import { recipeById } from "../../recipes.js";
 import { attachTooltip, type TooltipHandle } from "../tooltip.js";
+import { maxCraftCount } from "./max_craft.js";
 import { makeRecipeRow } from "./row.js";
 import { injectStyle } from "./style.js";
 import { makeRecipeTooltip } from "./tooltip.js";
@@ -123,10 +124,11 @@ export function mountCraftingUi(
       list.appendChild(empty);
       return;
     }
+    const inventory = options.getInventory();
     for (const id of displayIds) {
       const recipe = recipeById(id);
       if (!recipe) continue;
-      const row = makeRecipeRow(recipe);
+      const row = makeRecipeRow(recipe, maxCraftCount(recipe, inventory));
       if (id === orphanId) {
         row.classList.add("uncraftable");
         row.setAttribute("aria-disabled", "true");

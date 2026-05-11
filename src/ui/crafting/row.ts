@@ -8,6 +8,12 @@
  * ingredient stacks (today: at most two; future tiers may grow) lays out
  * left-justified on the ingredient side and right-justified on the output
  * side, never spilling past the centered arrow.
+ *
+ * The arrow lives inside a `.anarchy-crafting-arrow-cell` column wrapper
+ * so a max-craft-count badge (task 490) can sit directly under the arrow
+ * without disturbing the row's centered layout. The badge is omitted when
+ * `maxCount` is `0` (the row is already styled as uncraftable, so `0`
+ * would be redundant noise).
  */
 
 import { itemDisplayName } from "../../item_names.js";
@@ -17,8 +23,15 @@ import { textureUrlForItem } from "../../textures.js";
 /**
  * Build the button-shaped row for `recipe`. Caller wires the `click`
  * handler — the row itself is otherwise inert (no internal state).
+ *
+ * `maxCount` is the number of times the recipe can currently be crafted
+ * given the inventory pools the caller chose to consider; pass `0` to
+ * suppress the badge entirely.
  */
-export function makeRecipeRow(recipe: Recipe): HTMLButtonElement {
+export function makeRecipeRow(
+  recipe: Recipe,
+  maxCount: number,
+): HTMLButtonElement {
   const row = document.createElement("button");
   row.type = "button";
   row.className = "anarchy-crafting-row";
@@ -34,17 +47,29 @@ export function makeRecipeRow(recipe: Recipe): HTMLButtonElement {
     left.appendChild(makeStack(stack));
   }
 
+  const arrowCell = document.createElement("div");
+  arrowCell.className = "anarchy-crafting-arrow-cell";
+
   const arrow = document.createElement("span");
   arrow.className = "anarchy-crafting-arrow";
   arrow.textContent = "→";
   arrow.setAttribute("aria-hidden", "true");
+  arrowCell.appendChild(arrow);
+
+  if (maxCount > 0) {
+    const count = document.createElement("span");
+    count.className = "anarchy-crafting-arrow-count";
+    count.textContent = String(maxCount);
+    count.setAttribute("aria-hidden", "true");
+    arrowCell.appendChild(count);
+  }
 
   const right = document.createElement("div");
   right.className = "anarchy-crafting-side right";
   right.appendChild(makeStack(recipe.output));
 
   row.appendChild(left);
-  row.appendChild(arrow);
+  row.appendChild(arrowCell);
   row.appendChild(right);
   return row;
 }
