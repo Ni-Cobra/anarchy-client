@@ -153,9 +153,11 @@ export function attachBreakAndPlace(
   /**
    * Pick the cell currently under the cursor. Returns the target plus a
    * `gated` flag: `true` means the cell is an ore whose `min_tool_tier`
-   * exceeds the player's currently equipped pickaxe tier — the held-break
-   * suppresses the intent and the hint surfaces the requirement. `null`
-   * when no cell is in reach / loaded / non-Hidden.
+   * exceeds the player's currently equipped pickaxe tier — the hint
+   * surfaces the requirement so the player knows the swing is throttled,
+   * but the held-break still ships (task 520: every block is breakable,
+   * below-gate breakers tank the multiplier rate with no drop on
+   * completion). `null` when no cell is in reach / loaded / non-Hidden.
    */
   function pickBreakTargetAt(
     clientX: number,
@@ -302,14 +304,16 @@ export function attachBreakAndPlace(
       // starts — mousemove updates the target as the cursor scans
       // across the world; mouseup releases regardless.
       //
-      // Tier-gate (task 150): a `gated` pick (ore the player can't
-      // mine yet) is treated as "no target" — held state still starts
-      // so the player can scan toward a valid cell, but the intent
-      // ships as a release until they aim at something they can mine.
+      // Task 520: even a `gated` pick (ore the player's tool can't
+      // efficiently mine) ships the intent — the server applies the
+      // throttled below-gate damage rate and suppresses the drop. The
+      // hint surfaces the tool requirement; the held-break still makes
+      // progress so "nothing should completely prevent the user from
+      // destroying blocks even with empty hands" holds.
       breakHeld = true;
       const pick = pickBreakTargetAt(ev.clientX, ev.clientY);
       applyHint(pick?.gatedKind ?? null);
-      lastBreakTarget = pick !== null && !pick.gated ? stripPick(pick) : null;
+      lastBreakTarget = stripPick(pick);
       deps.sendBreakIntent(lastBreakTarget);
       startBreakHeartbeat();
       return;
@@ -342,7 +346,7 @@ export function attachBreakAndPlace(
   const onMouseMoveBreakRetarget = (ev: MouseEvent): void => {
     if (!breakHeld) return;
     const pick = pickBreakTargetAt(ev.clientX, ev.clientY);
-    const next = pick !== null && !pick.gated ? stripPick(pick) : null;
+    const next = stripPick(pick);
     if (targetsEqual(next, lastBreakTarget)) return;
     lastBreakTarget = next;
     deps.sendBreakIntent(lastBreakTarget);

@@ -10,6 +10,16 @@ import { adminSetBlock } from "./admin";
 // distinguishes the two — under the old rate the cell would have broken
 // and `RawIron` would have landed in the inventory; under the new rate
 // it must still be IronOre with no drop.
+//
+// Task 555 tightening: the "still IronOre, no drop" assertions in
+// isolation would pass even if the server hard-refused the break (no
+// progress at all) — exactly the regression task 555 chased. The
+// tightened assertion below also reads the `TargetingState`'s
+// `durabilityPct`, which the server only emits when the held break is
+// actively damaging a block. A hard-refuse would leave the pct at 100
+// (full health) for the entire window; the throttled rate brings it
+// strictly below 100 within the observe window, so the test now fails
+// in both regression directions.
 
 const ITEM_ID_RAW_IRON = 26;
 // `BlockType.IronOre` from the client mirror (`src/game/terrain.ts`).
@@ -75,7 +85,30 @@ test("under-tooled held break: no pickaxe equipped vs IronOre tanks the break", 
         window.__anarchy!.sendBreakIntent({ cx, cy, lx, ly }),
       { cx, cy, lx, ly },
     );
-    await page.waitForTimeout(4000);
+    // Task 555: poll the `TargetingState` overlay for the held break to
+    // observe `durabilityPct < 100` — proves the slow path is actually
+    // making progress, not that the server hard-refused the intent.
+    // 4000 ms ≈ 80 ticks → 8 multiplier cycles → 8 durability points
+    // deducted off a 60-point block ≈ 86%, well below the strict 100%
+    // ceiling.
+    const observedProgress = await page.waitForFunction(
+      () => {
+        const a = window.__anarchy;
+        if (!a) return null;
+        const local = a.getLocalPlayerId();
+        if (local === null) return null;
+        const mine = a
+          .getActiveTargetingStates()
+          .find((t) => t.playerId === local);
+        if (!mine) return null;
+        return mine.durabilityPct < 100 ? mine.durabilityPct : null;
+      },
+      undefined,
+      { timeout: 4000 },
+    );
+    const pct = (await observedProgress.jsonValue()) as number;
+    expect(pct).toBeLessThan(100);
+    expect(pct).toBeGreaterThan(0);
 
     // Cell must still be IronOre — break did not finish.
     const stillOre = await page.evaluate(
