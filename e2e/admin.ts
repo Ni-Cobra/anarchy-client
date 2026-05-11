@@ -22,7 +22,12 @@ export type AdminBlockKind =
   | "gold"
   | "tree"
   | "sticks"
-  | "torch";
+  | "torch"
+  | "coal_ore"
+  | "copper_ore"
+  | "iron_ore"
+  | "diamond_ore"
+  | "tungsten_ore";
 
 export type AdminBlockLayer = "top" | "ground";
 
