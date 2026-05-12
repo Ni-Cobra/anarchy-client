@@ -266,17 +266,25 @@ message SelectSlot {
 // item kinds or both empty), falls back to `Inventory::swap_slots(src,
 // dst)`. Failures are silently dropped; the next `InventoryUpdate`
 // reflects the result.
+//
+// Task 590 multi-chest: the `src_chest` / `dst_chest` fields became
+// `ChestLocation` instead of `bool`. Absence means "player grid";
+// presence names which open chest the slot index refers to. The server
+// silently drops any frame whose named chest isn't in the player's
+// open-chests set.
 message MoveSlot {
   uint32 src = 1;
   uint32 dst = 2;
   uint64 client_seq = 3;
-  // Task 420: identify whether the source / destination slot index refers
-  // to the open chest's inventory (`true`) or the player's own inventory
-  // (`false`, the default). Cross-grid moves require an open chest server-
-  // side; the server silently drops any frame that names the chest grid
-  // without one.
-  bool src_chest = 4;
-  bool dst_chest = 5;
+  // Field numbers 4, 5 originally carried `bool src_chest` / `bool
+  // dst_chest` (task 420 single-open). Task 590 reshaped them into
+  // `ChestLocation`s with bumped numbers — old numbers reserved so no
+  // future schema edit reuses them with a different shape.
+  reserved 4, 5;
+  // Task 590: when present, the slot index lives in this chest's grid;
+  // when absent, it lives in the player's own grid.
+  optional ChestLocation src_chest = 6;
+  optional ChestLocation dst_chest = 7;
 }
 
 // Identifies which equipment slot a wire `EquipTool` / `UnequipTool` action
@@ -352,11 +360,14 @@ message TransferItems {
   uint32 dst = 2;
   uint32 count = 3;
   uint64 client_seq = 4;
-  // Task 420: identify whether the source / destination slot index refers
-  // to the open chest's inventory (`true`) or the player's own inventory
-  // (`false`, the default). See `MoveSlot` for the cross-grid semantics.
-  bool src_chest = 5;
-  bool dst_chest = 6;
+  // Field numbers 5, 6 originally carried `bool src_chest` / `bool
+  // dst_chest` (task 420 single-open). Task 590 reshaped them into
+  // `ChestLocation`s with bumped numbers.
+  reserved 5, 6;
+  // Task 590: when present, the slot index lives in this chest's grid;
+  // when absent, it lives in the player's own grid. See `MoveSlot`.
+  optional ChestLocation src_chest = 7;
+  optional ChestLocation dst_chest = 8;
 }
 
 // Client→server "open the chest at `(chunk_coord, local_x, local_y)`" — task
@@ -372,11 +383,16 @@ message OpenChest {
   uint64 client_seq = 4;
 }
 
-// Client→server "close my currently-open chest" — task 420. Cleared
-// server-side; the next `ChestUpdate` ships with no `chest` field set to
-// tell the client to retire its chest grid. No-op if no chest is open.
+// Client→server "close the chest at `chest`" — task 420 / 590. Removes
+// the named chest from the player's open-chests set (task 590 generalized
+// the single-open to a bounded multi-open set). The server emits one
+// final `ChestUpdate` with `closed = true` for that chest, then drops it
+// from the per-conn shipped map. No-op if the named chest wasn't open.
 message CloseChest {
   uint64 client_seq = 1;
+  // Task 590: names which chest the player is closing. Required by
+  // shape; an absent message is treated as a malformed close and dropped.
+  ChestLocation chest = 2;
 }
 
 // === Server -> client per-tick chest state (task 420) ===
@@ -388,22 +404,35 @@ message ChestLocation {
   uint32 local_y = 3;
 }
 
-// Per-player chest state. Shipped (a) immediately after the server records
-// an `OpenChest` so the client gets the chest's contents, (b) each tick a
-// player's open chest mutates (deposit, withdraw, broken-chest close), and
-// (c) when the chest closes (range loss, explicit `CloseChest`, chest
-// broken) — in which case `chest` is absent and `slots` is empty.
+// Per-chest open/close state shipped to one player. Task 590 generalized
+// the single-open shape into a per-chest shape: each `ChestUpdate`
+// covers exactly one chest, and the server may emit several in one tick
+// if multiple of the player's open chests changed.
+//
+// Lifecycle:
+// - On `OpenChest` admission the server ships one update with the chest's
+//   full slot array (`closed = false`).
+// - Each tick a still-open chest mutates the server ships a fresh full
+//   slot array for that chest (`closed = false`).
+// - When the chest closes (range loss, broken, explicit `CloseChest`, or
+//   evicted from the open set), the server ships one final update with
+//   `closed = true` and `slots` empty; the client retires the chest's
+//   grid mirror.
 //
 // `slots` carries the full slot array of the chest's `Inventory` (45 slots
-// today, mirroring the player inventory size). The client validates the
-// length and rejects unexpected counts defensively.
+// today, mirroring the player inventory size) for an open update, empty
+// for a close update. The client validates the length and rejects
+// unexpected counts defensively.
 message ChestUpdate {
-  // Absent when the chest is closed (or no chest is open). Present
-  // otherwise, naming the chest cell whose contents `slots` reflects.
+  // The chest cell this update covers. Always set — closed updates carry
+  // the location so the client knows which mirror to retire.
   ChestLocation chest = 1;
-  // Full slot array of the open chest's inventory. Empty when `chest` is
-  // absent.
+  // Full slot array of this chest's inventory. Empty for a close update.
   repeated ItemSlot slots = 2;
+  // Task 590: `true` for the final update of a chest's lifetime (the
+  // client should retire that chest's mirror). `false` (default) for
+  // an open or contents-update.
+  bool closed = 3;
 }
 
 // === Server -> client world state ===

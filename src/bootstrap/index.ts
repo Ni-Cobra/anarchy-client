@@ -146,8 +146,12 @@ export interface AnarchyHandle {
    * dropped. Bumps the local action seq.
    */
   sendOpenChest: (cx: number, cy: number, lx: number, ly: number) => void;
-  /** Task 420: close the currently-open chest. Bumps the local action seq. */
-  sendCloseChest: () => void;
+  /**
+   * Task 590: close the chest at `(cx, cy, lx, ly)`. The server removes
+   * it from the player's open-chests set and emits one final closing
+   * `ChestUpdate` for it. Bumps the local action seq.
+   */
+  sendCloseChest: (cx: number, cy: number, lx: number, ly: number) => void;
   /** Index of the locally-mirrored selected hotbar slot. */
   getSelectedHotbarSlot: () => number;
   /** True while the inventory side panel is open (toggled with `E`). */
@@ -390,13 +394,44 @@ export function runMain(
   // forward reference. The UI ships authority-bound actions (SelectSlot,
   // MoveSlot) up via `sendSelectSlot` / `sendMoveSlot`; the server's
   // next `InventoryUpdate` is the canonical state.
+  //
+  // Task 590: the inventory UI still passes a boolean `srcChest` /
+  // `dstChest` per slot since the singleton manager only knows about one
+  // chest at a time; we translate the booleans into the wire
+  // `ChestLocation` here by reading the singleton's current location.
+  // Task 591/592 will replace this with a per-cell location.
+  const sendMoveSlotUi = (
+    src: number,
+    dst: number,
+    srcChest = false,
+    dstChest = false,
+  ): void => {
+    const loc = chestState.location();
+    sendMoveSlot(src, dst, srcChest ? loc : null, dstChest ? loc : null);
+  };
+  const sendTransferItemsUi = (
+    src: number,
+    dst: number,
+    count: number,
+    srcChest = false,
+    dstChest = false,
+  ): void => {
+    const loc = chestState.location();
+    sendTransferItems(
+      src,
+      dst,
+      count,
+      srcChest ? loc : null,
+      dstChest ? loc : null,
+    );
+  };
   const inventoryUiInner = mountInventoryUi({
     getInventory: () => inventory,
     getChestInventory: () =>
       chestState.location() !== null ? chestState.inventory() : null,
     sendSelect: sendSelectSlot,
-    sendMove: sendMoveSlot,
-    sendTransfer: sendTransferItems,
+    sendMove: sendMoveSlotUi,
+    sendTransfer: sendTransferItemsUi,
     sendEquip: sendEquipTool,
     sendUnequip: sendUnequipTool,
   });
@@ -424,13 +459,14 @@ export function runMain(
   });
   teardowns.push(() => chestUi.unmount());
 
-  // ESC closes an open chest. Bound at window-level so it works whether
-  // the inventory panel is open or not; falls through to other handlers
-  // if no chest is open.
+  // ESC closes whichever chest the singleton UI is currently showing.
+  // Bound at window-level so it works whether the inventory panel is
+  // open or not; falls through to other handlers if no chest is open.
   const onEscape = (ev: KeyboardEvent): void => {
     if (ev.key !== "Escape") return;
-    if (chestState.location() === null) return;
-    sendCloseChest();
+    const loc = chestState.location();
+    if (loc === null) return;
+    sendCloseChest(loc);
   };
   window.addEventListener("keydown", onEscape);
   teardowns.push(() => window.removeEventListener("keydown", onEscape));
@@ -548,7 +584,8 @@ export function runMain(
     sendEquipTool,
     sendUnequipTool,
     sendOpenChest,
-    sendCloseChest,
+    sendCloseChest: (cx, cy, lx, ly) =>
+      sendCloseChest({ cx, cy, lx, ly }),
     getSelectedHotbarSlot: () => inventoryUi.selectedHotbarSlot(),
     isInventoryOpen: () => inventoryUi.isOpen(),
     canPlaceAt,

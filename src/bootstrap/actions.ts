@@ -14,7 +14,7 @@
  * place authoritative-only and the wire frame doesn't carry one.
  */
 
-import type { ToolKind } from "../game/index.js";
+import type { ChestLocation, ToolKind } from "../game/index.js";
 import type { Connection } from "../net/index.js";
 
 export interface ActionSenders {
@@ -25,15 +25,16 @@ export interface ActionSenders {
   sendPlaceBlock(cx: number, cy: number, lx: number, ly: number): void;
   sendSelectSlot(slot: number): void;
   /**
-   * Ship a `MoveSlot` drag-drop action up to the server. Task 420 added
-   * the `srcChest` / `dstChest` flags so the same action can move items
-   * between the player's inventory and an open chest's grid.
+   * Ship a `MoveSlot` drag-drop action up to the server. The optional
+   * `srcChest` / `dstChest` arguments name which chest a slot index
+   * lives in (task 590 multi-open); pass `null` (or omit) when the slot
+   * lives in the player's own grid.
    */
   sendMoveSlot(
     src: number,
     dst: number,
-    srcChest?: boolean,
-    dstChest?: boolean,
+    srcChest?: ChestLocation | null,
+    dstChest?: ChestLocation | null,
   ): void;
   /**
    * Ship a `TransferItems(src, dst, count)` action up to the server
@@ -41,14 +42,14 @@ export interface ActionSenders {
    * refuses mismatched-kind destinations rather than swapping. The
    * right-click hold UI ships repeated `count = 1` frames as the timer
    * ramps up; drag-and-drop full-stack moves still go through `sendMoveSlot`.
-   * Task 420 added the cross-grid flags.
+   * The cross-grid arguments mirror `sendMoveSlot` (task 590).
    */
   sendTransferItems(
     src: number,
     dst: number,
     count: number,
-    srcChest?: boolean,
-    dstChest?: boolean,
+    srcChest?: ChestLocation | null,
+    dstChest?: ChestLocation | null,
   ): void;
   sendCraft(recipeId: string): void;
   sendEquipTool(sourceSlot: number, kind: ToolKind): void;
@@ -56,8 +57,11 @@ export interface ActionSenders {
   sendRegisterAccount(password: string): void;
   /** Task 420: open the chest at `(cx, cy, lx, ly)`. */
   sendOpenChest(cx: number, cy: number, lx: number, ly: number): void;
-  /** Task 420: close the currently-open chest. */
-  sendCloseChest(): void;
+  /**
+   * Task 590: close the chest at `chest` from the player's open-chests
+   * set. The server emits one final closing `ChestUpdate` for it.
+   */
+  sendCloseChest(chest: ChestLocation): void;
 }
 
 /**
@@ -76,6 +80,20 @@ function toolKindToWire(kind: ToolKind): number {
     case "shovel":
       return 4;
   }
+}
+
+/** Pack an optional `ChestLocation` into the wire shape expected by the
+ * proto bindings. `null` / `undefined` → omitted field (player grid).
+ */
+function chestLocToWire(
+  loc: ChestLocation | null | undefined,
+): { chunkCoord: { cx: number; cy: number }; localX: number; localY: number } | undefined {
+  if (loc === null || loc === undefined) return undefined;
+  return {
+    chunkCoord: { cx: loc.cx, cy: loc.cy },
+    localX: loc.lx,
+    localY: loc.ly,
+  };
 }
 
 export function createActionSenders(conn: Connection): ActionSenders {
@@ -116,19 +134,19 @@ export function createActionSenders(conn: Connection): ActionSenders {
       const seq = ++actionSeq;
       conn.send({ selectSlot: { slot, clientSeq: seq } });
     },
-    sendMoveSlot(src, dst, srcChest = false, dstChest = false) {
+    sendMoveSlot(src, dst, srcChest = null, dstChest = null) {
       const seq = ++actionSeq;
       conn.send({
         moveSlot: {
           src,
           dst,
           clientSeq: seq,
-          srcChest,
-          dstChest,
+          srcChest: chestLocToWire(srcChest),
+          dstChest: chestLocToWire(dstChest),
         },
       });
     },
-    sendTransferItems(src, dst, count, srcChest = false, dstChest = false) {
+    sendTransferItems(src, dst, count, srcChest = null, dstChest = null) {
       const seq = ++actionSeq;
       conn.send({
         transferItems: {
@@ -136,8 +154,8 @@ export function createActionSenders(conn: Connection): ActionSenders {
           dst,
           count,
           clientSeq: seq,
-          srcChest,
-          dstChest,
+          srcChest: chestLocToWire(srcChest),
+          dstChest: chestLocToWire(dstChest),
         },
       });
     },
@@ -175,9 +193,18 @@ export function createActionSenders(conn: Connection): ActionSenders {
         },
       });
     },
-    sendCloseChest() {
+    sendCloseChest(chest) {
       const seq = ++actionSeq;
-      conn.send({ closeChest: { clientSeq: seq } });
+      conn.send({
+        closeChest: {
+          clientSeq: seq,
+          chest: {
+            chunkCoord: { cx: chest.cx, cy: chest.cy },
+            localX: chest.lx,
+            localY: chest.ly,
+          },
+        },
+      });
     },
   };
 }
