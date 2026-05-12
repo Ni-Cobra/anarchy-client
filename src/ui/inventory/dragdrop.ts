@@ -85,9 +85,11 @@ export const EQUIP_SHOVEL_SLOT_ID = -4;
 /**
  * Squared cursor-movement threshold (in CSS pixels) that flips a
  * pointer-down into a drag instead of a click. Below this, the gesture
- * is a click — on panel cells, that ships a `MoveSlot` to the selected
- * hotbar; on hotbar cells, the existing click handler flips selection;
- * on chest cells, the click ships a cross-grid `MoveSlot` into the first
+ * is a click — on panel cells, that ships either an `EquipTool` /
+ * `UnequipTool` toggle (when the cell holds a tool / utility) or a
+ * `MoveSlot` to the selected hotbar (for non-equippable stacks); on
+ * hotbar cells, the existing click handler flips selection; on chest
+ * cells, the click ships a cross-grid `MoveSlot` into the first
  * available player slot.
  */
 const DRAG_THRESHOLD_PX_SQ = 25;
@@ -537,10 +539,16 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     const stack = inv.slot(clickSrc.idx);
     const tool = stack !== null ? toolKindOf(stack.item) : null;
     if (tool !== null) {
-      // Tool click: equip into the matching equipment slot. The
-      // server's atomic swap returns whatever was there into the
-      // source slot.
-      ctx.sendEquip(clickSrc.idx, tool);
+      // Tool click toggles equip / unequip: if the clicked cell is
+      // already flagged as the equipped slot for this kind, clear the
+      // flag; otherwise point the flag at this cell (the server's
+      // overwrite semantics handle the "different tool of the same
+      // family is already equipped" swap).
+      if (inv.getEquippedSlot(tool) === clickSrc.idx) {
+        ctx.sendUnequip(tool);
+      } else {
+        ctx.sendEquip(clickSrc.idx, tool);
+      }
       return;
     }
     // Swap-with-air: an empty endpoint on either side is still a

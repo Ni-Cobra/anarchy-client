@@ -1110,6 +1110,142 @@ describe("inventory UI", () => {
       expect(moves).toEqual([[HOTBAR_SLOTS, 0]]);
     });
 
+    it("clicking the equipped tool's panel cell toggles to UnequipTool (task 570)", () => {
+      // Pickaxe sits at panel slot 0 (= flat index HOTBAR_SLOTS) and is
+      // currently equipped (pointer at that slot). A clean click on the
+      // panel cell ships an Unequip rather than the redundant Equip.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slots, HOTBAR_SLOTS, null);
+      const equips: Array<[number, string]> = [];
+      const unequips: string[] = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: (slot, kind) => equips.push([slot, kind]),
+        sendUnequip: (kind) => unequips.push(kind),
+      });
+      const panelCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      panelCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 11,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      expect(unequips).toEqual(["pickaxe"]);
+      expect(equips).toEqual([]);
+    });
+
+    it("clicking a same-kind panel cell that isn't the equipped one ships an EquipTool — server overwrites the flag", () => {
+      // A pickaxe is equipped at panel slot 0; clicking on a *different*
+      // pickaxe in panel slot 5 must ship Equip(slot=5, kind=pickaxe) so
+      // the server points its equipped flag at the new cell. No Unequip
+      // emitted — the spec calls this a "swap" but the wire is just the
+      // equip on the new cell.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.WoodPickaxe, count: 1 };
+      slots[HOTBAR_SLOTS + 5] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slots, HOTBAR_SLOTS, null);
+      const equips: Array<[number, string]> = [];
+      const unequips: string[] = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: (slot, kind) => equips.push([slot, kind]),
+        sendUnequip: (kind) => unequips.push(kind),
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const otherPickaxeCell = panelCells[5] as HTMLElement;
+      otherPickaxeCell.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 11,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      expect(equips).toEqual([[HOTBAR_SLOTS + 5, "pickaxe"]]);
+      expect(unequips).toEqual([]);
+    });
+
+    it("the panel-cell toggle distinguishes click from drag — drag wins the gesture", () => {
+      // Clicking an equipped tool toggles unequip; dragging the same
+      // cell still routes through the regular MoveSlot pipeline. With
+      // the equipped pickaxe at panel slot 0, drag it onto panel slot
+      // 7 → MoveSlot fires, NO Unequip.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.IronPickaxe, count: 1 };
+      inventory.replaceFromWire(slots, HOTBAR_SLOTS, null);
+      const moves: Array<[number, number]> = [];
+      const unequips: string[] = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: (src, dst) => moves.push([src, dst]),
+        sendEquip: () => {},
+        sendUnequip: (kind) => unequips.push(kind),
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const src = panelCells[0] as HTMLElement;
+      const dst = panelCells[7] as HTMLElement;
+      const original = document.elementsFromPoint;
+      document.elementsFromPoint = ((_x: number, _y: number) => [
+        dst,
+      ]) as typeof document.elementsFromPoint;
+      src.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          button: 0,
+          clientX: 200,
+          clientY: 200,
+          bubbles: true,
+        }),
+      );
+      document.elementsFromPoint = original;
+      expect(unequips).toEqual([]);
+      expect(moves).toEqual([[HOTBAR_SLOTS, HOTBAR_SLOTS + 7]]);
+    });
+
     it("clicking an occupied equipment slot ships an UnequipTool action", () => {
       const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       slots[3] = { item: ItemId.IronPickaxe, count: 1 };
