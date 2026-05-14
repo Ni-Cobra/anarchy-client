@@ -216,6 +216,13 @@ export interface AnarchyHandle {
    */
   getLanternLightCount: () => number;
   /**
+   * Test handle (task 040): number of chest beams the renderer is
+   * currently showing. One per `(player, open chest)` pair, sourced
+   * from `PlayerSnapshot.open_chests`. Lets a Playwright spec assert
+   * beams light up on open and clear on close.
+   */
+  getChestBeamCount: () => number;
+  /**
    * Test handle (task 020): drive the renderer's cursor NDC directly,
    * bypassing the page's mouse event plumbing. Lets a Playwright spec aim
    * the ghost preview at a known tile without computing screen-space
@@ -630,6 +637,7 @@ export function runMain(
     getTimeOfDaySeconds: () => lastTimeOfDaySeconds,
     getGhostState: () => renderer.getGhostState(),
     getLanternLightCount: () => renderer.getLanternLightCount(),
+    getChestBeamCount: () => renderer.getChestBeamCount(),
     setCursorNdc: (ndc) => renderer.setCursorNdc(ndc),
     stop,
     stopped,

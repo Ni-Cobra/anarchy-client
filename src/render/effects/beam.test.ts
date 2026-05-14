@@ -133,8 +133,66 @@ describe("BeamLayer", () => {
     const layer = makeLayer();
     layer.applyBreakTargets([{ playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0 }]);
     layer.onPlace({ playerId: 2, cx: 0, cy: 0, lx: 0, ly: 0 }, 0);
-    expect(lineCount(layer)).toBe(2);
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 3, ly: 3 }]);
+    expect(lineCount(layer)).toBe(3);
     layer.dispose();
     expect(lineCount(layer)).toBe(0);
+  });
+
+  it("creates a chest beam when a player opens a chest", () => {
+    const layer = makeLayer();
+    expect(layer.chestBeamCount()).toBe(0);
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 4, ly: 5 }]);
+    expect(layer.chestBeamCount()).toBe(1);
+  });
+
+  it("clears a chest beam when the chest leaves the open set", () => {
+    const layer = makeLayer();
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 4, ly: 5 }]);
+    layer.applyChestTargets([]);
+    expect(layer.chestBeamCount()).toBe(0);
+  });
+
+  it("supports a single player with multiple open chests — one beam per chest", () => {
+    const layer = makeLayer();
+    layer.applyChestTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 1, ly: 1 },
+      { playerId: 1, cx: 0, cy: 0, lx: 2, ly: 2 },
+    ]);
+    expect(layer.chestBeamCount()).toBe(2);
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 1, ly: 1 }]);
+    expect(layer.chestBeamCount()).toBe(1);
+  });
+
+  it("re-uses the same chest beam across calls that keep the pair live", () => {
+    const layer = makeLayer();
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 2, ly: 3 }]);
+    const before = layer.scene().children[0];
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 2, ly: 3 }]);
+    expect(layer.chestBeamCount()).toBe(1);
+    expect(layer.scene().children[0]).toBe(before);
+  });
+
+  it("re-aims the chest beam at the actor's current position on update", () => {
+    const layer = makeLayer();
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 4, ly: 5 }]);
+    layer.update((id) => (id === 1 ? { x: 7, y: 8 } : null), 0);
+    const line = layer.scene().children[0] as THREE.Line;
+    const positions = line.geometry.getAttribute(
+      "position",
+    ) as THREE.BufferAttribute;
+    // Player end: (x=7, _, z=-y=-8).
+    expect(positions.getX(0)).toBeCloseTo(7);
+    expect(positions.getZ(0)).toBeCloseTo(-8);
+    // Chest end: tileCenterToScene(0,0,4,5) = (4.5, _, -5.5).
+    expect(positions.getX(1)).toBeCloseTo(4.5);
+    expect(positions.getZ(1)).toBeCloseTo(-5.5);
+  });
+
+  it("hides a chest beam whose actor is unknown to the position lookup", () => {
+    const layer = makeLayer();
+    layer.applyChestTargets([{ playerId: 1, cx: 0, cy: 0, lx: 4, ly: 5 }]);
+    layer.update(() => null, 0);
+    expect((layer.scene().children[0] as THREE.Line).visible).toBe(false);
   });
 });

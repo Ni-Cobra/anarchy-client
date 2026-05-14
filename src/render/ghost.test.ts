@@ -48,6 +48,7 @@ function setupWorld(playerId: number, x: number, y: number): { world: World; ter
       colorIndex: 0,
       username: "tester",
       equippedUtility: null,
+      openChests: [],
     },
   ]);
   const terrain = new Terrain();

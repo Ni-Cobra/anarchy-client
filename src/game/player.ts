@@ -64,4 +64,24 @@ export interface Player {
    * Today only [`ItemId.Lantern`] flows through this path.
    */
   equippedUtility: ItemId | null;
+  /**
+   * Chests this player currently has open (task 590 multi-open). Carried
+   * on `PlayerSnapshot` so every observer sees the set, not just the
+   * originating client — the renderer draws a light beam from each
+   * player to each chest they have open. Empty when nothing is open.
+   */
+  openChests: readonly OpenChestRef[];
+}
+
+/**
+ * One chest the player currently has open. Block-coord form
+ * (chunk + local cell) so the renderer can resolve a world position
+ * via `tileCenterToScene` without inflating it into a higher-level
+ * `ChestLocation` (that lives in `chest_state.ts`).
+ */
+export interface OpenChestRef {
+  readonly cx: number;
+  readonly cy: number;
+  readonly lx: number;
+  readonly ly: number;
 }

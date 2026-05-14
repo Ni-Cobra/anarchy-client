@@ -43,6 +43,7 @@ import {
   defaultBreakParticleColor,
   EffectsLayer,
   type BlockEditEvent,
+  type ChestBeamTarget,
   type TargetingStateEvent,
 } from "./effects/index.js";
 import { computeGhostState, type GhostState } from "./ghost.js";
@@ -539,6 +540,11 @@ export class Renderer {
     this.refreshGhostPreview();
     this.effects.update(nowMs);
     this.breakParticles.update(nowMs);
+    // Chest beams (task 040) — refresh from the open-chest set carried
+    // on every player snapshot so a beam exists for every (player,
+    // chest) the server says is currently open. The world is rebuilt
+    // each tick, so this re-pulls fresh.
+    this.refreshChestBeams();
     // Beams aim at the same interpolated player positions that
     // `syncPlayerMeshes` just consumed so a beam stays glued to its
     // actor's body across remote-render delay.
@@ -566,6 +572,38 @@ export class Renderer {
       localPlayerId: this.localPlayerId,
     });
     this.ghost.apply(state);
+  }
+
+  /**
+   * Chest-beam refresh (task 040). Walks every player the world knows
+   * about and collects one `ChestBeamTarget` per `(player, open chest)`
+   * pair, then hands the union to the beam layer for a wholesale replace.
+   * The set arrives via `PlayerSnapshot.open_chests` on every tick so
+   * the renderer never has to track open/close transitions itself.
+   */
+  private refreshChestBeams(): void {
+    const targets: ChestBeamTarget[] = [];
+    for (const p of this.world.players()) {
+      for (const c of p.openChests) {
+        targets.push({
+          playerId: p.id,
+          cx: c.cx,
+          cy: c.cy,
+          lx: c.lx,
+          ly: c.ly,
+        });
+      }
+    }
+    this.beams.applyChestTargets(targets);
+  }
+
+  /**
+   * Test handle (task 040): number of chest beams currently in the
+   * scene. Lets a Playwright spec assert "one beam per open chest"
+   * without poking at Three.js internals.
+   */
+  getChestBeamCount(): number {
+    return this.beams.chestBeamCount();
   }
 
   private refreshHoverBillboards(): void {

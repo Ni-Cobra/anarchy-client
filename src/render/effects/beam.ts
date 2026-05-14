@@ -4,7 +4,7 @@ import { tileCenterToScene } from "../terrain.js";
 
 /**
  * Visual feedback (task 030) connecting an actor to the cell they are
- * acting on. Two driving signals from the wire layer:
+ * acting on. Three driving signals from the wire layer:
  *
  *   - **Break:** held-break targeting state ships every tick (per-player,
  *     per-cell) — a beam tracks each live target and clears the moment the
@@ -12,6 +12,10 @@ import { tileCenterToScene } from "../terrain.js";
  *   - **Place:** a one-shot block edit fires when a place lands — the beam
  *     flashes briefly so the action reads even though no held-state
  *     follows (`PLACE_FLASH_DURATION_MS`).
+ *   - **Chest:** every `PlayerSnapshot` carries the chests that player has
+ *     open (task 590) — a beam runs from each open-chest owner to the chest
+ *     for as long as the chest stays in the set, and clears the moment it
+ *     drops out (closed, evicted, broken, out of range).
  *
  * The layer doesn't know where players are — the renderer's per-frame
  * driver supplies a `BeamPositionLookup` so the beam re-aims as the
@@ -34,6 +38,19 @@ export interface PlaceBeamEvent {
 }
 
 /**
+ * One (player, chest) pair the wire layer reports open this frame. The
+ * layer keys beams by `(playerId, cx, cy, lx, ly)` so a player with
+ * multiple open chests gets one beam per chest.
+ */
+export interface ChestBeamTarget {
+  readonly playerId: number;
+  readonly cx: number;
+  readonly cy: number;
+  readonly lx: number;
+  readonly ly: number;
+}
+
+/**
  * Resolve a `playerId` to its current world-space position (continuous
  * coords, in the same `+x = east`, `+y = north` frame the rest of the
  * client uses). Returning `null` hides that player's beam without
@@ -45,6 +62,12 @@ export type BeamPositionLookup = (
 
 const BEAM_COLOR = 0xffffff;
 const BEAM_OPACITY = 0.55;
+// Chest beams (task 040) run continuously while the chest is open, so
+// they sit at a calmer opacity than the action beams. The action beams
+// flash and fade; the chest beam is a steady tether and reading several
+// at once shouldn't strobe the scene.
+const CHEST_BEAM_COLOR = 0xffd070;
+const CHEST_BEAM_OPACITY = 0.25;
 // Vertical anchor for the player end of the beam — matches the body
 // sphere's center (`tileToScene` y = 0.5).
 const BEAM_PLAYER_Y = 0.5;
@@ -67,10 +90,18 @@ interface PlaceFlash extends Beam {
   readonly endMs: number;
 }
 
+interface ChestBeam extends Beam {
+  readonly playerId: number;
+}
+
 export class BeamLayer {
   private readonly group: THREE.Group;
   private readonly breakBeams = new Map<number, Beam>();
   private readonly placeFlashes: PlaceFlash[] = [];
+  // Chest beams (task 040) — keyed by `playerId|cx|cy|lx|ly` so one
+  // player with multiple open chests has one beam per chest, and each
+  // beam tracks its specific player.
+  private readonly chestBeams = new Map<string, ChestBeam>();
 
   constructor() {
     this.group = new THREE.Group();
@@ -109,6 +140,32 @@ export class BeamLayer {
   }
 
   /**
+   * Replace the active chest-beam set wholesale, mirroring the
+   * `applyBreakTargets` shape. Pairs `(playerId, chest cell)` that
+   * vanish since the last call have their beam disposed; new pairs
+   * get a beam spawned; pairs that remain are left in place (the
+   * per-frame `update` re-aims them at the latest player position).
+   */
+  applyChestTargets(targets: readonly ChestBeamTarget[]): void {
+    const live = new Set<string>();
+    for (const t of targets) {
+      const key = chestBeamKey(t.playerId, t.cx, t.cy, t.lx, t.ly);
+      live.add(key);
+      if (this.chestBeams.has(key)) continue;
+      const center = tileCenterToScene(t.cx, t.cy, t.lx, t.ly);
+      const beam = this.createBeam(CHEST_BEAM_COLOR, CHEST_BEAM_OPACITY);
+      beam.target.x = center.x;
+      beam.target.z = center.z;
+      this.chestBeams.set(key, { ...beam, playerId: t.playerId });
+    }
+    const stale: string[] = [];
+    for (const key of this.chestBeams.keys()) {
+      if (!live.has(key)) stale.push(key);
+    }
+    for (const key of stale) this.disposeChestBeam(key);
+  }
+
+  /**
    * Spawn a place-flash beam from the actor to the placed cell. Auto-
    * expires at `nowMs + PLACE_FLASH_DURATION_MS` on the next `update`.
    */
@@ -142,6 +199,9 @@ export class BeamLayer {
       }
       this.aimBeam(flash, positions(flash.playerId));
     }
+    for (const beam of this.chestBeams.values()) {
+      this.aimBeam(beam, positions(beam.playerId));
+    }
   }
 
   /** Drop every owned material / geometry. Called by the renderer on
@@ -151,19 +211,33 @@ export class BeamLayer {
     while (this.placeFlashes.length > 0) {
       this.disposePlaceFlashAt(this.placeFlashes.length - 1);
     }
+    for (const key of [...this.chestBeams.keys()]) this.disposeChestBeam(key);
     if (this.group.parent) this.group.parent.remove(this.group);
   }
 
-  private createBeam(): Beam {
+  /**
+   * Test handle (task 040): number of chest beams currently in the
+   * scene. The renderer drives this from the per-tick chest-open set on
+   * `PlayerSnapshot`; unit tests assert against it without poking at
+   * Three.js internals.
+   */
+  chestBeamCount(): number {
+    return this.chestBeams.size;
+  }
+
+  private createBeam(
+    color = BEAM_COLOR,
+    opacity = BEAM_OPACITY,
+  ): Beam {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
       "position",
       new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3),
     );
     const material = new THREE.LineBasicMaterial({
-      color: BEAM_COLOR,
+      color,
       transparent: true,
-      opacity: BEAM_OPACITY,
+      opacity,
       depthWrite: false,
     });
     const line = new THREE.Line(geometry, material);
@@ -207,4 +281,23 @@ export class BeamLayer {
     flash.material.dispose();
     this.placeFlashes.splice(idx, 1);
   }
+
+  private disposeChestBeam(key: string): void {
+    const beam = this.chestBeams.get(key);
+    if (!beam) return;
+    this.chestBeams.delete(key);
+    this.group.remove(beam.line);
+    beam.geometry.dispose();
+    beam.material.dispose();
+  }
+}
+
+function chestBeamKey(
+  playerId: number,
+  cx: number,
+  cy: number,
+  lx: number,
+  ly: number,
+): string {
+  return `${playerId}|${cx}|${cy}|${lx}|${ly}`;
 }

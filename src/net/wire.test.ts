@@ -108,7 +108,7 @@ describe("applyServerMessage — Welcome", () => {
   it("publishes the local player id and clears any prior state", () => {
     const { deps, world, buffer, localCalls } = makeFixture();
     world.applySnapshot([
-      { id: 99, x: 5, y: 5, facing: DEFAULT_FACING, username: "", colorIndex: 0, equippedUtility: null },
+      { id: 99, x: 5, y: 5, facing: DEFAULT_FACING, username: "", colorIndex: 0, equippedUtility: null, openChests: [] },
     ]);
     buffer.push(99, 5, 5, 100);
 
@@ -190,6 +190,7 @@ describe("applyServerMessage — TickUpdate", () => {
       username: "",
       colorIndex: 0,
       equippedUtility: null,
+      openChests: [],
     });
     expect(buffer.samplesOf(1)).toHaveLength(1);
     expect(buffer.samplesOf(1)[0]).toMatchObject({ x: 1.5, y: 2.5, timeMs: 5_000 });
@@ -338,6 +339,7 @@ describe("applyServerMessage — TickUpdate", () => {
       username: "",
       colorIndex: 0,
       equippedUtility: null,
+      openChests: [],
     });
     expect(terrain.size()).toBe(1);
   });
@@ -381,6 +383,7 @@ describe("applyServerMessage — TickUpdate", () => {
       username: "",
       colorIndex: 0,
       equippedUtility: null,
+      openChests: [],
     });
   });
 
@@ -393,6 +396,41 @@ describe("applyServerMessage — TickUpdate", () => {
     });
     applyServerMessage(msg, deps);
     expect(world.getPlayer(1)?.facing).toBe(DEFAULT_FACING);
+  });
+
+  it("decodes the player's open-chest set from PlayerSnapshot (task 040)", () => {
+    const { deps, world } = makeFixture();
+    const wire = chunkWire(0, 0, [
+      {
+        id: 1,
+        x: 0,
+        y: 0,
+        openChests: [
+          { chunkCoord: { cx: 0, cy: 0 }, localX: 3, localY: 4 },
+          { chunkCoord: { cx: -1, cy: 2 }, localX: 7, localY: 0 },
+        ],
+      },
+    ]);
+    const msg = decodeRoundtrip({
+      seq: 2,
+      tickUpdate: { fullStateChunks: [wire], unmodifiedChunks: [] },
+    });
+    applyServerMessage(msg, deps);
+    expect(world.getPlayer(1)?.openChests).toEqual([
+      { cx: 0, cy: 0, lx: 3, ly: 4 },
+      { cx: -1, cy: 2, lx: 7, ly: 0 },
+    ]);
+  });
+
+  it("decodes an empty open-chest set as the empty array (task 040)", () => {
+    const { deps, world } = makeFixture();
+    const wire = chunkWire(0, 0, [{ id: 1, x: 0, y: 0 }]);
+    const msg = decodeRoundtrip({
+      seq: 2,
+      tickUpdate: { fullStateChunks: [wire], unmodifiedChunks: [] },
+    });
+    applyServerMessage(msg, deps);
+    expect(world.getPlayer(1)?.openChests).toEqual([]);
   });
 });
 

@@ -8,6 +8,7 @@ export type {
 export { BeamLayer } from "./beam.js";
 export type {
   BreakBeamTarget,
+  ChestBeamTarget,
   PlaceBeamEvent,
   BeamPositionLookup,
 } from "./beam.js";

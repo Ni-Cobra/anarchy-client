@@ -26,6 +26,7 @@ const player = (
   username: "",
   colorIndex: 0,
   equippedUtility: null,
+  openChests: [],
 });
 
 function setup() {

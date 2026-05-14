@@ -31,9 +31,11 @@ import {
   type ChunkCoord,
   LAYER_AREA,
   type Layer,
+  LAYER_SIZE,
   type Player,
   type PlayerId,
 } from "../game/index.js";
+import type { OpenChestRef } from "../game/player.js";
 
 import type { WireDeps } from "./wire.js";
 import {
@@ -290,9 +292,26 @@ function chunkFromWire(
       username: p.username ?? "",
       colorIndex: p.colorIndex ?? 0,
       equippedUtility: itemIdFromWire(p.equippedUtility),
+      openChests: openChestsFromWire(p.openChests),
     });
   }
   return [[cx, cy] as const, { ground, top, players }];
+}
+
+function openChestsFromWire(
+  wire: readonly anarchy.v1.IChestLocation[] | null | undefined,
+): readonly OpenChestRef[] {
+  if (!wire || wire.length === 0) return [];
+  const out: OpenChestRef[] = [];
+  for (const loc of wire) {
+    const coord = loc.chunkCoord;
+    if (!coord) continue;
+    const lx = loc.localX ?? 0;
+    const ly = loc.localY ?? 0;
+    if (lx >= LAYER_SIZE || ly >= LAYER_SIZE) continue;
+    out.push({ cx: coord.cx ?? 0, cy: coord.cy ?? 0, lx, ly });
+  }
+  return out;
 }
 
 function layerFromWire(wire: anarchy.v1.ILayer): Layer | null {

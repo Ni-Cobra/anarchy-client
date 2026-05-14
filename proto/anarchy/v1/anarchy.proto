@@ -563,6 +563,12 @@ message PlayerSnapshot {
   // Today only `ITEM_ID_LANTERN` ships through this path; future utility
   // items can plug in without further wire change.
   ItemId equipped_utility = 8;
+  // Chests this player currently has open (task 590 multi-open). Visible to
+  // every observer so the renderer can draw a light beam from the player to
+  // each open chest — including beams owned by remote players. Empty when
+  // the player has no chest open. The set is bounded by
+  // `Player::MAX_OPEN_CHESTS` on the server.
+  repeated ChestLocation open_chests = 9;
 }
 
 // 8-way facing for the sphere-with-eyes player model. Cardinal first, then

@@ -45,6 +45,7 @@ function buildPlayer(): Player {
     username: "tester",
     colorIndex: 0,
     equippedUtility: null,
+    openChests: [],
   };
 }
 

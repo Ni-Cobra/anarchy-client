@@ -30,6 +30,7 @@ export class World {
         username: p.username,
         colorIndex: p.colorIndex,
         equippedUtility: p.equippedUtility,
+        openChests: p.openChests,
       });
     }
   }
