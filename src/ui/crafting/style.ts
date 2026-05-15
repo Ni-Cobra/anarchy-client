@@ -32,6 +32,29 @@ export const RECIPE_ICON_PX = 44;
  */
 export const CRAFTING_PANEL_WIDTH_PX = 5 * SLOT_PX + 4 * PANEL_GAP_PX + PANEL_PAD_PX * 2;
 
+/**
+ * Recipe-row pitch (task 110). The row is a flex shell of one stack-cell
+ * tall plus its own 8px y-padding and 1px y-border on each side; the
+ * row gap is the shared `PANEL_GAP_PX`. We expose both the outer height
+ * and the pitch (height + inter-row gap) so the index.ts anchor math
+ * can map a hovered-row index delta to a precise scrollTop adjustment.
+ */
+export const ROW_PAD_Y_PX = 8;
+export const ROW_BORDER_PX = 1;
+export const ROW_HEIGHT_PX = RECIPE_ICON_PX + 2 * (ROW_PAD_Y_PX + ROW_BORDER_PX);
+export const ROW_PITCH_PX = ROW_HEIGHT_PX + PANEL_GAP_PX;
+
+/**
+ * Fixed-size widget (task 110). The scroll viewport always reserves room
+ * for `MAX_VISIBLE_ROWS` rows so the panel never reflows as the recipe
+ * set grows or shrinks — empty list and 10+ recipes occupy the same
+ * vertical space; an 11th row scrolls. The viewport excludes the gap
+ * below the final visible row so row 10 sits flush at the bottom edge.
+ */
+export const MAX_VISIBLE_ROWS = 10;
+export const SCROLL_VIEWPORT_HEIGHT_PX =
+  MAX_VISIBLE_ROWS * ROW_HEIGHT_PX + (MAX_VISIBLE_ROWS - 1) * PANEL_GAP_PX;
+
 const STYLE = `
   #anarchy-crafting-root {
     position: fixed;
@@ -49,7 +72,6 @@ const STYLE = `
     transform: translate(100%, -50%);
     transition: transform 0.15s ease-out;
     width: ${CRAFTING_PANEL_WIDTH_PX}px;
-    max-height: 80vh;
     display: flex;
     flex-direction: column;
     background: rgba(20, 24, 30, 0.96);
@@ -62,18 +84,18 @@ const STYLE = `
   }
   .anarchy-crafting-panel.open { transform: translate(0, -50%); }
   /*
-   * Scroll viewport (task 565). Sits between the panel chrome and the row
-   * list so the panel bounds don't reflow when the row set changes:
-   * - flex: 1 1 auto + min-height: 0 lets the wrapper shrink inside the
-   *   panel's max-height and trigger its own overflow rather than
-   *   pushing the panel border around.
-   * - scrollbar-gutter: stable reserves the scrollbar lane so the row
-   *   strip doesn't shift horizontally when content crosses the overflow
-   *   threshold.
+   * Scroll viewport (task 565, retuned in 110). Sits between the panel
+   * chrome and the row list. Task 110 made this a fixed pixel height so
+   * the panel reserves the same vertical space whether the player has
+   * 0 craftable recipes or many — no jumping as recipes come and go.
+   * Anything past MAX_VISIBLE_ROWS scrolls; the row anchoring in
+   * index.ts keeps the hovered row pinned by adjusting scrollTop when
+   * its index shifts under inventory churn. scrollbar-gutter: stable
+   * reserves the scrollbar lane so the row strip doesn't shift
+   * horizontally when content crosses the overflow threshold.
    */
   .anarchy-crafting-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
+    height: ${SCROLL_VIEWPORT_HEIGHT_PX}px;
     overflow-y: auto;
     scrollbar-gutter: stable;
   }

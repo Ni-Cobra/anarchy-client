@@ -10,6 +10,7 @@ import {
 } from "../../game/index.js";
 import { _resetTooltipForTests } from "../tooltip.js";
 import { mountCraftingUi } from "./index.js";
+import { ROW_PITCH_PX, SCROLL_VIEWPORT_HEIGHT_PX } from "./style.js";
 
 const TOOLTIP_ID = "anarchy-tooltip";
 const SHOW_DELAY_MS = 300;
@@ -397,7 +398,7 @@ describe("crafting UI", () => {
     expect(rows.map((r) => r.dataset.recipeId)).toEqual(["wood-pickaxe"]);
   });
 
-  it("rows live inside a .anarchy-crafting-list wrapper so the slide-in transform stays separate from the anchor translate", () => {
+  it("rows live inside a .anarchy-crafting-list wrapper so the slide-in transform stays separate from the row flow", () => {
     inventory.replaceFromWire(
       emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
       null,
@@ -815,6 +816,222 @@ describe("crafting UI", () => {
       // Tooltip is hidden after unmount, even though the shared DOM node
       // may still exist (the primitive keeps it cached on document.body).
       expect(node === null || node.style.display === "none").toBe(true);
+    });
+  });
+
+  describe("fixed-size scroll viewport (task 110)", () => {
+    function viewportHeight(): string {
+      const scroll = document.querySelector<HTMLElement>(
+        ".anarchy-crafting-scroll",
+      )!;
+      return getComputedStyle(scroll).height;
+    }
+
+    it("pins the scroll viewport at a fixed pixel height with zero recipes", () => {
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      expect(viewportHeight()).toBe(`${SCROLL_VIEWPORT_HEIGHT_PX}px`);
+    });
+
+    it("pins the scroll viewport at the same pixel height with one recipe", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
+        null,
+        null,
+        ["sticks"],
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      expect(viewportHeight()).toBe(`${SCROLL_VIEWPORT_HEIGHT_PX}px`);
+    });
+
+    it("keeps the same pixel height with more rows than the viewport reserves (overflow scrolls instead)", () => {
+      // 12 recipes ≥ MAX_VISIBLE_ROWS (10) so the list overflows.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Log, count: 64 },
+          1: { item: ItemId.Wood, count: 64 },
+          2: { item: ItemId.Stone, count: 64 },
+          3: { item: ItemId.RawCopper, count: 64 },
+          4: { item: ItemId.RawIron, count: 64 },
+          5: { item: ItemId.CopperIngot, count: 64 },
+          6: { item: ItemId.IronIngot, count: 64 },
+          7: { item: ItemId.Coal, count: 64 },
+          8: { item: ItemId.Torch, count: 64 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 64 },
+        }),
+        null,
+        null,
+        [
+          "sticks",
+          "wood-from-log",
+          "sticks-from-log",
+          "wood-pickaxe",
+          "wood-axe",
+          "stone-pickaxe",
+          "stone-axe",
+          "copper-ingot",
+          "iron-ingot",
+          "copper-pickaxe",
+          "iron-pickaxe",
+          "torch",
+        ],
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      expect(viewportHeight()).toBe(`${SCROLL_VIEWPORT_HEIGHT_PX}px`);
+      const rows = document.querySelectorAll(".anarchy-crafting-row");
+      expect(rows.length).toBe(12);
+    });
+
+    it("preserves scrollTop across inventory churn when no row is hovered", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 64 } }),
+        null,
+        null,
+        ["sticks", "wood-axe", "wood-pickaxe"],
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      const scroll = document.querySelector<HTMLElement>(
+        ".anarchy-crafting-scroll",
+      )!;
+      scroll.scrollTop = 100;
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 64 } }),
+        null,
+        null,
+        // Same affordable set; the render still rebuilds the row strip.
+        ["sticks", "wood-axe", "wood-pickaxe"],
+      );
+      expect(scroll.scrollTop).toBe(100);
+    });
+
+    it("adjusts scrollTop by (newIndex - oldIndex) * ROW_PITCH_PX when the hovered row's position shifts", () => {
+      // Initial recipes (alphabetical, all affordable): sticks (0), wood-axe (1).
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 64 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 64 },
+        }),
+        null,
+        null,
+        ["sticks", "wood-axe"],
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      const scroll = document.querySelector<HTMLElement>(
+        ".anarchy-crafting-scroll",
+      )!;
+      scroll.scrollTop = 50;
+
+      // Hover wood-axe (index 1).
+      const woodAxe = document.querySelector<HTMLElement>(
+        '.anarchy-crafting-row[data-recipe-id="wood-axe"]',
+      )!;
+      woodAxe.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      // The hover render is allowed to re-restore scrollTop unchanged
+      // (wood-axe's index didn't move from the natural list).
+      expect(scroll.scrollTop).toBe(50);
+
+      // Churn: insert stone-axe between sticks and wood-axe → wood-axe is now at index 2.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 64 },
+          1: { item: ItemId.Stone, count: 64 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 64 },
+        }),
+        null,
+        null,
+        ["sticks", "stone-axe", "wood-axe"],
+      );
+      expect(scroll.scrollTop).toBe(50 + ROW_PITCH_PX);
+    });
+
+    it("clamps scrollTop at zero when the index delta would push it negative", () => {
+      // sticks (0), stone-axe (1), wood-axe (2). Hover wood-axe.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 64 },
+          1: { item: ItemId.Stone, count: 64 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 64 },
+        }),
+        null,
+        null,
+        ["sticks", "stone-axe", "wood-axe"],
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      const scroll = document.querySelector<HTMLElement>(
+        ".anarchy-crafting-scroll",
+      )!;
+      scroll.scrollTop = 10;
+      const woodAxe = document.querySelector<HTMLElement>(
+        '.anarchy-crafting-row[data-recipe-id="wood-axe"]',
+      )!;
+      woodAxe.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+
+      // Drop the two preceding recipes — wood-axe slides up two indices.
+      // The math would push scrollTop to 10 - 2*ROW_PITCH_PX; we clamp at 0.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 64 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 64 },
+        }),
+        null,
+        null,
+        ["wood-axe"],
+      );
+      expect(scroll.scrollTop).toBe(0);
+    });
+  });
+
+  describe("wheel capture (task 110)", () => {
+    it("stops wheel events inside the panel from reaching window", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
+        null,
+        null,
+        ["sticks"],
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+      });
+      let windowHits = 0;
+      const onWindow = (): void => {
+        windowHits++;
+      };
+      window.addEventListener("wheel", onWindow);
+
+      const panel = document.querySelector<HTMLElement>(
+        ".anarchy-crafting-panel",
+      )!;
+      panel.dispatchEvent(
+        new WheelEvent("wheel", { bubbles: true, deltaY: 100 }),
+      );
+      expect(windowHits).toBe(0);
+
+      // Wheel outside the panel still reaches window — the gate is
+      // panel-scoped, not a global capture.
+      document.body.dispatchEvent(
+        new WheelEvent("wheel", { bubbles: true, deltaY: 100 }),
+      );
+      expect(windowHits).toBe(1);
+
+      window.removeEventListener("wheel", onWindow);
     });
   });
 

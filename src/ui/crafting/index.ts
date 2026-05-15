@@ -34,16 +34,37 @@
  * in the list as a disabled "orphan" until the cursor moves off, so a
  * click that lands mid-update never crafts a different recipe.
  *
- * ## Chrome stability (task 565)
+ * ## Chrome stability (task 565, retuned in task 110)
  *
  * The panel itself owns only the static chrome (border, radius, padding,
  * slide-in transform). Scrolling lives one layer deeper on
- * `.anarchy-crafting-scroll` so the panel bounds don't reflow when the
- * row set changes, and `scrollbar-gutter: stable` on that wrapper
- * reserves the scrollbar lane so toggling overflow doesn't shift the row
- * strip horizontally. The hover anchor's `translateY` continues to live
- * on the innermost `.anarchy-crafting-list` so it operates inside the
- * scroll viewport.
+ * `.anarchy-crafting-scroll`, sized to a **fixed pixel height** (task
+ * 110) so the panel bounds don't reflow when the row set changes — an
+ * empty list and a 10-recipe list occupy the same vertical space.
+ * `scrollbar-gutter: stable` on that wrapper reserves the scrollbar lane
+ * so toggling overflow doesn't shift the row strip horizontally.
+ *
+ * ## Hover anchor across scroll (task 110)
+ *
+ * With internal scrolling the "row stays under cursor across inventory
+ * churn" invariant becomes a scrollTop problem: when the hovered row's
+ * index shifts (e.g. a higher-priority recipe enters above it), we
+ * restore the captured `scrollTop` and offset it by `(newIndex -
+ * oldIndex) * ROW_PITCH_PX` so the row's viewport-y is preserved. This
+ * replaces the earlier translateY-on-list trick, which is incompatible
+ * with a scrollable container (transformed content can be pushed
+ * outside the visible bounds without the scroll machinery noticing).
+ *
+ * ## Wheel capture (task 110)
+ *
+ * The bootstrap-level `wheel` listener cycles the hotbar selection
+ * ([bootstrap/keybindings.ts]). Scrolling inside the crafting panel
+ * must not also flip the hotbar, so the panel installs a `wheel`
+ * listener that calls `stopPropagation()` unconditionally while the
+ * cursor is over it. We chose "capture unconditionally" over "only when
+ * the scrollable region can absorb the delta" because the simpler rule
+ * matches the user's mental model — the panel ate my scroll, hotbar
+ * stays put.
  */
 
 import type { CraftableRecipe, Inventory } from "../../game/index.js";
@@ -51,7 +72,7 @@ import { recipeById } from "../../recipes.js";
 import { attachTooltip, type TooltipHandle } from "../tooltip.js";
 import { maxCraftCount } from "./max_craft.js";
 import { makeRecipeRow } from "./row.js";
-import { injectStyle } from "./style.js";
+import { injectStyle, ROW_PITCH_PX } from "./style.js";
 import { makeRecipeTooltip } from "./tooltip.js";
 
 export interface CraftingUiOptions {
@@ -98,9 +119,6 @@ export function mountCraftingUi(
 
   let open = false;
   let hoveredRecipeId: string | null = null;
-  // Accumulated translateY (in CSS pixels) on `list` that keeps the hovered
-  // row visually pinned across re-renders. Reset to 0 when no row is hovered.
-  let anchorOffset = 0;
   // Per-row tooltip handles; replaced wholesale on every render so each row
   // gets a fresh `attachTooltip` against its live recipe + inventory thunk.
   const tooltipHandles: TooltipHandle[] = [];
@@ -109,13 +127,9 @@ export function mountCraftingUi(
     tooltipHandles.length = 0;
   };
 
-  const applyAnchor = (): void => {
-    list.style.transform = anchorOffset === 0 ? "" : `translateY(${anchorOffset}px)`;
-  };
-
-  const findRow = (id: string): HTMLElement | null =>
-    list.querySelector<HTMLElement>(
-      `.anarchy-crafting-row[data-recipe-id="${id}"]`,
+  const rowChildren = (): HTMLElement[] =>
+    Array.from(
+      list.querySelectorAll<HTMLElement>(":scope > .anarchy-crafting-row"),
     );
 
   const render = (): void => {
@@ -130,16 +144,16 @@ export function mountCraftingUi(
       display = insertOrphan(natural, hoveredRecipeId);
     }
 
-    // Capture the hovered row's viewport-y *before* the DOM mutates so we
-    // can re-pin it after re-rendering. If nothing is hovered, drop any
-    // residual anchor offset so the next render lays out naturally.
-    let prevTop: number | null = null;
+    // Hover anchor: capture the scroll viewport's scrollTop and the
+    // hovered row's index *before* the DOM mutates. After the rebuild we
+    // restore scrollTop, offset by the index delta * row pitch so the
+    // hovered row's viewport-y is preserved across the churn.
+    const prevScrollTop = scroll.scrollTop;
+    let prevHoveredIndex = -1;
     if (hoveredRecipeId !== null) {
-      const prevRow = findRow(hoveredRecipeId);
-      if (prevRow) prevTop = prevRow.getBoundingClientRect().top;
-    } else if (anchorOffset !== 0) {
-      anchorOffset = 0;
-      applyAnchor();
+      prevHoveredIndex = rowChildren().findIndex(
+        (r) => r.dataset.recipeId === hoveredRecipeId,
+      );
     }
 
     detachAllTooltips();
@@ -176,17 +190,19 @@ export function mountCraftingUi(
       list.appendChild(row);
     }
 
-    if (hoveredRecipeId !== null && prevTop !== null) {
-      const newRow = findRow(hoveredRecipeId);
-      if (newRow) {
-        const newTop = newRow.getBoundingClientRect().top;
-        const delta = prevTop - newTop;
-        if (delta !== 0) {
-          anchorOffset += delta;
-          applyAnchor();
-        }
+    let nextScrollTop = prevScrollTop;
+    if (hoveredRecipeId !== null && prevHoveredIndex >= 0) {
+      const newHoveredIndex = rowChildren().findIndex(
+        (r) => r.dataset.recipeId === hoveredRecipeId,
+      );
+      if (newHoveredIndex >= 0 && newHoveredIndex !== prevHoveredIndex) {
+        nextScrollTop += (newHoveredIndex - prevHoveredIndex) * ROW_PITCH_PX;
       }
     }
+    // The browser clamps to [0, scrollHeight - clientHeight]; we just guard
+    // the lower bound explicitly so the assignment is well-defined under
+    // jsdom-like environments where the clamp isn't always reproduced.
+    scroll.scrollTop = Math.max(0, nextScrollTop);
   };
 
   const setOpen = (next: boolean): void => {
@@ -223,11 +239,13 @@ export function mountCraftingUi(
   const unsubscribe = options.getInventory().subscribe(render);
 
   // Stop pointer events from reaching `window` so the bootstrap-level
-  // mousedown / contextmenu handlers don't fire destroy / place when a
-  // click lands on the crafting panel. `contextmenu` also gets
-  // `preventDefault` so the browser's native context menu doesn't
-  // surface over the panel.
-  for (const ev of ["mousedown", "mouseup", "click"] as const) {
+  // mousedown / contextmenu / wheel handlers don't fire destroy / place /
+  // hotbar-cycle when a click or scroll lands on the crafting panel.
+  // `contextmenu` also gets `preventDefault` so the browser's native
+  // context menu doesn't surface over the panel. `wheel` is captured
+  // unconditionally (task 110) — the simpler "panel ate my scroll"
+  // contract matches the user's mental model.
+  for (const ev of ["mousedown", "mouseup", "click", "wheel"] as const) {
     panel.addEventListener(ev, (e) => e.stopPropagation());
   }
   panel.addEventListener("contextmenu", (e) => {
