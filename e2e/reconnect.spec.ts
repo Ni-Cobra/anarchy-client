@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test-shared";
 import protobuf from "protobufjs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -88,14 +88,55 @@ async function sendHello(
   s: Socket,
   username: string,
   reconnect = false,
+  password = "",
 ): Promise<void> {
   const bytes = ClientMessage.encode(
     ClientMessage.create({
       seq: helloSeq++,
-      hello: { clientVersion: "anarchy-e2e", username, colorIndex: 0, reconnect },
+      hello: {
+        clientVersion: "anarchy-e2e",
+        username,
+        colorIndex: 0,
+        reconnect,
+        password,
+      },
     }),
   ).finish();
   s.ws.send(bytes);
+}
+
+async function sendRegisterAccount(s: Socket, password: string): Promise<void> {
+  const bytes = ClientMessage.encode(
+    ClientMessage.create({
+      seq: helloSeq++,
+      registerAccount: { password },
+    }),
+  ).finish();
+  s.ws.send(bytes);
+}
+
+// Status enum: 1 = REGISTER_ACCOUNT_STATUS_OK (see anarchy.proto).
+async function awaitRegisterAccountOk(s: Socket): Promise<void> {
+  const frame = (await s.next((f) => {
+    if (f.kind !== "msg") return false;
+    const m = ServerMessage.decode(f.data).toJSON() as {
+      registerAccountResult?: unknown;
+    };
+    return m.registerAccountResult !== undefined;
+  })) as Extract<Frame, { kind: "msg" }>;
+  const msg = ServerMessage.decode(frame.data).toJSON() as {
+    registerAccountResult?: { status?: number | string };
+  };
+  const raw = msg.registerAccountResult!.status;
+  const status =
+    typeof raw === "number"
+      ? raw
+      : raw === "REGISTER_ACCOUNT_STATUS_OK"
+        ? 1
+        : -1;
+  if (status !== 1) {
+    throw new Error(`register account failed: status=${raw}`);
+  }
 }
 
 interface DecodedWelcome {
@@ -186,13 +227,19 @@ const NAME_PREFIX = `r-${RUN_ID}`;
 
 test("reconnect: round-trip restores PlayerId and a non-origin saved position", async () => {
   const username = `${NAME_PREFIX}-rt`;
+  const password = "rt-secret-12345";
 
-  // First session: admit fresh, walk +x for a few ticks, halt intent so
-  // momentum decays toward zero, then close.
+  // First session: admit fresh, register the account so disconnect parks
+  // a dormant record (anon disconnects go to the tombstone path, not the
+  // dormant pool — task 010-tombstone), walk +x for a few ticks, halt
+  // intent so momentum decays toward zero, then close.
   const a = await openSocket();
   await sendHello(a, username, false);
   const firstWelcome = await awaitWelcome(a);
   const firstId = firstWelcome.playerId;
+
+  await sendRegisterAccount(a, password);
+  await awaitRegisterAccountOk(a);
 
   sendIntent(a, 200, 1.0, 0.0);
   await new Promise((r) => setTimeout(r, 600));
@@ -212,7 +259,7 @@ test("reconnect: round-trip restores PlayerId and a non-origin saved position", 
   // player at a positive x — proving the saved position survived the
   // dormant round-trip rather than the player respawning at origin.
   const b = await openSocket();
-  await sendHello(b, username, true);
+  await sendHello(b, username, true, password);
   const secondWelcome = await awaitWelcome(b);
   expect(secondWelcome.playerId).toBe(firstId);
 

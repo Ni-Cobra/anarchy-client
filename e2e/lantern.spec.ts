@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 import { adminGiveItem, AdminItemId, adminSetTimeOfDay } from "./admin";
 
 // Task 370 e2e: the lantern's full loop. Plant Iron + Torch via admin,

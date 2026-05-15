@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 import { adminGiveItem, AdminItemId, adminSetBlock } from "./admin";
 
@@ -21,11 +21,11 @@ const CHEST_DST_SLOT = 4;
 async function openClient(page: Page, username: string): Promise<void> {
   await page.goto(`/?username=${username}&color=0`);
   await page.waitForFunction(() => window.__anarchy !== undefined);
-  await page.waitForFunction(() => {
+  await page.waitForFunction((item) => {
     const a = window.__anarchy;
     if (!a) return false;
-    return a.getLocalPlayerId() !== null && a.inventory.countOf(ITEM_ID_GOLD) === 10;
-  });
+    return a.getLocalPlayerId() !== null && a.inventory.countOf(item) === 10;
+  }, ITEM_ID_GOLD);
 }
 
 async function centerOf(
@@ -104,17 +104,17 @@ test("dragging a hotbar slot onto an open chest panel cell moves the stack to th
     // The server applies the move; the next tick ships the InventoryUpdate
     // emptying player slot 0 and the ChestUpdate populating chest slot 4.
     await page.waitForFunction(
-      ({ slot, tile }) => {
+      ({ slot, tile, item }) => {
         const a = window.__anarchy;
         if (!a) return false;
         const inv = a.chestState.inventoryFor(tile);
         const s = inv?.slot(slot) ?? null;
-        return s !== null && s.item === ITEM_ID_GOLD && s.count === 10;
+        return s !== null && s.item === item && s.count === 10;
       },
-      { slot: CHEST_DST_SLOT, tile: CHEST },
+      { slot: CHEST_DST_SLOT, tile: CHEST, item: ITEM_ID_GOLD },
     );
     expect(
-      await page.evaluate(() => window.__anarchy!.inventory.countOf(ITEM_ID_GOLD)),
+      await page.evaluate((item) => window.__anarchy!.inventory.countOf(item), ITEM_ID_GOLD),
     ).toBe(0);
   } finally {
     await adminSetBlock(CHEST.cx, CHEST.cy, "top", CHEST.lx, CHEST.ly, "air").catch(() => {});

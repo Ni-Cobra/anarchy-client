@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // Browser-driven e2e: load index.html via the dev server, let `src/main.ts`
 // run the real WebSocket + wire + world stack, and assert against the

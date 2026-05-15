@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 import { adminSetBlock } from "./admin";
 
 // Task 520 e2e: a Wood Pickaxe (below the IronOre tier gate) still

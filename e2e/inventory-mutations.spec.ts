@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // BACKLOG task 040 e2e: full inventory-action loop. The fresh-admit seeds
 // 10 Gold in slot 0, so the default hotbar selection lets the player

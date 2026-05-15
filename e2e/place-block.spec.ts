@@ -1,4 +1,4 @@
-import { test, type Page } from "@playwright/test";
+import { test, type Page } from "./test-shared";
 
 // Browser-driven e2e for the top-layer block placement flow (builder mode).
 // Builder-mode toggling, the gold ghost preview, and the right-click trigger

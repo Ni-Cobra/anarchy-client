@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 import { adminSetBlock } from "./admin";
 
 // Browser-driven e2e for the top-layer block destroy flow.
@@ -508,10 +508,14 @@ test("held break: ground-replace completion does NOT chew through the new ground
 test("held break: release mid-break recovers the partial damage", async ({
   browser,
 }) => {
-  // Pin the recovery semantics from ADR 0006: damage Stone (max = 90
-  // post-task 580 ×3) for ~5 ticks, release, wait for the untouched-delay
-  // window + ramp, then hold again — the block must take a fresh ~90
-  // ticks to break, proving the prior damage was healed.
+  // Pin the recovery semantics from ADR 0006: damage Stone a bit, release,
+  // wait long enough for the untouched-delay window + full ramp back, then
+  // hold again — the block must still take a fresh `max` ticks to break,
+  // proving the prior damage was healed. With Stone's max-durability of 90
+  // (post-task 580 ×3 bump) and the testing-mode starter's Wood Pickaxe
+  // (auto-equipped on first break attempt) dealing 2/tick, the rates are:
+  //   - damage  = 2/tick
+  //   - recovery = 1/tick after UNTOUCHED_DELAY = 20 ticks of release
   await seedTopBlock(0, 0, 1, 0, "stone");
 
   const ctxA = await browser.newContext();
@@ -522,24 +526,30 @@ test("held break: release mid-break recovers the partial damage", async ({
     await waitForSelfSpawn(a);
     await waitForTopBlockKind(a, 0, 0, 1, 0, "Stone");
 
-    // Hold for ~250 ms (≈ 5 ticks) → release → wait for full recovery
-    // (UNTOUCHED_DELAY_TICKS=20 + ramp 5 ticks back to max ≈ 1.25 s).
+    // Initial hold: 500 ms ≈ 10 ticks × 2 dmg = 20 damage taken. Then
+    // release and wait 2000 ms (40 ticks): the first 20 ticks burn the
+    // untouched delay and the next 20 ticks of recovery at 1/tick heal
+    // the 20 damage back — entry hits max and is dropped from the
+    // chunk's durability map.
     await a.evaluate(() =>
       window.__anarchy!.sendBreakIntent({ cx: 0, cy: 0, lx: 1, ly: 0 }),
     );
-    await a.waitForTimeout(250);
+    await a.waitForTimeout(500);
     await a.evaluate(() => window.__anarchy!.sendBreakIntent(null));
-    await a.waitForTimeout(1500);
+    await a.waitForTimeout(2000);
 
-    // Restart the hold: full Stone (90 ticks) takes ~4.5 s. Cell must
-    // still be Stone after 3.0 s of fresh hold (only ~60 ticks elapsed —
-    // well short of max).
+    // Restart the hold for 2000 ms ≈ 40 ticks × 2 = 80 damage. Without
+    // recovery the prior 20 damage would still be on the block, so the
+    // running total would be 100 > 90 = broken. With full recovery the
+    // total is 80 < 90 = still Stone — that's the recovery assertion.
     await a.evaluate(() =>
       window.__anarchy!.sendBreakIntent({ cx: 0, cy: 0, lx: 1, ly: 0 }),
     );
-    await a.waitForTimeout(3000);
+    await a.waitForTimeout(2000);
     await waitForTopBlockKind(a, 0, 0, 1, 0, "Stone");
-    // Wait up to a few seconds for the rest of the break to land.
+    // Wait up to a few seconds for the rest of the break to land (a
+    // further ~5 ticks ≈ 250 ms; `waitForFunction` defaults are
+    // generous either way).
     await waitForTopBlockKind(a, 0, 0, 1, 0, "Air");
     await a.evaluate(() => window.__anarchy!.sendBreakIntent(null));
   } finally {

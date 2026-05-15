@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // BACKLOG task 130 e2e: equipping a high-tier pickaxe slashes the time it
 // takes to break a Stone block. Pure timing pin — the per-tier multiplier

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // BACKLOG task 390 e2e: trees drop `Log` items into the breaker's
 // inventory (not a 3×3 sticks scatter); logs craft into Wood blocks

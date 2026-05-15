@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 import { AdminItemId, adminGiveItem, adminTeleport } from "./admin";
 
@@ -108,36 +108,66 @@ test("anon disconnect spawns a lootable tombstone for the next visitor", async (
       window.__anarchy!.sendOpenChest(tile.cx, tile.cy, tile.lx, tile.ly);
     }, TOMB_TILE);
 
-    // The next tick's `ChestUpdate` lands; chest mirror picks it up.
+    // The next tick's `ChestUpdate` lands; chest mirror picks it up. The
+    // tombstone holds A's full inventory verbatim — the starter Gold
+    // already occupies slot 0 in testing mode, so the seeded Stone stack
+    // lands in whichever the next free slot was at give-item time. The
+    // spec is slot-agnostic here on purpose: it locates the Stone cell
+    // dynamically and remembers it for the cross-grid move below.
+    let stoneSlot = -1;
     await b.waitForFunction(
       ({ tile, item }) => {
         const handle = window.__anarchy;
         if (!handle) return false;
         const inv = handle.chestState.inventoryFor(tile);
         if (inv === null) return false;
-        const slot = inv.slot(0);
-        return slot !== null && slot.item === item && slot.count === 5;
+        const slots = inv.allSlots();
+        for (let i = 0; i < slots.length; i++) {
+          const s = slots[i];
+          if (s !== null && s.item === item && s.count === 5) {
+            (window as unknown as { __tombStoneSlot?: number }).__tombStoneSlot = i;
+            return true;
+          }
+        }
+        return false;
       },
       { tile: TOMB_TILE, item: ITEM_ID_STONE },
       { timeout: 15_000 },
     );
+    stoneSlot = await b.evaluate(
+      () => (window as unknown as { __tombStoneSlot?: number }).__tombStoneSlot ?? -1,
+    );
+    expect(stoneSlot).toBeGreaterThanOrEqual(0);
 
-    // Move slot 0 of the tombstone into slot 0 of B's player inventory.
-    // The server applies the cross-grid move; the next tick clears the
-    // tombstone slot and B's slot 0 carries the stack.
-    await b.evaluate((tile) => {
-      window.__anarchy!.sendMoveSlot(0, 0, tile, null);
-    }, TOMB_TILE);
+    // Move the Stone slot out of the tombstone into the first empty
+    // hotbar/player cell. B's starter Gold sits at slot 0 already, so
+    // pick the first slot that's currently empty for a clean assertion.
+    const dstSlot = await b.evaluate(() => {
+      const inv = window.__anarchy!.inventory;
+      const slots = inv.allSlots();
+      for (let i = 0; i < slots.length; i++) {
+        if (slots[i] === null) return i;
+      }
+      return -1;
+    });
+    expect(dstSlot).toBeGreaterThanOrEqual(0);
+
+    await b.evaluate(
+      ({ tile, src, dst }) => {
+        window.__anarchy!.sendMoveSlot(src, dst, tile, null);
+      },
+      { tile: TOMB_TILE, src: stoneSlot, dst: dstSlot },
+    );
 
     await b.waitForFunction(
-      ({ tile, item }) => {
+      ({ tile, item, src }) => {
         const handle = window.__anarchy;
         if (!handle) return false;
         const tombInv = handle.chestState.inventoryFor(tile);
         if (tombInv === null) return false;
-        return tombInv.slot(0) === null && handle.inventory.countOf(item) === 5;
+        return tombInv.slot(src) === null && handle.inventory.countOf(item) === 5;
       },
-      { tile: TOMB_TILE, item: ITEM_ID_STONE },
+      { tile: TOMB_TILE, item: ITEM_ID_STONE, src: stoneSlot },
       { timeout: 15_000 },
     );
 

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // BACKLOG task 100 e2e: client wiring of the server-side crafting flow
 // (task 090 server). The fresh-admit inventory has 10 Gold (slot 0) and
@@ -82,10 +82,15 @@ test("crafting panel starts empty (no wood) then populates as recipe ingredients
   await expect(page.locator(".anarchy-crafting-row")).toHaveCount(0);
 
   // Drop one log of wood into the inventory via the dev seam — the next
-  // InventoryUpdate carries the recipe id `"sticks"` and the panel
-  // re-renders with a single row.
+  // InventoryUpdate carries the recipe id `"sticks"` (only one fully
+  // affordable from a single Wood) plus partial-hint rows for the other
+  // Wood-using recipes (`wood-axe`, `chest`). Filter on the affordable
+  // class so the assertion stays focused on "the new ingredient made
+  // sticks craftable" rather than the wider partial-hint UX.
   await seedInventory(page, ITEM_ID_WOOD, 1);
-  await expect(page.locator(".anarchy-crafting-row")).toHaveCount(1, {
+  await expect(
+    page.locator(".anarchy-crafting-row:not(.partial-hint)"),
+  ).toHaveCount(1, {
     timeout: 5_000,
   });
   await expect(

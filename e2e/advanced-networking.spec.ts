@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test-shared";
 import protobuf from "protobufjs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -37,8 +37,13 @@ const HTTP_BASE = "http://localhost:8080";
 // `spawn` pass clears the top layer only inside `cx = ±2` (radius 2), so a
 // stone outcrop at `cx = ±3` along `y = 0` can stop a player one chunk short
 // of the assertion. Pre-clear the top layer of the test path via the debug
-// endpoint before any test in this file runs.
-test.beforeAll(async () => {
+// endpoint before *every* test in this file: anon disconnects spawn solid
+// `Tombstone` top blocks at the disconnecting player's last cell, so any
+// prior test in the file that walked a player to `cx = ±3+` would leave a
+// tombstone exactly in the path the next test needs free. The shared
+// `test-shared` fixture only clears the inner `(-2..=2)²` spawn box; this
+// `beforeEach` extends the wipe out to `cx = ±5`.
+test.beforeEach(async () => {
   const res = await fetch(`${HTTP_BASE}/debug/clear-top-region/-5/-2/5/2`, {
     method: "POST",
   });

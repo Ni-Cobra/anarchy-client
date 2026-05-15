@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // Cross-cutting integration sweep for the destruction / placement / collision
 // stack. The single-feature specs (`break-block.spec.ts`, `place-block.spec.ts`)
@@ -110,6 +110,17 @@ async function clearTopBlock(
   ly: number,
 ): Promise<void> {
   const url = `${SERVER_URL}/debug/seed-top-block/${cx}/${cy}/${lx}/${ly}/air`;
+  await fetch(url, { method: "POST" }).catch(() => {});
+}
+
+// Reset the 5×5 chunk spawn-protection region (chunks `(-2..=2)²`) by
+// reusing the `clear-top-region` debug endpoint. The shared `test-shared`
+// fixture clears this same box once before each test, but a mid-test
+// reload triggers an anon `end_session` whose tombstone block lands in
+// the spawn region and forces the next `find_spawn` onto a ring-1 tile —
+// re-clearing here keeps the post-reload spawn deterministic.
+async function clearSpawnRegion(): Promise<void> {
+  const url = `${SERVER_URL}/debug/clear-top-region/-2/-2/2/2`;
   await fetch(url, { method: "POST" }).catch(() => {});
 }
 
@@ -367,7 +378,18 @@ test("PlaceBlock issued right after a fresh reconnect Welcome is processed corre
     await openClient(a);
     const firstA = await waitForSelfSpawn(a);
 
-    // Reload A. New connection ⇒ new welcome ⇒ new player id.
+    // Reload A. New connection ⇒ new welcome ⇒ new player id. Anon
+    // disconnect drops a `Tombstone` at A's last cell (task 010-tombstone),
+    // which sits inside the spawn-protection region and would otherwise
+    // force the post-reload `find_spawn` onto a random ring-1 tile.
+    // Stomp the tombstone before the new connection's spawn search runs
+    // so the second admit lands deterministically at `(0.5, 0.5)`.
+    await a.evaluate(() => {
+      const h = window.__anarchy;
+      if (!h) return;
+      h.stop();
+    });
+    await clearSpawnRegion();
     await a.reload();
     await a.waitForFunction(() => window.__anarchy !== undefined);
     const secondA = await waitForSelfSpawn(a);

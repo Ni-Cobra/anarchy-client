@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test-shared";
 import protobuf from "protobufjs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -107,6 +107,7 @@ async function sendHello(
   ws: WebSocket,
   username: string,
   reconnect = false,
+  password = "",
 ): Promise<void> {
   const bytes = ClientMessage.encode(
     ClientMessage.create({
@@ -116,7 +117,21 @@ async function sendHello(
         username,
         colorIndex: 0,
         reconnect,
+        password,
       },
+    }),
+  ).finish();
+  ws.send(bytes);
+}
+
+async function sendRegisterAccount(
+  ws: WebSocket,
+  password: string,
+): Promise<void> {
+  const bytes = ClientMessage.encode(
+    ClientMessage.create({
+      seq: helloSeq++,
+      registerAccount: { password },
     }),
   ).finish();
   ws.send(bytes);
@@ -234,6 +249,34 @@ async function waitForInventory(socket: {
   return decodeInventory(f)!;
 }
 
+async function waitForRegisterAccountOk(socket: {
+  next: (
+    predicate: (f: Frame) => boolean,
+    timeout?: number,
+  ) => Promise<Frame>;
+}): Promise<void> {
+  const frame = (await socket.next((f) => {
+    if (f.kind !== "msg") return false;
+    const m = ServerMessage.decode(f.data).toJSON() as {
+      registerAccountResult?: unknown;
+    };
+    return m.registerAccountResult !== undefined;
+  })) as Extract<Frame, { kind: "msg" }>;
+  const msg = ServerMessage.decode(frame.data).toJSON() as {
+    registerAccountResult?: { status?: number | string };
+  };
+  const raw = msg.registerAccountResult!.status;
+  const status =
+    typeof raw === "number"
+      ? raw
+      : raw === "REGISTER_ACCOUNT_STATUS_OK"
+        ? 1
+        : -1;
+  if (status !== 1) {
+    throw new Error(`register account failed: status=${raw}`);
+  }
+}
+
 // Unique-enough suffix that fits inside the server's 16-char username
 // cap. `Date.now() % 10000` is plenty against parallel runs of the same
 // spec; collisions resolve via ADR 0005 `base{N}` disambiguation, which
@@ -306,14 +349,21 @@ test("unequip wire round-trip: UnequipTool clears the equipped-slot pointer back
 
 test("equipped flag survives a reconnect (dormant record carries the slot pointer forward)", async () => {
   const username = uniq("equip-rec");
+  const password = "equip-rec-pw-1";
 
-  // Session 1: connect (no auto-equip), explicitly equip the wood axe,
-  // wait for the confirmation, then close so the server parks the
-  // player into the dormant pool with the flag set.
+  // Session 1: connect (no auto-equip), register the account so the
+  // disconnect parks a dormant record (anon disconnects go to the
+  // tombstone path, not the dormant pool — task 010-tombstone), then
+  // explicitly equip the wood axe, wait for the confirmation, then
+  // close so the server parks the player into the dormant pool with
+  // the flag set.
   const session1 = await openSocket();
   await sendHello(session1.ws, username);
   const session1Inventory = await waitForInventory(session1);
   expect(session1Inventory.equippedAxeSlot).toBe(-1);
+
+  await sendRegisterAccount(session1.ws, password);
+  await waitForRegisterAccountOk(session1);
 
   await sendEquipTool(session1.ws, WOOD_AXE_SLOT, TOOL_KIND_AXE);
   const equipped = await waitForInventory(session1);
@@ -327,7 +377,7 @@ test("equipped flag survives a reconnect (dormant record carries the slot pointe
   // restored by the admission path must carry the equipped slot index
   // forward.
   const session2 = await openSocket();
-  await sendHello(session2.ws, username, /* reconnect */ true);
+  await sendHello(session2.ws, username, /* reconnect */ true, password);
   const restored = await waitForInventory(session2);
   expect(restored.equippedAxeSlot).toBe(WOOD_AXE_SLOT);
   expect(restored.slots[WOOD_AXE_SLOT].count).toBe(1);

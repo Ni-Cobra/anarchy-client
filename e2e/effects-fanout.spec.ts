@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // Browser-driven e2e for the per-tick effects feed (task 070).
 //

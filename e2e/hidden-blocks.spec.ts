@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 // Anti-cheat occlusion (task 060): blocks the player cannot see should never
 // reach the client as their true kind. The server masks fully-occluded

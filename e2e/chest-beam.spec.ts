@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./test-shared";
 
 import { AdminItemId, adminGiveItem, adminSetBlock } from "./admin";
 
