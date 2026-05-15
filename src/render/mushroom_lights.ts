@@ -34,22 +34,28 @@ export const MAX_MUSHROOM_LIGHTS = 24;
  *  visible against the brighter deep-blue night without bleeding into it. */
 const MUSHROOM_LIGHT_COLOR = 0x9fd9ff;
 
-/** Falloff radius — ~55% of a torch's `TORCH_LIGHT_DISTANCE` (10.0) so a
- *  mushroom lights two-to-three tiles around it. Forces a torch to still
- *  feel like the upgrade for serious lighting. */
-const MUSHROOM_LIGHT_DISTANCE = 5.5;
+/** Falloff radius — ~54% of a torch's `TORCH_LIGHT_DISTANCE` (13.0) so a
+ *  mushroom lights three-to-four tiles around it. Forces a torch to still
+ *  feel like the upgrade for serious lighting. Bumped to 7.0 (task 190)
+ *  alongside the intensity lift so the brighter, elevated source spreads
+ *  proportionally. */
+const MUSHROOM_LIGHT_DISTANCE = 7.0;
 
 /** Decay exponent. Same shape as the torch (`1.4`) — readable warm-bias
  *  falloff rather than physically-correct inverse-square. */
 const MUSHROOM_LIGHT_DECAY = 1.4;
 
 /** Peak intensity at midnight — ~55% of `TORCH_LIGHT_PEAK_INTENSITY` so a
- *  mushroom patch reads as ambient atmosphere rather than navigable light. */
-const MUSHROOM_LIGHT_PEAK_INTENSITY = 1.65;
+ *  mushroom patch reads as ambient atmosphere rather than navigable light.
+ *  Lifted to 2.5 (task 190) in lockstep with the torch / lantern bump, keeping
+ *  the mushroom-weaker-than-torch invariant pinned in the test file. */
+const MUSHROOM_LIGHT_PEAK_INTENSITY = 2.5;
 
-/** Y offset of the light — roughly at the mushroom cap so the cone reads as
- *  coming from the bloom, not the ground beneath it. */
-const MUSHROOM_LIGHT_Y = 0.45;
+/** Y offset of the light. Lifted to 1.8 (task 190) — same elevation as the
+ *  torch and lantern emitters so a torch and a mushroom side-by-side appear
+ *  at the same height relative to a block, and the cone reaches the tops of
+ *  nearby top-layer blocks instead of being shadowed by them. */
+const MUSHROOM_LIGHT_Y = 1.8;
 
 /**
  * Build a mushroom-flavoured `THREE.PointLight`. Cool cyan tint + the
@@ -183,5 +189,11 @@ export class MushroomLights {
   static intensityAt(nightFactor: number): number {
     const clamped = nightFactor < 0 ? 0 : nightFactor > 1 ? 1 : nightFactor;
     return MUSHROOM_LIGHT_PEAK_INTENSITY * clamped;
+  }
+
+  /** Test-only: the per-light vertical lift in scene space. Pinned so the
+   *  emitter stays above the top-layer block plane. */
+  static attachmentY(): number {
+    return MUSHROOM_LIGHT_Y;
   }
 }

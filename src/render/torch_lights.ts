@@ -30,28 +30,34 @@ export const MAX_TORCH_LIGHTS = 32;
 /** Warm flame tint shared with the lantern (task 370). */
 const TORCH_LIGHT_COLOR = 0xffaa55;
 
-/** Falloff radius. A torch lights ~4-5 tiles around it at midnight, fading
+/** Falloff radius. A torch lights ~5-6 tiles around it at midnight, fading
  *  past that — far enough to navigate by, close enough that 32 of them in
- *  view don't paint everything orange. Bumped from 8.0 alongside the
- *  intensity doubling (task 450) so the brighter source spreads to a
- *  larger pool rather than read as a tiny over-bright dot. */
-const TORCH_LIGHT_DISTANCE = 10.0;
+ *  view don't paint everything orange. Bumped to 13.0 alongside the peak
+ *  intensity lift (task 190) so the brighter, elevated source spreads to a
+ *  pool that actually reaches several tiles out instead of pooling at the
+ *  emitter. */
+const TORCH_LIGHT_DISTANCE = 13.0;
 
 /** Decay exponent. Higher = sharper falloff. `2` is physically correct
  *  inverse-square; `1.4` reads warmer in the test scene without nuking the
  *  near-tile contribution to almost-imperceptible. */
 const TORCH_LIGHT_DECAY = 1.4;
 
-/** Peak intensity (at midnight, where `nightFactor == 1`). Doubled to
- *  ~3.0 (task 450) so a single torch reads obviously bright against the
- *  night ambient floor; paired with a slightly larger `TORCH_LIGHT_DISTANCE`
- *  to spread the extra energy rather than concentrate it at the center. */
-const TORCH_LIGHT_PEAK_INTENSITY = 3.0;
+/** Peak intensity (at midnight, where `nightFactor == 1`). Lifted to 4.5
+ *  (task 190) so a single torch reads obviously bright against the
+ *  night ambient floor even after the source is lifted above the top-layer
+ *  block plane (see `TORCH_LIGHT_Y`); paired with a slightly larger
+ *  `TORCH_LIGHT_DISTANCE` to spread the extra energy. */
+const TORCH_LIGHT_PEAK_INTENSITY = 4.5;
 
-/** Y offset where the per-torch light sits — roughly at the top of the
- *  painted flame so the cone reads as "coming from the flame", not the
- *  ground. */
-const TORCH_LIGHT_Y = 0.9;
+/** Y offset where the per-torch light sits. Lifted to 1.8 (task 190) so the
+ *  emitter sits clearly above the tallest top-layer geometry (tree canopy
+ *  top is ~1.1 scene units) — that way the cone illuminates the tops of
+ *  trees, stone walls, and mountain edges instead of being shadowed by
+ *  them. Shared across `lantern_lights.ts` and `mushroom_lights.ts` so a
+ *  torch + mushroom side-by-side appear at the same height relative to a
+ *  block. */
+const TORCH_LIGHT_Y = 1.8;
 
 /**
  * Build a torch-flavoured `THREE.PointLight`. Same warm tint + decay used
@@ -187,5 +193,11 @@ export class TorchLights {
   static intensityAt(nightFactor: number): number {
     const clamped = nightFactor < 0 ? 0 : nightFactor > 1 ? 1 : nightFactor;
     return TORCH_LIGHT_PEAK_INTENSITY * clamped;
+  }
+
+  /** Test-only: the per-light vertical lift in scene space. Pinned so a
+   *  future accidental drop back below the top-layer block plane is loud. */
+  static attachmentY(): number {
+    return TORCH_LIGHT_Y;
   }
 }

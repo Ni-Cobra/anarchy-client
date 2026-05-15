@@ -8,14 +8,15 @@ import {
 } from "./mushroom_lights.js";
 
 describe("createMushroomLight", () => {
-  it("returns a cool-tinted PointLight with finite distance + decay", () => {
+  it("returns a cool-tinted PointLight with the pinned distance + decay", () => {
     const light = createMushroomLight();
     expect(light).toBeInstanceOf(THREE.PointLight);
     // Cool tint — blue/cyan dominates red so a torch + a mushroom in the
     // same frame read as distinctly different light sources.
     expect(light.color.b).toBeGreaterThan(light.color.r);
-    expect(light.distance).toBeGreaterThan(0);
-    expect(light.decay).toBeGreaterThan(0);
+    // Pinned by task 190.
+    expect(light.distance).toBe(7.0);
+    expect(light.decay).toBe(1.4);
   });
 });
 
@@ -48,6 +49,9 @@ describe("MushroomLights pool", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = MushroomLights.intensityAt(1);
+    // Peak pinned by task 190 — lifted in lockstep with the torch / lantern
+    // bump while keeping mushroom < torch.
+    expect(peak).toBe(2.5);
     expect(MushroomLights.intensityAt(0)).toBe(0);
     expect(MushroomLights.intensityAt(0.5)).toBeCloseTo(peak * 0.5);
     expect(MushroomLights.intensityAt(1)).toBe(peak);
@@ -60,6 +64,30 @@ describe("MushroomLights pool", () => {
     expect(MushroomLights.intensityAt(1)).toBeLessThan(
       TorchLights.intensityAt(1),
     );
+  });
+
+  it("shares the lifted attachment Y with the torch + lantern pools (task 190)", async () => {
+    expect(MushroomLights.attachmentY()).toBe(1.8);
+
+    // The lift must be consistent across the three pools so a torch and a
+    // mushroom side-by-side appear at the same height relative to a block.
+    const { TorchLights } = await import("./torch_lights.js");
+    const { LanternLights } = await import("./lantern_lights.js");
+    expect(MushroomLights.attachmentY()).toBe(TorchLights.attachmentY());
+    expect(MushroomLights.attachmentY()).toBe(LanternLights.attachmentY());
+
+    // And the runtime pool actually positions its lights at that Y.
+    const lights = new MushroomLights();
+    lights.setChunkMushrooms(0, 0, [{ x: 0, z: 0 }]);
+    lights.update({ x: 0, z: 0 }, 1);
+    const lit = lights
+      .scene()
+      .children.filter(
+        (c): c is THREE.PointLight =>
+          c instanceof THREE.PointLight && c.visible,
+      );
+    expect(lit).toHaveLength(1);
+    expect(lit[0].position.y).toBe(MushroomLights.attachmentY());
   });
 
   it("at midnight, the lit pool slots match the tracked mushrooms", () => {

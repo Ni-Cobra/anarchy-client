@@ -23,25 +23,27 @@ import { ItemId, type PlayerId } from "../game/index.js";
 import { createTorchLight } from "./torch_lights.js";
 import { tileToScene } from "./sync.js";
 
-/** Y offset where the lantern light sits — roughly at the player's head
- *  so the warm cone reads as "coming from the lantern at the side", not
- *  the ground. */
-const LANTERN_LIGHT_Y = 1.1;
+/** Y offset where the lantern light sits. Lifted to 1.8 (task 190) so the
+ *  emitter clears top-layer geometry (tree canopy top is ~1.1 scene units)
+ *  and the cone reaches the tops of nearby blocks rather than being
+ *  shadowed by them. Shared with the torch and mushroom pools so all three
+ *  emitters appear at the same height relative to a block. */
+const LANTERN_LIGHT_Y = 1.8;
 
-/** Lantern peak intensity at midnight. Doubled to ~3.0 (task 450) in
- *  lockstep with the torch so a player carrying one still reads as
- *  brighter-than-a-torch, and so the day-night fade stays consistent
- *  across both warm light sources. */
-const LANTERN_PEAK_INTENSITY = 3.0;
+/** Lantern peak intensity at midnight. Lifted to 4.5 (task 190) in lockstep
+ *  with the torch so a player carrying one still reads as
+ *  brighter-than-a-torch (via the larger radius), and so the day-night
+ *  fade stays consistent across both warm light sources. */
+const LANTERN_PEAK_INTENSITY = 4.5;
 
 /** Distance multiplier on the shared torch falloff. The lantern lights
- *  ~6-7 tiles vs. the torch's ~4-5, matching "slightly larger radius
+ *  ~7-8 tiles vs. the torch's ~5-6, matching "slightly larger radius
  *  than a torch — it's the upgrade" from task 370. The number is the
  *  raw `THREE.PointLight.distance`, not a scaling factor — it replaces
- *  whatever `createTorchLight()` set. Bumped from 11.0 alongside the
- *  intensity doubling (task 450) so the brighter source spreads to a
+ *  whatever `createTorchLight()` set. Bumped from 13.0 alongside the
+ *  intensity lift (task 190) so the brighter source spreads to a
  *  proportionally larger pool. */
-const LANTERN_LIGHT_DISTANCE = 13.0;
+const LANTERN_LIGHT_DISTANCE = 16.0;
 
 /** One renderable entity with the fields this layer consumes. Subset of
  *  `RenderableEntity` so unit tests can build a minimal struct without
@@ -135,5 +137,11 @@ export class LanternLights {
   static intensityAt(nightFactor: number): number {
     const clamped = nightFactor < 0 ? 0 : nightFactor > 1 ? 1 : nightFactor;
     return LANTERN_PEAK_INTENSITY * clamped;
+  }
+
+  /** Test-only: the per-light vertical lift in scene space. Pinned so the
+   *  emitter stays above the top-layer block plane. */
+  static attachmentY(): number {
+    return LANTERN_LIGHT_Y;
   }
 }

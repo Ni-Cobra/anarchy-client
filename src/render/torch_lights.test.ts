@@ -8,13 +8,14 @@ import {
 } from "./torch_lights.js";
 
 describe("createTorchLight", () => {
-  it("returns a warm-tinted PointLight with finite distance + decay", () => {
+  it("returns a warm-tinted PointLight with the pinned distance + decay", () => {
     const light = createTorchLight();
     expect(light).toBeInstanceOf(THREE.PointLight);
     // Warm flame tint shared with the lantern: red dominates blue.
     expect(light.color.r).toBeGreaterThan(light.color.b);
-    expect(light.distance).toBeGreaterThan(0);
-    expect(light.decay).toBeGreaterThan(0);
+    // Pinned by task 190 — see torch_lights.ts comments for rationale.
+    expect(light.distance).toBe(13.0);
+    expect(light.decay).toBe(1.4);
   });
 });
 
@@ -48,12 +49,35 @@ describe("TorchLights pool", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = TorchLights.intensityAt(1);
+    // Peak pinned by task 190 — louder than the previous 3.0 so a torch
+    // genuinely illuminates several tiles at full night.
+    expect(peak).toBe(4.5);
     expect(TorchLights.intensityAt(0)).toBe(0);
     expect(TorchLights.intensityAt(0.5)).toBeCloseTo(peak * 0.5);
     expect(TorchLights.intensityAt(1)).toBe(peak);
     // Out-of-range inputs clamp into [0, 1].
     expect(TorchLights.intensityAt(-1)).toBe(0);
     expect(TorchLights.intensityAt(1.5)).toBe(peak);
+  });
+
+  it("attaches each light above the top-layer block plane (task 190)", () => {
+    // Pinned just above the tallest top-layer geometry (tree canopy ~1.1
+    // scene units) so the cone lights the tops of blocks rather than being
+    // shadowed by them. Shared with the lantern and mushroom pools.
+    expect(TorchLights.attachmentY()).toBe(1.8);
+
+    // The runtime light also picks up the lifted Y when positioned.
+    const lights = new TorchLights();
+    lights.setChunkTorches(0, 0, [{ x: 0, z: 0 }]);
+    lights.update({ x: 0, z: 0 }, 1);
+    const lit = lights
+      .scene()
+      .children.filter(
+        (c): c is THREE.PointLight =>
+          c instanceof THREE.PointLight && c.visible,
+      );
+    expect(lit).toHaveLength(1);
+    expect(lit[0].position.y).toBe(TorchLights.attachmentY());
   });
 
   it("at midnight, the lit pool slots match the tracked torches", () => {
