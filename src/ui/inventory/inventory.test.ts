@@ -1278,6 +1278,63 @@ describe("inventory UI", () => {
       );
     });
 
+    // Task 180 — equipment circles read as a free-floating cluster: no
+    // hover-tint on the circle (mouse-inert; the bare `.anarchy-inventory-
+    // slot:hover` rule lights up clickable cells, and a double-class
+    // override pins the equipment circle's border color back to the
+    // non-hover token so the hover does nothing visible), and the
+    // surrounding `.anarchy-equipment-bar` carries no visible chrome
+    // (no background, no border, no shadow).
+    it("overrides :hover on equipment slots so no border tint applies", () => {
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const css = document
+        .getElementById("anarchy-inventory-style")!
+        .textContent!.replace(/\s+/g, " ");
+      // The double-class :hover rule must exist (specificity 0,2,1 beats
+      // the bare `.anarchy-inventory-slot:hover` 0,1,1) and must pin
+      // border-color to the non-hover token, not the brighter hover one.
+      expect(css).toMatch(
+        /\.anarchy-inventory-slot\.anarchy-equipment-slot:hover \{ border-color: rgba\(255, 255, 255, 0\.12\)/,
+      );
+    });
+
+    it("equipment bar carries no visible chrome (no background / border / shadow)", () => {
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const css = document
+        .getElementById("anarchy-inventory-style")!
+        .textContent!.replace(/\s+/g, " ");
+      // Isolate just the `.anarchy-equipment-bar { ... }` rule body and
+      // assert chrome is explicitly suppressed. The bar still exists as
+      // a flex container for layout — see the EQUIP_GAP_PX gap between
+      // the hotbar and the equipment cluster — but visually it must
+      // share only the page background with its surroundings.
+      const match = css.match(/\.anarchy-equipment-bar \{([^}]*)\}/);
+      expect(match).not.toBeNull();
+      const body = match![1];
+      expect(body).toMatch(/background: transparent/);
+      expect(body).toMatch(/border: none/);
+      expect(body).toMatch(/box-shadow: none/);
+      // It must also NOT be lumped in with the hotbar's chrome rule.
+      // The old combined selector `.anarchy-hotbar, .anarchy-equipment-bar`
+      // gave both the dark background and the rounded frame; that grouping
+      // is precisely what task 180 unwound.
+      expect(css).not.toMatch(
+        /\.anarchy-hotbar, \.anarchy-equipment-bar \{/,
+      );
+    });
+
     it("clicking an occupied equipment slot is a no-op (mouse-inert)", () => {
       const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       slots[3] = { item: ItemId.IronPickaxe, count: 1 };

@@ -13,6 +13,7 @@
 import {
   CELL_BACKGROUND,
   CELL_BORDER,
+  CELL_BORDER_COLOR,
   CELL_BORDER_RADIUS_PX,
   CELL_DRAG_SOURCE_OPACITY,
   CELL_HOVER_BORDER_COLOR,
@@ -66,8 +67,7 @@ const STYLE = `
     pointer-events: none;
   }
   .anarchy-hotbar-row > * { pointer-events: auto; }
-  .anarchy-hotbar,
-  .anarchy-equipment-bar {
+  .anarchy-hotbar {
     display: flex;
     gap: ${HOTBAR_GAP_PX}px;
     padding: 6px;
@@ -75,6 +75,19 @@ const STYLE = `
     border: ${PANEL_BORDER};
     border-radius: ${PANEL_BORDER_RADIUS_PX}px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+  /* Equipment cluster (task 180): the four circles read as a free-
+     floating group, not as cells in a bar. The container is kept for
+     flex layout — sibling of the hotbar inside .anarchy-hotbar-row
+     so EQUIP_GAP_PX still falls out of CSS flex — but it carries no
+     chrome of its own: no background, no border, no shadow. Only the
+     four circles paint over the page background. */
+  .anarchy-equipment-bar {
+    display: flex;
+    gap: ${HOTBAR_GAP_PX}px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
   /* Equipment slots are circular to read as visually distinct from the
      square inventory / hotbar cells, and they're mouse-inert (task 60)
@@ -89,6 +102,15 @@ const STYLE = `
     border-radius: 50%;
     overflow: hidden;
     cursor: default;
+  }
+  /* Task 180: equipment slots are mouse-inert and must NOT light up on
+     hover the way clickable hotbar / panel cells do. Pin the cell's
+     border to its non-hover color so the bare .anarchy-inventory-slot:hover
+     rule below (specificity 0,1,1) loses to this double-class :hover
+     (0,2,1) and the cursor over an equipment circle paints nothing
+     new. */
+  .anarchy-inventory-slot.anarchy-equipment-slot:hover {
+    border-color: ${CELL_BORDER_COLOR};
   }
   .anarchy-equipment-slot.empty .anarchy-inventory-icon {
     opacity: 0.3;
