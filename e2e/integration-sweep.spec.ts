@@ -1,3 +1,4 @@
+import { adminTeleport } from "./admin";
 import { test, expect, type Page } from "./test-shared";
 
 // Cross-cutting integration sweep for the destruction / placement / collision
@@ -209,13 +210,15 @@ test("ghost gate + server agree: B on cell forbids place; B walks off, place lan
   // Both clients spawn at origin and the pairwise-overlap pass pushes them
   // apart along ±x. Per ADR 0005 the second "tester" admission is admitted
   // as "tester2", so the two clients have distinct usernames and therefore
-  // distinct mass-band entries (`mass_for_username` is FNV-1a → [0.5, 2.0]).
-  // The push is mass-weighted, so we cannot assume A lands tangent to cell
-  // (0, 0) — A could end up at e.g. -0.28, whose circle would *overlap* the
-  // cell and pin the gate to false even after B walks away. To make the
-  // test mass-agnostic we explicitly walk A west to a known-safe position
-  // (x < -1) before checking the gate; A still has the cell well within
-  // REACH_BLOCKS (= 4) so the place attempt is otherwise legal.
+  // distinct mass-band entries — the push is mass-weighted, so neither A's
+  // post-push x nor B's is fixed. We therefore admin-teleport both into
+  // known cells: A west of the target cell so its own circle never
+  // overlaps cell (0, 0) and the reach check still passes (distance 2.0 <
+  // REACH_BLOCKS = 4.0), and B onto the target cell so the gate starts at
+  // "forbidden". Driving A there via the wire was flaky — the wait that
+  // told us "A is past x = -1" raced the snapshot polling, so A would
+  // keep walking and overshoot REACH_BLOCKS before its own stop intent
+  // applied, pinning the gate to false forever.
   test.setTimeout(15_000);
   const cx = 0,
     cy = 0,
@@ -233,28 +236,24 @@ test("ghost gate + server agree: B on cell forbids place; B walks off, place lan
     await openClient(b);
     const meB = await waitForSelfSpawn(b);
 
-    // Wait for the post-push positions to be reflected in A's world so
-    // canPlaceAt's overlap check sees B somewhere in cell (0, 0).
-    await a.waitForFunction(
-      (peerId) => {
-        const p = window.__anarchy?.world.getPlayer(peerId);
-        return p !== undefined && p.x > 0;
-      },
-      meB.id,
-    );
+    await adminTeleport(meA.id, -1.5, 0.5);
+    await adminTeleport(meB.id, 0.5, 0.5);
 
-    // Walk A clearly off the cell (x < -1) so the only player whose AABB
-    // can overlap cell (0, 0) is B. Position is verified from A's own
-    // self-view to avoid mass-band asymmetry and snapshot interpolation.
-    await a.evaluate(() => window.__anarchy!.sendMoveIntent(-1, 0));
+    // Wait for both teleports to reach A's world so the gate evaluation
+    // below reads the post-teleport positions.
     await a.waitForFunction(
-      (selfId) => {
+      ({ selfId, peerId }) => {
         const me = window.__anarchy?.world.getPlayer(selfId);
-        return me !== undefined && me.x < -1;
+        const peer = window.__anarchy?.world.getPlayer(peerId);
+        return (
+          me !== undefined &&
+          peer !== undefined &&
+          Math.abs(me.x - -1.5) < 0.05 &&
+          Math.abs(peer.x - 0.5) < 0.05
+        );
       },
-      meA.id,
+      { selfId: meA.id, peerId: meB.id },
     );
-    await a.evaluate(() => window.__anarchy!.sendMoveIntent(0, 0));
 
     // Step 1: gate says no while B stands on the cell.
     expect(await a.evaluate(() => window.__anarchy!.canPlaceAt(0, 0, 0, 0))).toBe(false);
