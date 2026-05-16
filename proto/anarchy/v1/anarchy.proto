@@ -712,11 +712,50 @@ message Layer {
 // within them: the chunk is the unit of player delivery as well as
 // terrain delivery. `players` is sorted by `PlayerSnapshot.id` so the
 // wire form is deterministic for tests.
+//
+// Task 010-entities: chunks also carry the entities whose tile currently
+// falls within them. Entities are tile-bound on the server; the client
+// animates between tiles. Sorted by `Entity.id` for the same determinism
+// reason as `players`.
 message Chunk {
   ChunkCoord coord = 1;
   Layer ground = 2;
   Layer top = 3;
   repeated PlayerSnapshot players = 4;
+  repeated Entity entities = 5;
+}
+
+// === Entities (task 010-entities) ===
+//
+// One tile-bound unit. Entities live inside chunks (the chunk owns the
+// authoritative entity map and ships it with `Chunk` delivery); the
+// per-kind behavior (spider random-walk today) is server-side only. The
+// wire shape is intentionally minimal — just identity + kind + tile —
+// because the client only needs to render and animate between tiles.
+//
+// Future kind-specific data (HP, state machine flags, …) can grow as
+// additional fields on this message; in this iteration only `Spider`
+// exists and a kind-specific field isn't needed.
+message Entity {
+  uint64 id = 1;
+  EntityKind kind = 2;
+  // World tile coords (not local-to-chunk) — same convention as
+  // `BlockEdit.local_x/local_y` but expressed in absolute tiles so the
+  // client doesn't have to know which chunk hosts the entity to render
+  // it. The hosting chunk is derived from `(tile_x, tile_y)` on both
+  // sides.
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+}
+
+// Kinds of entity. `ENTITY_KIND_UNSPECIFIED = 0` is the proto3 default
+// sentinel and is never emitted by the server. New kinds slot in here
+// by appending — wire numbers stay stable.
+enum EntityKind {
+  ENTITY_KIND_UNSPECIFIED = 0;
+  // Random-walk top-layer-collision-only wanderer. 10% chance per tick
+  // to step to a random walkable cardinal neighbor.
+  ENTITY_KIND_SPIDER = 1;
 }
 
 // === Inventory ===
