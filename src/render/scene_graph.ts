@@ -22,6 +22,7 @@ import {
   defaultBreakParticleColor,
   EffectsLayer,
 } from "./effects/index.js";
+import { AttackBeamLayer } from "./attack_beam_layer.js";
 import { EntityLayer } from "./entity_layer.js";
 import { GhostMesh } from "./ghost_mesh.js";
 import { LanternLights } from "./lantern_lights.js";
@@ -102,6 +103,7 @@ export class SceneGraph {
   readonly beams: BeamLayer;
   readonly breakParticles: BreakParticles;
   readonly entities: EntityLayer;
+  readonly attackBeams: AttackBeamLayer;
   readonly torchLights: TorchLights;
   readonly mushroomLights: MushroomLights;
   readonly lanternLights: LanternLights;
@@ -226,6 +228,9 @@ export class SceneGraph {
     this.entities = new EntityLayer();
     this.scene.add(this.entities.group);
 
+    this.attackBeams = new AttackBeamLayer();
+    this.scene.add(this.attackBeams.group);
+
     this.chunkBorderGrid = buildChunkBorderGrid();
     this.chunkBorderGrid.visible = false;
     this.scene.add(this.chunkBorderGrid);
@@ -297,6 +302,8 @@ export class SceneGraph {
     this.breakParticles.dispose();
     this.entities.dispose();
     this.scene.remove(this.entities.group);
+    this.attackBeams.dispose();
+    this.scene.remove(this.attackBeams.group);
     this.torchLights.dispose();
     this.scene.remove(this.torchLights.scene());
     this.mushroomLights.dispose();

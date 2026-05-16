@@ -38,6 +38,7 @@ import {
 } from "./sync.js";
 import {
   pickBlockUnderCursor,
+  pickEntityUnderCursor,
   pickPlayerUnderCursor,
   type PickResult,
 } from "./picker.js";
@@ -48,6 +49,7 @@ import {
   type ChestBeamTarget,
   type TargetingStateEvent,
 } from "./effects/index.js";
+import { MS_PER_TICK, reconstructChargeStartMs } from "./attack_beam_layer.js";
 import { computeGhostState, type GhostState } from "./ghost.js";
 import {
   applyHoverBillboards,
@@ -64,6 +66,23 @@ export type { Viewport } from "./scene_graph.js";
 // local-player focus so its world-space angle reads correctly from any
 // viewpoint while keeping the shadow camera frustum bounded.
 const SUN_DISTANCE = 60;
+
+/**
+ * Duration of the strike-dash render-side animation (task 070b). The
+ * server teleports the attacker instantaneously when the charge
+ * resolves; the renderer lerps the visible position over this window
+ * so the dash reads as a deliberate motion instead of a snap. Pinned
+ * shorter than `REMOTE_RENDER_DELAY_MS` so the lerp finishes before the
+ * standard interpolation lag would deliver the new pos through compose.
+ */
+export const DASH_DURATION_MS = 150;
+
+/**
+ * Cooldown affordance window (task 070b). Mirrors the server's
+ * `COOLDOWN_DURATION_SECS = 5.0`. The local player's HUD reads the
+ * latest strike-time and renders a depleting badge for this long.
+ */
+export const COOLDOWN_DURATION_MS = 5000;
 
 /**
  * Owns the Three.js render loop. Per ADR 0003 every player — local and
@@ -103,6 +122,39 @@ export class Renderer {
   // Re-evaluated every frame against current mesh positions so a player
   // walking under a stationary cursor still triggers the hover-billboard.
   private cursorNdc: { x: number; y: number } | null = null;
+  // Last rendered position per player (task 070b). Captured at the end
+  // of each frame so the dash-on-strike animation can lerp from
+  // wherever the attacker was actually drawn, not wherever the snapshot
+  // buffer happened to be looking. Cleared on local-player reassign.
+  private readonly lastRenderedPos = new Map<PlayerId, { x: number; y: number }>();
+  // Per-attacker dash override (task 070b). On a strike resolution we
+  // capture the attacker's last rendered position, the wall-clock at
+  // which the strike landed, and lerp the rendered position toward the
+  // authoritative world position over `DASH_DURATION_MS`. Overrides the
+  // standard compose path for the attacker's frame only — every other
+  // player continues to read from `SnapshotBuffer` as usual.
+  private readonly activeDashes = new Map<PlayerId, {
+    fromX: number;
+    fromY: number;
+    startMs: number;
+  }>();
+  // Reconstruction anchor for the server tick clock (task 070b). The
+  // first `charge-started` of an attack carries a `started_at_tick`
+  // equal to the server's current tick, so the moment the event
+  // arrives locally we can pin `(tick → wall-clock ms)` for the whole
+  // attack. Every subsequent strike event for the same attack uses the
+  // same anchor so the shrinking-beam phase stays sync'd across
+  // observers regardless of network latency.
+  private readonly tickAnchorByAttacker = new Map<PlayerId, {
+    anchorTick: number;
+    anchorMs: number;
+  }>();
+  /**
+   * Latest `strike-*` time per attacker (wall-clock ms). Drives the
+   * cooldown affordance for the local player; remote attackers' values
+   * exist for symmetry but the UI only reads the local entry.
+   */
+  private readonly cooldownStartMsByAttacker = new Map<PlayerId, number>();
 
   constructor(
     private readonly world: World,
@@ -155,6 +207,15 @@ export class Renderer {
       this.meshes.delete(pid);
     }
     this.localPlayerId = id;
+    // A local-player reassign means we just reconnected or the lobby
+    // identity changed — drop every per-player carry-over so a fresh
+    // session never inherits a dash, cooldown badge, or attack beam
+    // from the previous one.
+    this.lastRenderedPos.clear();
+    this.activeDashes.clear();
+    this.tickAnchorByAttacker.clear();
+    this.cooldownStartMsByAttacker.clear();
+    this.graph.attackBeams.clearAll();
   }
 
   setTerrain(terrain: Terrain): void {
@@ -203,6 +264,31 @@ export class Renderer {
   ): PickResult | null {
     if (!this.terrain) return null;
     return pickBlockUnderCursor(cursorNdc, this.graph.camera, this.terrain);
+  }
+
+  /**
+   * Cursor-driven attack-target pick (task 070b). Returns the first
+   * player-or-entity whose render hit the cursor, or `null` when no
+   * target is under the cursor. Players take precedence over entities
+   * sharing the same tile so a body-occluded spider doesn't steal the
+   * click. The local player is filtered out — a click that hits the
+   * caller's own body cannot be an attack.
+   */
+  pickAttackTargetAtCursor(
+    cursorNdc: { readonly x: number; readonly y: number },
+  ): { kind: "player"; id: PlayerId } | { kind: "entity"; id: number } | null {
+    const playerHit = pickPlayerUnderCursor(cursorNdc, this.graph.camera, this.meshes);
+    if (playerHit !== null && playerHit !== this.localPlayerId) {
+      return { kind: "player", id: playerHit };
+    }
+    if (this.terrain === null) return null;
+    const entityHit = pickEntityUnderCursor(
+      cursorNdc,
+      this.graph.camera,
+      this.terrain,
+    );
+    if (entityHit !== null) return { kind: "entity", id: entityHit };
+    return null;
   }
 
   /**
@@ -265,6 +351,97 @@ export class Renderer {
   }
 
   /**
+   * The wire layer observed `TickUpdate.attack_events` (task 070b).
+   * Routes each event into the beam layer, captures dash anchors for
+   * the dash render-side animation, and pins the cooldown timestamp
+   * for the local player's HUD affordance.
+   *
+   * `tickReceivedMs` is the wall-clock at which the tick frame landed
+   * locally — used as the anchor for converting the server's
+   * `started_at_tick` into a charge-start wall-clock that all observers
+   * agree on (modulo their own clock skew on the inbound frame).
+   */
+  onAttackEvents(
+    events: ReadonlyArray<{
+      readonly attackerPlayerId: number;
+      readonly targetKind: "player" | "entity";
+      readonly targetId: number;
+      readonly outcome: "charge-started" | "strike-hit" | "strike-missed";
+      readonly startedAtTick: number;
+    }>,
+    tickReceivedMs: number,
+  ): void {
+    for (const ev of events) {
+      if (ev.outcome === "charge-started") {
+        // Pin a fresh `(tick, wall-clock)` anchor for this attack so
+        // the beam-shrink phase is reconstructed from server time.
+        this.tickAnchorByAttacker.set(ev.attackerPlayerId, {
+          anchorTick: ev.startedAtTick,
+          anchorMs: tickReceivedMs,
+        });
+        const colorIndex =
+          this.world.getPlayer(ev.attackerPlayerId)?.colorIndex ?? 0;
+        const chargeStartMs = reconstructChargeStartMs(
+          ev.startedAtTick,
+          ev.startedAtTick,
+          tickReceivedMs,
+        );
+        this.graph.attackBeams.onCharge(
+          ev.attackerPlayerId,
+          ev.targetKind,
+          ev.targetId,
+          colorIndex,
+          chargeStartMs,
+        );
+      } else {
+        // STRIKE_HIT or STRIKE_MISSED. Retire the beam, capture the
+        // current rendered position as the dash "from", and pin the
+        // cooldown start.
+        this.graph.attackBeams.onResolve(ev.attackerPlayerId);
+        const from = this.lastRenderedPos.get(ev.attackerPlayerId);
+        if (from !== undefined) {
+          this.activeDashes.set(ev.attackerPlayerId, {
+            fromX: from.x,
+            fromY: from.y,
+            startMs: this.now(),
+          });
+        }
+        // Server's resolution tick = startedAtTick + CHARGE_TICKS, but
+        // we don't need to reconstruct it here — the dash just lerps
+        // from "last rendered" to "current server pos" over a fixed
+        // 150 ms window starting now.
+        this.cooldownStartMsByAttacker.set(ev.attackerPlayerId, this.now());
+        // The anchor is no longer needed once the strike has fired —
+        // drop it so reconnect-style state never leaks.
+        this.tickAnchorByAttacker.delete(ev.attackerPlayerId);
+      }
+    }
+    // Mirror `tickReceivedMs` for the `MS_PER_TICK` debug aid the
+    // unit tests reference — the variable is intentionally re-imported
+    // even when unused at runtime so the constant stays explicit.
+    void MS_PER_TICK;
+  }
+
+  /**
+   * Test handle / cooldown read-out (task 070b). Returns the wall-clock
+   * ms at which `playerId`'s most recent strike fired, or `null` if the
+   * player has not struck this session. The HUD cooldown affordance
+   * subscribes to this for the local player; e2e specs can poll it to
+   * assert the strike landed without inspecting the renderer scene.
+   */
+  getStrikeStartedMs(playerId: PlayerId): number | null {
+    return this.cooldownStartMsByAttacker.get(playerId) ?? null;
+  }
+
+  /**
+   * Test handle (task 070b): scene-graph count of live attack beams.
+   * Mirrors `EntityLayer.size()` shape.
+   */
+  getAttackBeamCount(): number {
+    return this.graph.attackBeams.size();
+  }
+
+  /**
    * The wire layer just inserted or replaced the chunk at `(cx, cy)`.
    * Replace just that chunk's sub-group inside the terrain mesh, leaving
    * neighbors untouched.
@@ -299,7 +476,30 @@ export class Renderer {
     const nowMs = this.now();
     const dtMs = this.lastFrameMs === null ? Infinity : nowMs - this.lastFrameMs;
     this.lastFrameMs = nowMs;
-    const entities = composePlayerEntities(this.world, this.buffer, nowMs);
+    const composed = composePlayerEntities(this.world, this.buffer, nowMs);
+    // Task 070b: any attacker mid-dash overrides the composed position
+    // with a fast lerp from their pre-strike rendered position to the
+    // authoritative world position. After `DASH_DURATION_MS` the
+    // entry retires and the standard compose path resumes — by then
+    // the snapshot-buffer interpolation has caught up.
+    const entities = composed.map((e) => {
+      const dash = this.activeDashes.get(e.id);
+      if (dash === undefined) return e;
+      const elapsed = nowMs - dash.startMs;
+      if (elapsed >= DASH_DURATION_MS) {
+        this.activeDashes.delete(e.id);
+        return e;
+      }
+      const t = elapsed <= 0 ? 0 : elapsed / DASH_DURATION_MS;
+      const authoritative = this.world.getPlayer(e.id);
+      const targetX = authoritative ? authoritative.x : e.x;
+      const targetY = authoritative ? authoritative.y : e.y;
+      return {
+        ...e,
+        x: dash.fromX + (targetX - dash.fromX) * t,
+        y: dash.fromY + (targetY - dash.fromY) * t,
+      };
+    });
     syncPlayerMeshes(
       entities,
       this.localPlayerId,
@@ -331,6 +531,34 @@ export class Renderer {
     const positionByPlayer = new Map<PlayerId, { x: number; y: number }>();
     for (const e of entities) positionByPlayer.set(e.id, { x: e.x, y: e.y });
     this.graph.beams.update((id) => positionByPlayer.get(id) ?? null, nowMs);
+    // Task 070b: the charge beam connects the attacker's body to the
+    // target's body (player or entity), and aims at whichever position
+    // is rendered this frame so a moving target keeps the beam glued
+    // on. Entities are tile-bound; the entity-layer renders them at
+    // the (interpolated) scene position derived from tile + stack
+    // rank, but for the beam we want the *world* position — read the
+    // tile centre out of the game-state mirror directly.
+    this.graph.attackBeams.update((kind, id) => {
+      if (kind === "player") {
+        return positionByPlayer.get(id) ?? null;
+      }
+      // entity
+      const terrain = this.terrain;
+      if (terrain === null) return null;
+      for (const [, chunk] of terrain.iter()) {
+        const e = chunk.entities.get(id);
+        if (e === undefined) continue;
+        return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
+      }
+      return null;
+    }, nowMs);
+    // Capture this frame's rendered player positions so a strike
+    // resolution next frame can lerp from where the attacker is
+    // actually drawn.
+    this.lastRenderedPos.clear();
+    for (const e of entities) {
+      this.lastRenderedPos.set(e.id, { x: e.x, y: e.y });
+    }
     this.graph.webgl.render(this.graph.scene, this.graph.camera);
   };
 

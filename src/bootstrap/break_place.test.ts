@@ -60,12 +60,21 @@ function buildWorld(): World {
 interface MockRendererCalls {
   pickCalls: { x: number; y: number }[];
   setCursorCalls: ({ x: number; y: number } | null)[];
+  attackPickCalls: { x: number; y: number }[];
 }
 
 function buildRenderer(
   pick: MockPick | null,
+  attackPick:
+    | { kind: "player"; id: number }
+    | { kind: "entity"; id: number }
+    | null = null,
 ): { renderer: Renderer; calls: MockRendererCalls } {
-  const calls: MockRendererCalls = { pickCalls: [], setCursorCalls: [] };
+  const calls: MockRendererCalls = {
+    pickCalls: [],
+    setCursorCalls: [],
+    attackPickCalls: [],
+  };
   const renderer = {
     pickAtCursor: (ndc: { x: number; y: number }) => {
       calls.pickCalls.push({ x: ndc.x, y: ndc.y });
@@ -73,6 +82,10 @@ function buildRenderer(
     },
     setCursorNdc: (ndc: { x: number; y: number } | null) => {
       calls.setCursorCalls.push(ndc === null ? null : { x: ndc.x, y: ndc.y });
+    },
+    pickAttackTargetAtCursor: (ndc: { x: number; y: number }) => {
+      calls.attackPickCalls.push({ x: ndc.x, y: ndc.y });
+      return attackPick;
     },
   };
   return { renderer: renderer as unknown as Renderer, calls };
@@ -220,6 +233,132 @@ describe("attachBreakAndPlace — task 555 empty-hand gate", () => {
 
     fireMouseDown(0, 400, 300);
 
+    expect(sendBreakIntent).toHaveBeenCalledTimes(1);
+    expect(sendBreakIntent).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe("attachBreakAndPlace — task 070b target-pick", () => {
+  let detach: (() => void) | null = null;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 600, configurable: true });
+  });
+
+  afterEach(() => {
+    if (detach) detach();
+    detach = null;
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+  });
+
+  function buildAttackDeps(opts: {
+    attackPick:
+      | { kind: "player"; id: number }
+      | { kind: "entity"; id: number }
+      | null;
+    targetPos: { x: number; y: number } | null;
+    sendAttackIntent: BreakPlaceDeps["sendAttackIntent"];
+    sendBreakIntent?: BreakPlaceDeps["sendBreakIntent"];
+  }): BreakPlaceDeps {
+    const { renderer } = buildRenderer(null, opts.attackPick);
+    return {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => new Inventory(),
+      sendBreakIntent: opts.sendBreakIntent ?? vi.fn(),
+      sendPlaceBlock: vi.fn(),
+      sendAttackIntent: opts.sendAttackIntent,
+      getAttackTargetPosition: () => opts.targetPos,
+    };
+  }
+
+  it("ships AttackIntent for a player target in range (not BreakIntent)", () => {
+    const sendAttackIntent = vi.fn();
+    const sendBreakIntent = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildAttackDeps({
+        attackPick: { kind: "player", id: 99 },
+        // Player at (2.5, 0.5) is ~2 tiles from local (0.5, 0.5) — well
+        // inside the 4-tile ATTACK_RANGE.
+        targetPos: { x: 2.5, y: 0.5 },
+        sendAttackIntent,
+        sendBreakIntent,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).toHaveBeenCalledTimes(1);
+    expect(sendAttackIntent).toHaveBeenCalledWith("player", 99);
+    expect(sendBreakIntent).not.toHaveBeenCalled();
+  });
+
+  it("ships AttackIntent for an entity target in range", () => {
+    const sendAttackIntent = vi.fn();
+    const sendBreakIntent = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildAttackDeps({
+        attackPick: { kind: "entity", id: 42 },
+        targetPos: { x: 1.5, y: 1.5 },
+        sendAttackIntent,
+        sendBreakIntent,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).toHaveBeenCalledTimes(1);
+    expect(sendAttackIntent).toHaveBeenCalledWith("entity", 42);
+    expect(sendBreakIntent).not.toHaveBeenCalled();
+  });
+
+  it("suppresses AttackIntent when the target is beyond ATTACK_RANGE_TILES", () => {
+    const sendAttackIntent = vi.fn();
+    const sendBreakIntent = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildAttackDeps({
+        attackPick: { kind: "player", id: 99 },
+        // ~30 tiles east — far beyond the 4-tile range gate.
+        targetPos: { x: 30.5, y: 0.5 },
+        sendAttackIntent,
+        sendBreakIntent,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).not.toHaveBeenCalled();
+    // Out-of-range click also suppresses the held-break so the user's
+    // intent (attack) isn't misinterpreted as a swing at the air.
+    expect(sendBreakIntent).not.toHaveBeenCalled();
+  });
+
+  it("falls through to BreakIntent when no target is under the cursor", () => {
+    const sendAttackIntent = vi.fn();
+    const sendBreakIntent = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildAttackDeps({
+        attackPick: null,
+        targetPos: null,
+        sendAttackIntent,
+        sendBreakIntent,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).not.toHaveBeenCalled();
+    // BreakIntent ships with `null` because the test renderer's
+    // pickAtCursor returns null (no block under cursor).
     expect(sendBreakIntent).toHaveBeenCalledTimes(1);
     expect(sendBreakIntent).toHaveBeenLastCalledWith(null);
   });

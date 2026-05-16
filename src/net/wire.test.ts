@@ -846,4 +846,81 @@ describe("applyServerMessage — TickUpdate effects feed (task 070)", () => {
     });
     expect(() => applyServerMessage(msg, deps)).not.toThrow();
   });
+
+  it("forwards attack events to the effects sink (task 070b)", () => {
+    const base = makeTerrainFixture(() => 12_345);
+    const observed: {
+      events: import("./wire.js").WireAttackEvent[];
+      tickReceivedMs: number;
+    }[] = [];
+    const deps = {
+      ...base.deps,
+      effectsSink: {
+        onAttackEvents: (
+          events: readonly import("./wire.js").WireAttackEvent[],
+          tickReceivedMs: number,
+        ) => observed.push({ events: [...events], tickReceivedMs }),
+      },
+    };
+    const msg = decodeRoundtrip({
+      seq: 1,
+      tickUpdate: {
+        fullStateChunks: [],
+        unmodifiedChunks: [],
+        attackEvents: [
+          {
+            attackerPlayerId: 1,
+            targetKind: anarchy.v1.TargetKind.TARGET_KIND_PLAYER,
+            targetId: 2,
+            outcome:
+              anarchy.v1.AttackOutcome.ATTACK_OUTCOME_CHARGE_STARTED,
+            startedAtTick: 100,
+          },
+          {
+            attackerPlayerId: 3,
+            targetKind: anarchy.v1.TargetKind.TARGET_KIND_ENTITY,
+            targetId: 99,
+            outcome:
+              anarchy.v1.AttackOutcome.ATTACK_OUTCOME_STRIKE_HIT,
+            startedAtTick: 200,
+          },
+          {
+            attackerPlayerId: 4,
+            targetKind: anarchy.v1.TargetKind.TARGET_KIND_PLAYER,
+            targetId: 5,
+            outcome:
+              anarchy.v1.AttackOutcome
+                .ATTACK_OUTCOME_STRIKE_MISSED_OUT_OF_REACH,
+            startedAtTick: 300,
+          },
+        ],
+      },
+    });
+    applyServerMessage(msg, deps);
+    expect(observed.length).toBe(1);
+    expect(observed[0].tickReceivedMs).toBe(12_345);
+    expect(observed[0].events).toEqual([
+      {
+        attackerPlayerId: 1,
+        targetKind: "player",
+        targetId: 2,
+        outcome: "charge-started",
+        startedAtTick: 100,
+      },
+      {
+        attackerPlayerId: 3,
+        targetKind: "entity",
+        targetId: 99,
+        outcome: "strike-hit",
+        startedAtTick: 200,
+      },
+      {
+        attackerPlayerId: 4,
+        targetKind: "player",
+        targetId: 5,
+        outcome: "strike-missed",
+        startedAtTick: 300,
+      },
+    ]);
+  });
 });

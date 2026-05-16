@@ -43,3 +43,8 @@ export {
 export type { HpBarHandle } from "./hp_bar.js";
 export { attachTooltip } from "./tooltip.js";
 export type { TooltipContent, TooltipHandle } from "./tooltip.js";
+export {
+  mountAttackCooldown,
+  ATTACK_COOLDOWN_DURATION_MS,
+} from "./attack_cooldown.js";
+export type { AttackCooldownHandle } from "./attack_cooldown.js";

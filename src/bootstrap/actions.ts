@@ -62,6 +62,13 @@ export interface ActionSenders {
    * set. The server emits one final closing `ChestUpdate` for it.
    */
   sendCloseChest(chest: ChestLocation): void;
+  /**
+   * Task 070b: ship an `AttackIntent` against `targetKind` / `targetId`.
+   * The server validates cooldown / range / self-target / existence; a
+   * misbehaving client cannot break invariants here so silent failure on
+   * the server side is fine. Bumps the local action seq.
+   */
+  sendAttackIntent(targetKind: "player" | "entity", targetId: number): void;
 }
 
 /**
@@ -208,5 +215,20 @@ export function createActionSenders(conn: Connection): ActionSenders {
         },
       });
     },
+    sendAttackIntent(targetKind, targetId) {
+      const seq = ++actionSeq;
+      conn.send({
+        attackIntent: {
+          targetKind: targetKindToWire(targetKind),
+          targetId,
+          clientSeq: seq,
+        },
+      });
+    },
   };
+}
+
+/** Mirrors `proto::v1::TargetKind`. */
+function targetKindToWire(kind: "player" | "entity"): number {
+  return kind === "player" ? 1 : 2;
 }

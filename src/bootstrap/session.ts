@@ -39,11 +39,13 @@ import {
   connect,
   type LobbyIdentity,
   type LobbyRejectReason,
+  type WireAttackEvent,
   type WireBlockEditEvent,
   type WireTargetingStateEvent,
 } from "../net/index.js";
 import { Renderer, type GhostState } from "../render/index.js";
 import {
+  mountAttackCooldown,
   mountChestUi,
   mountCoordsHud,
   mountCraftingUi,
@@ -214,6 +216,34 @@ export interface AnarchyHandle {
    */
   getChestBeamCount: () => number;
   /**
+   * Task 070b ship-on-the-wire shim: emit an `AttackIntent` against
+   * `(targetKind, targetId)`. Server validates cooldown / range /
+   * existence; client-side mirror is invariant-free. Bumps the local
+   * action seq.
+   */
+  sendAttackIntent: (targetKind: "player" | "entity", targetId: number) => void;
+  /**
+   * Test handle (task 070b): number of attack-charge beams currently
+   * live in the scene. One per attacking player (server allows at most
+   * one active attack per player). Lets an e2e spec assert the beam
+   * appears on `charge-started` and clears on `strike-*`.
+   */
+  getAttackBeamCount: () => number;
+  /**
+   * Test handle (task 070b): the most recent `AttackEvent` observed
+   * on this connection. Drives the `e2e/attack-client.spec.ts` checks
+   * for "the beam appeared", "the strike landed", etc. without
+   * inspecting renderer internals.
+   */
+  getLastAttackEvent: () => WireAttackEvent | null;
+  /**
+   * Test handle (task 070b): wall-clock ms at which the local
+   * player's most recent `strike-*` fired, or `null` if the local
+   * player has not struck. Lets e2e specs assert the cooldown badge
+   * is active without inspecting the DOM.
+   */
+  getLocalCooldownStartedMs: () => number | null;
+  /**
    * Test handle (task 020-entities): scene-space positions of every
    * entity the renderer is currently showing, keyed by `EntityId`.
    * Lets a Playwright spec assert a spider mesh exists at a seeded
@@ -348,6 +378,10 @@ export function constructSession(deps: SessionDeps): Session {
   // for the test handle so e2e specs can pin the synced scalar without
   // reaching into Three.js.
   let lastTimeOfDaySeconds = 0;
+  // Task 070b: latest observed attack event (any outcome) for the test
+  // handle. The renderer captures cooldown / dash state internally; this
+  // mirror only exists so e2e specs can pin the wire shape end-to-end.
+  let lastAttackEvent: WireAttackEvent | null = null;
 
   // Forward-declared like `inventoryUi` above. The connection's
   // `onRegisterResult` hook needs to dispatch into the flow, but the
@@ -376,6 +410,12 @@ export function constructSession(deps: SessionDeps): Session {
           applyTargets: (targets: readonly WireTargetingStateEvent[]) => {
             activeTargets = targets;
             renderer.applyTargetingStates(targets);
+          },
+          onAttackEvents: (events, tickReceivedMs) => {
+            if (events.length > 0) {
+              lastAttackEvent = events[events.length - 1];
+            }
+            renderer.onAttackEvents(events, tickReceivedMs);
           },
         },
         daylightSink: {
@@ -421,6 +461,7 @@ export function constructSession(deps: SessionDeps): Session {
     sendRegisterAccount,
     sendOpenChest,
     sendCloseChest,
+    sendAttackIntent,
   } = createActionSenders(conn);
 
   const input = new InputController({ sendMoveIntent });
@@ -556,12 +597,18 @@ export function constructSession(deps: SessionDeps): Session {
   // canvas is occluded (rAF still fires when the tab is focused).
   const coordsHud = mountCoordsHud();
   const hpBar = mountHpBar();
+  // Task 070b cooldown affordance — driven from the same rAF loop. The
+  // renderer captures the latest strike timestamp; the HUD reads it and
+  // renders a depleting badge for the local player.
+  const attackCooldown = mountAttackCooldown();
   let coordsRaf = 0;
   const pumpCoords = (): void => {
     const id = localPlayerId;
     const me = id === null ? null : world.getPlayer(id);
     coordsHud.update(me ? { x: me.x, y: me.y } : null);
     hpBar.update(me ? me.health : null);
+    const strikeMs = id === null ? null : renderer.getStrikeStartedMs(id);
+    attackCooldown.update(performance.now(), strikeMs);
     coordsRaf = window.requestAnimationFrame(pumpCoords);
   };
   coordsRaf = window.requestAnimationFrame(pumpCoords);
@@ -569,6 +616,7 @@ export function constructSession(deps: SessionDeps): Session {
     window.cancelAnimationFrame(coordsRaf);
     coordsHud.unmount();
     hpBar.unmount();
+    attackCooldown.unmount();
   });
 
   teardowns.push(attachKeybindings(window, { inventoryUi, renderer }));
@@ -581,6 +629,19 @@ export function constructSession(deps: SessionDeps): Session {
       sendBreakIntent,
       sendPlaceBlock,
       sendOpenChest,
+      sendAttackIntent,
+      getAttackTargetPosition: (kind, id) => {
+        if (kind === "player") {
+          const p = world.getPlayer(id);
+          return p ? { x: p.x, y: p.y } : null;
+        }
+        // entity — tile-bound, position is tile centre
+        for (const [, chunk] of terrain.iter()) {
+          const e = chunk.entities.get(id);
+          if (e !== undefined) return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
+        }
+        return null;
+      },
     }),
   );
 
@@ -658,6 +719,11 @@ export function constructSession(deps: SessionDeps): Session {
     getChestBeamCount: () => renderer.getChestBeamCount(),
     getRenderedEntities: () => renderer.getRenderedEntities(),
     setCursorNdc: (ndc) => renderer.setCursorNdc(ndc),
+    sendAttackIntent,
+    getAttackBeamCount: () => renderer.getAttackBeamCount(),
+    getLastAttackEvent: () => lastAttackEvent,
+    getLocalCooldownStartedMs: () =>
+      localPlayerId === null ? null : renderer.getStrikeStartedMs(localPlayerId),
     stop,
     stopped,
     lobbyReject,

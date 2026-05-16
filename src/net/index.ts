@@ -19,7 +19,10 @@ export type {
   DaylightSink,
   EffectsSink,
   TerrainSink,
+  WireAttackEvent,
+  WireAttackOutcome,
   WireBlockEditEvent,
   WireBlockEditKind,
+  WireTargetKind,
   WireTargetingStateEvent,
 } from "./wire.js";

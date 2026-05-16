@@ -31,8 +31,11 @@ import {
   type DaylightSink,
   type EffectsSink,
   type TerrainSink,
+  type WireAttackEvent,
+  type WireAttackOutcome,
   type WireBlockEditEvent,
   type WireBlockEditKind,
+  type WireTargetKind,
   type WireTargetingStateEvent,
 } from "./wire_tick.js";
 
@@ -40,8 +43,11 @@ export type {
   DaylightSink,
   EffectsSink,
   TerrainSink,
+  WireAttackEvent,
+  WireAttackOutcome,
   WireBlockEditEvent,
   WireBlockEditKind,
+  WireTargetKind,
   WireTargetingStateEvent,
 };
 

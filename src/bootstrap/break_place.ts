@@ -29,6 +29,15 @@ import { createMiningHint } from "./mining_hint.js";
 
 const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
+/**
+ * Attack-range gate for the left-click target-pick. Mirrors the server
+ * constant `ATTACK_RANGE_TILES` (= 4) — a misbehaving client cannot
+ * bypass it, but suppressing out-of-range intents at the client keeps
+ * the wire traffic clean and the player UX honest.
+ */
+export const ATTACK_RANGE_TILES = 4;
+const ATTACK_RANGE_TILES_SQ = ATTACK_RANGE_TILES * ATTACK_RANGE_TILES;
+
 export interface BreakPlaceDeps {
   readonly world: World;
   readonly renderer: Renderer;
@@ -60,6 +69,25 @@ export interface BreakPlaceDeps {
     lx: number,
     ly: number,
   ) => void;
+  /**
+   * Task 070b: ship an `AttackIntent` at `(kind, id)`. Optional — when
+   * absent left-click falls through to the existing held-break path
+   * unconditionally (used by tests that don't exercise attacks).
+   */
+  readonly sendAttackIntent?: (
+    targetKind: "player" | "entity",
+    targetId: number,
+  ) => void;
+  /**
+   * Task 070b: resolve the world-space `(x, y)` of an attack target so
+   * the client can gate on `ATTACK_RANGE_TILES` before shipping the
+   * intent. Returns `null` when the target no longer exists (e.g. a
+   * player walked out of view between mousedown and pick).
+   */
+  readonly getAttackTargetPosition?: (
+    targetKind: "player" | "entity",
+    targetId: number,
+  ) => { x: number; y: number } | null;
 }
 
 /** Equipped pickaxe tier derived from the local-player inventory mirror. */
@@ -190,6 +218,16 @@ export function attachBreakAndPlace(
     return { cx: pick.cx, cy: pick.cy, lx: pick.lx, ly: pick.ly };
   }
 
+  function clientToNdc(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
+    return {
+      x: (clientX / target.innerWidth) * 2 - 1,
+      y: -(clientY / target.innerHeight) * 2 + 1,
+    };
+  }
+
   /** Surface the tier-gate hint for `kind`, or hide it when `kind` is null. */
   function applyHint(kind: BlockType | null): void {
     if (kind === null) {
@@ -252,6 +290,32 @@ export function attachBreakAndPlace(
     if (localPlayerId === null) return;
     if (ev.button !== 0 && ev.button !== 2) return;
     if (ev.button === 0) {
+      // Task 070b: a left-click that lands on a player or entity in
+      // range is an attack — ship `AttackIntent` and fall through. The
+      // pick is mesh-precise for players and tile-precise for entities;
+      // out-of-range targets are silently dropped (server validates
+      // anyway, but skipping the wire avoids piling up no-op intents).
+      // No target under cursor → fall through to the held-break path.
+      if (deps.sendAttackIntent && deps.getAttackTargetPosition) {
+        const ndc = clientToNdc(ev.clientX, ev.clientY);
+        const target = deps.renderer.pickAttackTargetAtCursor(ndc);
+        if (target !== null) {
+          const me = deps.world.getPlayer(localPlayerId);
+          const pos = deps.getAttackTargetPosition(target.kind, target.id);
+          if (me !== undefined && pos !== null) {
+            const dx = pos.x - me.x;
+            const dy = pos.y - me.y;
+            if (dx * dx + dy * dy <= ATTACK_RANGE_TILES_SQ) {
+              deps.sendAttackIntent(target.kind, target.id);
+              return;
+            }
+          }
+          // Target picked but out of range — drop the click silently
+          // (server would reject anyway). The held-break path is
+          // not started since the user's intent was to attack.
+          return;
+        }
+      }
       // Left-click → start the held-break. The cursor's current tile
       // pick (if any, in reach) becomes the initial target — top or
       // ground; the server resolves which authoritative path runs. If

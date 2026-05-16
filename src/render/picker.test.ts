@@ -3,11 +3,16 @@ import * as THREE from "three";
 
 import {
   BlockType,
+  EntityKind,
   Terrain,
   emptyChunk,
   setBlock,
 } from "../game/index.js";
-import { pickBlockUnderCursor, pickPlayerUnderCursor } from "./picker.js";
+import {
+  pickBlockUnderCursor,
+  pickEntityUnderCursor,
+  pickPlayerUnderCursor,
+} from "./picker.js";
 
 /**
  * Top-down perspective camera positioned so NDC `(0, 0)` points straight
@@ -303,6 +308,86 @@ describe("pickPlayerUnderCursor", () => {
       NDC_CENTER,
       topDownCameraAt(20, 0),
       meshes,
+    );
+    expect(result).toBeNull();
+  });
+});
+
+describe("pickEntityUnderCursor", () => {
+  it("returns the entity id when the cursor sits over its tile", () => {
+    const chunk = emptyChunk();
+    chunk.entities.set(42, {
+      id: 42,
+      kind: EntityKind.Spider,
+      tileX: 3,
+      tileY: 4,
+      health: 20,
+    });
+    const terrain = new Terrain();
+    terrain.insert(0, 0, chunk);
+
+    const result = pickEntityUnderCursor(
+      NDC_CENTER,
+      topDownCameraAt(3.5, 4.5),
+      terrain,
+    );
+    expect(result).toBe(42);
+  });
+
+  it("returns null when no entity lives on the cursor's tile", () => {
+    const chunk = emptyChunk();
+    chunk.entities.set(42, {
+      id: 42,
+      kind: EntityKind.Spider,
+      tileX: 3,
+      tileY: 4,
+      health: 20,
+    });
+    const terrain = new Terrain();
+    terrain.insert(0, 0, chunk);
+
+    const result = pickEntityUnderCursor(
+      NDC_CENTER,
+      topDownCameraAt(7.5, 7.5),
+      terrain,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("picks the lowest entity id when several share a tile", () => {
+    const chunk = emptyChunk();
+    chunk.entities.set(99, {
+      id: 99,
+      kind: EntityKind.Spider,
+      tileX: 1,
+      tileY: 1,
+      health: 20,
+    });
+    chunk.entities.set(7, {
+      id: 7,
+      kind: EntityKind.Spider,
+      tileX: 1,
+      tileY: 1,
+      health: 20,
+    });
+    const terrain = new Terrain();
+    terrain.insert(0, 0, chunk);
+
+    const result = pickEntityUnderCursor(
+      NDC_CENTER,
+      topDownCameraAt(1.5, 1.5),
+      terrain,
+    );
+    expect(result).toBe(7);
+  });
+
+  it("returns null when the cursor falls outside any loaded chunk", () => {
+    const terrain = new Terrain();
+    // No chunks loaded — the tile-test loop has nothing to walk.
+    const result = pickEntityUnderCursor(
+      NDC_CENTER,
+      topDownCameraAt(5.5, 5.5),
+      terrain,
     );
     expect(result).toBeNull();
   });

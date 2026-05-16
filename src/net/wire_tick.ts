@@ -96,9 +96,40 @@ export interface WireTargetingStateEvent {
   readonly ly: number;
   readonly durabilityPct: number;
 }
+
+/**
+ * Per-tick attack lifecycle event (task 070), routed through
+ * `TickUpdate.attack_events` and forwarded here by the bridge so the
+ * renderer can spawn / retire the charge beam and the cooldown affordance
+ * can be driven for the local player. Mirrors `AttackEvent` on the
+ * server; the wire enums are translated to TypeScript strings so the
+ * bridge stays free of protobuf-numeric leaks.
+ */
+export type WireTargetKind = "player" | "entity";
+export type WireAttackOutcome = "charge-started" | "strike-hit" | "strike-missed";
+export interface WireAttackEvent {
+  readonly attackerPlayerId: number;
+  readonly targetKind: WireTargetKind;
+  readonly targetId: number;
+  readonly outcome: WireAttackOutcome;
+  /**
+   * Tick the charge began on — copied verbatim across every event for
+   * one attack so the client reconstructs the beam-shrinking phase from
+   * server time rather than wall-clock. The client converts to ms via
+   * `tickToMs` against its own ingestion clock.
+   */
+  readonly startedAtTick: number;
+}
+
 export interface EffectsSink {
   onBlockEdit?(event: WireBlockEditEvent): void;
   applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
+  /**
+   * Fan-out for `TickUpdate.attack_events`. Optional — tests / wire-level
+   * specs that don't exercise the attack pipeline leave it absent and the
+   * bridge silently drops the events.
+   */
+  onAttackEvents?(events: readonly WireAttackEvent[], tickReceivedMs: number): void;
 }
 
 /**
@@ -225,6 +256,58 @@ export function applyTickUpdate(
       }
       effects.applyTargets(targets);
     }
+    if (effects.onAttackEvents) {
+      const events: WireAttackEvent[] = [];
+      for (const wire of tick.attackEvents ?? []) {
+        const ev = attackEventFromWire(wire);
+        if (ev) events.push(ev);
+      }
+      effects.onAttackEvents(events, timeMs);
+    }
+  }
+}
+
+function attackEventFromWire(
+  wire: anarchy.v1.IAttackEvent,
+): WireAttackEvent | null {
+  const targetKind = targetKindFromWire(wire.targetKind);
+  if (targetKind === null) return null;
+  const outcome = attackOutcomeFromWire(wire.outcome);
+  if (outcome === null) return null;
+  return {
+    attackerPlayerId: toNumber(wire.attackerPlayerId),
+    targetKind,
+    targetId: toNumber(wire.targetId),
+    outcome,
+    startedAtTick: toNumber(wire.startedAtTick),
+  };
+}
+
+function targetKindFromWire(
+  kind: anarchy.v1.TargetKind | null | undefined,
+): WireTargetKind | null {
+  switch (kind) {
+    case anarchy.v1.TargetKind.TARGET_KIND_PLAYER:
+      return "player";
+    case anarchy.v1.TargetKind.TARGET_KIND_ENTITY:
+      return "entity";
+    default:
+      return null;
+  }
+}
+
+function attackOutcomeFromWire(
+  outcome: anarchy.v1.AttackOutcome | null | undefined,
+): WireAttackOutcome | null {
+  switch (outcome) {
+    case anarchy.v1.AttackOutcome.ATTACK_OUTCOME_CHARGE_STARTED:
+      return "charge-started";
+    case anarchy.v1.AttackOutcome.ATTACK_OUTCOME_STRIKE_HIT:
+      return "strike-hit";
+    case anarchy.v1.AttackOutcome.ATTACK_OUTCOME_STRIKE_MISSED_OUT_OF_REACH:
+      return "strike-missed";
+    default:
+      return null;
   }
 }
 

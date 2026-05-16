@@ -5,6 +5,7 @@ import {
   CHUNK_SIZE,
   type Block,
   type ChunkCoord,
+  type EntityId,
   type PlayerId,
   type Terrain,
   getBlock,
@@ -94,6 +95,43 @@ export function pickBlockUnderCursor(
     layer: "ground",
     block: getBlock(chunk.ground, lx, ly),
   };
+}
+
+/**
+ * Cursor-driven entity picker (task 070b). The server's only entities
+ * today are tile-bound spiders, so we resolve the cursor's tile via the
+ * same ground-plane raycast `pickBlockUnderCursor` uses, then look up
+ * the entity (if any) hosted by the matching chunk on that tile. When
+ * multiple entities share a tile the lowest-id one wins so a click is
+ * always deterministic. Returns `null` when no entity lives on the
+ * cursor's tile, or when the cursor misses the world plane entirely.
+ *
+ * Tile-bound resolution is intentionally cheaper than a mesh raycast:
+ * a spider is a quarter-tile cube near the centre of its tile, so the
+ * tile is a reasonable visual proxy. If a future kind grows much
+ * smaller-than-tile this gate may need a mesh-bound refinement.
+ */
+export function pickEntityUnderCursor(
+  cursorNdc: { readonly x: number; readonly y: number },
+  camera: THREE.Camera,
+  terrain: Terrain,
+): EntityId | null {
+  const raycaster = raycasterFromCursor(cursorNdc, camera);
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const hit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3());
+  if (hit === null) return null;
+  const wx = hit.x;
+  const wy = -hit.z;
+  const tx = Math.floor(wx);
+  const ty = Math.floor(wy);
+  let best: EntityId | null = null;
+  for (const [, chunk] of terrain.iter()) {
+    for (const entity of chunk.entities.values()) {
+      if (entity.tileX !== tx || entity.tileY !== ty) continue;
+      if (best === null || entity.id < best) best = entity.id;
+    }
+  }
+  return best;
 }
 
 /**
