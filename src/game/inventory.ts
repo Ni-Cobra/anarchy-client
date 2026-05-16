@@ -146,6 +146,12 @@ export enum ItemId {
   CopperSword = 46,
   IronSword = 47,
   TungstenSword = 48,
+  /**
+   * Task 080 spider death drop. Non-placeable resource; no recipe consumes
+   * it yet (future bows / fishing rods / web traps / leashes). Dropped
+   * straight into the killer's inventory in stacks of 1-3.
+   */
+  String = 49,
 }
 
 /** A non-empty pile of one item kind. */

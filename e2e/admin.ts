@@ -65,6 +65,9 @@ export const AdminItemId = {
   CopperSword: 46,
   IronSword: 47,
   TungstenSword: 48,
+  // Task 080 spider-string drop, used by the spider-kill spec to seed
+  // inventory-full overflow scenarios.
+  String: 49,
 } as const;
 
 export type AdminItemId = (typeof AdminItemId)[keyof typeof AdminItemId];
@@ -189,15 +192,22 @@ export async function adminDamagePlayer(
 
 /**
  * Apply `amount` damage to entity `entityId` (task 060). On kill the
- * server removes the entity from its chunk before returning. Drops
- * (task 080's spider-string drop) are out of scope for this endpoint —
- * use the spec's normal tick-driven flow once they land.
+ * server removes the entity from its chunk before returning. When
+ * `killerId` is provided (task 080) the kind's drop table routes the
+ * dropped stacks into that player's inventory via the same path an
+ * in-engine sword strike would use; omitting it preserves the original
+ * killer-less behaviour for specs that just want to remove the entity.
  */
 export async function adminDamageEntity(
   entityId: number,
   amount: number,
+  killerId?: number,
 ): Promise<DamageOutcome> {
-  return postDamage(`${SERVER_URL}/admin/damage-entity/${entityId}/${amount}`);
+  let url = `${SERVER_URL}/admin/damage-entity/${entityId}/${amount}`;
+  if (killerId !== undefined) {
+    url += `?killer=${killerId}`;
+  }
+  return postDamage(url);
 }
 
 /**

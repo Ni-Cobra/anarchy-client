@@ -326,6 +326,12 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: null,
     textureUrl: `${ITEM_TEXTURES_BASE}/tungsten-sword.png`,
   },
+  [ItemId.String]: {
+    id: ItemId.String,
+    displayName: "String",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/string.png`,
+  },
 };
 
 /**
