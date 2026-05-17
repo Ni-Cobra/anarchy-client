@@ -236,3 +236,45 @@ export async function adminAttackEntity(
 ): Promise<void> {
   await postOk(`${SERVER_URL}/admin/attack-entity/${attackerId}/${entityId}`);
 }
+
+/**
+ * Equip the tool currently at `sourceSlot` into the player's equipment
+ * slot named by `toolKind` (task 200b admin shim — used by the blowgun
+ * e2e to set up the loadout without simulating a wire `EquipTool`).
+ */
+export type AdminToolKind =
+  | "pickaxe"
+  | "axe"
+  | "utility"
+  | "shovel"
+  | "sword"
+  | "blowgun";
+
+export async function adminEquipTool(
+  playerId: number,
+  toolKind: AdminToolKind,
+  sourceSlot: number,
+): Promise<void> {
+  await postOk(
+    `${SERVER_URL}/admin/equip-tool/${playerId}/${toolKind}/${sourceSlot}`,
+  );
+}
+
+/**
+ * Synthesise an admin-driven `FireBlowgunIntent` from `attackerId`
+ * against the named player or entity target (task 200b). Routes
+ * through the same admission path the wire intent would
+ * (`World::spawn_poison_dart`). A `400` from the server (missing
+ * blowgun, missing dart, out of range, on cooldown, self target,
+ * unknown target) throws — the response body carries a JSON reason
+ * the spec can pin in its error message.
+ */
+export async function adminFireBlowgun(
+  attackerId: number,
+  targetKind: "player" | "entity",
+  targetId: number,
+): Promise<void> {
+  await postOk(
+    `${SERVER_URL}/admin/fire-blowgun/${attackerId}/${targetKind}/${targetId}`,
+  );
+}

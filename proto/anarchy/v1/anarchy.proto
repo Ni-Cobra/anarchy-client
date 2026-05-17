@@ -35,6 +35,11 @@ message ClientMessage {
     // player; the server runs a charge → strike state machine driven by
     // tick time and emits `AttackEvent`s back through `TickUpdate`.
     AttackIntent attack_intent = 31;
+    // Task 200b — right-click "shoot a poison dart at <target>". The
+    // server validates blowgun-equipped + dart-in-inventory + range +
+    // cooldown + not-self, then spawns a homing `Projectile`. Latest-
+    // wins per attacker. Silent-failure on rejection.
+    FireBlowgunIntent fire_blowgun = 32;
   }
 }
 
@@ -390,6 +395,69 @@ message AttackEvent {
   uint64 started_at_tick = 5;
 }
 
+// Client→server "right-click target" intent (task 200b). The server
+// validates: attacker has a Blowgun equipped, attacker has at least one
+// PoisonDart in inventory, target within `BLOWGUN_RANGE_TILES` (= 8),
+// target is not the attacker, attacker is not within
+// `BLOWGUN_COOLDOWN_TICKS` (= 20) of their last fire. On accept the
+// server consumes 1 dart, stamps the cooldown anchor, and spawns a
+// homing `Projectile`; otherwise the intent is silently dropped. Same
+// posture as `AttackIntent` — latest-wins per attacker, no echo back.
+message FireBlowgunIntent {
+  // Player id when targeting another player; entity id when targeting
+  // an entity. The `target` oneof's case selects the lookup path; both
+  // ids are `u64` and disjoint by construction (players and entities
+  // allocate from separate counters).
+  oneof target {
+    uint64 target_player_id = 1;
+    uint64 target_entity_id = 2;
+  }
+  uint64 client_seq = 3;
+}
+
+// Server→client per-tick snapshot of one in-flight projectile (task
+// 200b). The wire ships the dart's current world-space center; the
+// target oneof + id are present so the renderer can draw a homing
+// trail. Per-client compose scopes by the dart's current chunk OR the
+// target's chunk — either inside the receiver's view window admits the
+// snapshot, mirroring the "attacker visible OR target visible" rule
+// used for `AttackEvent`.
+message ProjectileSnapshot {
+  uint64 projectile_id = 1;
+  ProjectileKind kind = 2;
+  float pos_x = 3;
+  float pos_y = 4;
+  oneof target {
+    uint64 target_player_id = 5;
+    uint64 target_entity_id = 6;
+  }
+}
+
+// Server→client one-shot projectile-impact event (task 200b). Emitted
+// the tick a dart lands on its target — distinct from a `DamageEvent`
+// so the client can fire the impact-puff visual + audio cue without
+// double-rendering the damage flash. The `position` is the resting
+// world-space coordinate of the dart at impact (the dart despawns the
+// same tick).
+message ProjectileImpactEvent {
+  uint64 projectile_id = 1;
+  uint64 attacker_player_id = 2;
+  oneof target {
+    uint64 target_player_id = 3;
+    uint64 target_entity_id = 4;
+  }
+  float pos_x = 5;
+  float pos_y = 6;
+}
+
+// Kinds of projectile (task 200b). `PROJECTILE_KIND_UNSPECIFIED = 0`
+// is the proto3 default sentinel and is never emitted by the server.
+// Future variants (arrow, throwing axe, …) slot in by appending.
+enum ProjectileKind {
+  PROJECTILE_KIND_UNSPECIFIED = 0;
+  PROJECTILE_KIND_POISON_DART = 1;
+}
+
 // Identifies which equipment slot a wire `EquipTool` / `UnequipTool` action
 // targets. The wire kind must agree with the kind of the item at
 // `EquipTool.source_slot` — a Wood Pickaxe equipped to the Axe slot is
@@ -628,6 +696,16 @@ message TickUpdate {
   // their own — strangers' deaths are not notified. A future kill-feed
   // task can widen this filter. Empty when nobody died this tick.
   repeated PlayerDeathEvent death_events = 8;
+  // Per-tick projectile snapshot list (task 200b). One entry per
+  // in-flight projectile whose current position OR target's position
+  // lies inside the receiver's view window. Empty when no projectile
+  // is currently in flight within view.
+  repeated ProjectileSnapshot projectiles = 9;
+  // Per-tick projectile-impact events (task 200b). One entry per dart
+  // that landed this tick. Scoped to recipients whose view window
+  // covers the impact position. Empty when no projectile impacts
+  // resolved this tick.
+  repeated ProjectileImpactEvent projectile_impacts = 10;
 }
 
 // Server→client death notification (task 160). Emitted at the tick the
