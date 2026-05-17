@@ -11,6 +11,8 @@
  * falls out of view its entities go with it.
  */
 
+import type { ActiveEffect } from "./player.js";
+
 export type EntityId = number;
 
 /**
@@ -41,6 +43,13 @@ export interface Entity {
    * iteration.
    */
   readonly health: number;
+  /**
+   * Task 200a — active status effects (`Slow`, future kinds), same shape
+   * as `Player.effects`. Empty when nothing is on the entity. The
+   * renderer reads this for the slow indicator over the entity (task
+   * 200c).
+   */
+  readonly effects: readonly ActiveEffect[];
 }
 
 /** Per-kind max HP — mirrors the server's `EntityKind::max_health`. */

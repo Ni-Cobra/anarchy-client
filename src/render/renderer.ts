@@ -25,10 +25,12 @@ import {
   type Inventory,
   type ItemId,
   type PlayerId,
+  type ProjectileStore,
   type SnapshotBuffer,
   type Terrain,
   type World,
 } from "../game/index.js";
+import { type EffectTarget } from "./effects_layer.js";
 import { composePlayerEntities } from "./compose.js";
 import {
   disposePlayerMesh,
@@ -113,6 +115,7 @@ export class Renderer {
   private terrain: Terrain | null;
   private readonly inventory: Inventory | null;
   private readonly getSelectedHotbarSlot: () => number;
+  private readonly projectiles: ProjectileStore | null;
   // Latest synced `time_of_day_seconds` from the wire layer. The renderer
   // reads this every frame to compute the current sample. Initialised to
   // `0` (sunrise) so the very first frame, before any TickUpdate has
@@ -187,12 +190,19 @@ export class Renderer {
     now: () => number = () => Date.now(),
     inventory: Inventory | null = null,
     getSelectedHotbarSlot: () => number = () => 0,
+    /**
+     * Per-tick projectile mirror (task 200c). Optional — tests that don't
+     * exercise the blowgun feed leave it `null` and the projectile layer
+     * simply has nothing to render.
+     */
+    projectiles: ProjectileStore | null = null,
   ) {
     this.terrain = terrain;
     this.factory = factory;
     this.now = now;
     this.inventory = inventory;
     this.getSelectedHotbarSlot = getSelectedHotbarSlot;
+    this.projectiles = projectiles;
 
     this.graph = new SceneGraph(container, viewport, terrain, (id) => {
       const player = this.world.getPlayer(id);
@@ -240,6 +250,9 @@ export class Renderer {
     this.graph.attackBeams.clearAll();
     this.graph.slashes.clearAll();
     this.graph.damageNumbers.clearAll();
+    this.graph.projectiles.clearAll();
+    this.graph.targetEffects.clearAll();
+    this.projectiles?.clear();
   }
 
   setTerrain(terrain: Terrain): void {
@@ -528,6 +541,40 @@ export class Renderer {
   }
 
   /**
+   * The wire layer observed `TickUpdate.projectile_impacts` (task 200c).
+   * Spawns a small puff at each impact's world position and drops the
+   * projectile from the store so the dart mesh retires the same frame.
+   */
+  onProjectileImpacts(
+    events: ReadonlyArray<{
+      readonly projectileId: number;
+      readonly x: number;
+      readonly y: number;
+    }>,
+    tickReceivedMs: number,
+  ): void {
+    for (const ev of events) {
+      this.graph.projectiles.spawnImpactPuff(ev.x, ev.y, tickReceivedMs);
+      this.projectiles?.remove(ev.projectileId);
+    }
+  }
+
+  /** Test handle (task 200c): live projectile mesh count. */
+  getProjectileCount(): number {
+    return this.graph.projectiles.size();
+  }
+
+  /** Test handle (task 200c): live status-effect indicator count. */
+  getEffectIndicatorCount(): number {
+    return this.graph.targetEffects.size();
+  }
+
+  /** Test handle (task 200c): live impact-puff particle count. */
+  getProjectilePuffCount(): number {
+    return this.graph.projectiles.puffCount();
+  }
+
+  /**
    * Resolve the renderer-side mesh for a damage target. Players come
    * from the per-id mesh map (built by `syncPlayerMeshes`); entities
    * come from the entity-layer state map.
@@ -768,6 +815,49 @@ export class Renderer {
       }
       return null;
     }, nowMs);
+    // Task 200c: status-effect indicators above each effected target,
+    // then projectile-layer reconcile against the per-tick store.
+    const effectTargets: EffectTarget[] = [];
+    for (const p of this.world.players()) {
+      if (p.effects.length === 0) continue;
+      effectTargets.push({
+        kind: "player",
+        id: p.id,
+        x: p.x,
+        y: p.y,
+        effects: p.effects,
+      });
+    }
+    if (this.terrain !== null) {
+      for (const [, chunk] of this.terrain.iter()) {
+        for (const e of chunk.entities.values()) {
+          if (e.effects.length === 0) continue;
+          effectTargets.push({
+            kind: "entity",
+            id: e.id,
+            x: e.tileX + 0.5,
+            y: e.tileY + 0.5,
+            effects: e.effects,
+          });
+        }
+      }
+    }
+    this.graph.targetEffects.update(effectTargets);
+    if (this.projectiles !== null) {
+      this.graph.projectiles.update(this.projectiles, nowMs, (kind, id) => {
+        if (kind === "player") {
+          return positionByPlayer.get(id) ?? null;
+        }
+        const terrain = this.terrain;
+        if (terrain === null) return null;
+        for (const [, chunk] of terrain.iter()) {
+          const e = chunk.entities.get(id);
+          if (e === undefined) continue;
+          return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
+        }
+        return null;
+      });
+    }
     // Task 130: advance slash lifetimes (fade + expand) and retire
     // expired sprites. Position / rotation are fixed at spawn — the
     // slash anchor never moves, so no per-frame re-aim is needed.

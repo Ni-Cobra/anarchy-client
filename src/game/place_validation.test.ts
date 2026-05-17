@@ -31,6 +31,7 @@ const me = (
   equippedUtility: null,
   openChests: [],
   health: MAX_PLAYER_HEALTH,
+  effects: [],
 });
 
 function setup(local: Player, others: Player[] = []): { world: World; terrain: Terrain } {

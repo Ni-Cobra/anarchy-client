@@ -330,6 +330,7 @@ describe("pickEntityUnderCursor", () => {
         tileX: 3,
         tileY: 4,
         health: 20,
+        effects: [],
       },
     ]);
     const terrain = new Terrain();
@@ -352,6 +353,7 @@ describe("pickEntityUnderCursor", () => {
         tileX: 3,
         tileY: 4,
         health: 20,
+        effects: [],
       },
     ]);
     const terrain = new Terrain();
@@ -375,6 +377,7 @@ describe("pickEntityUnderCursor", () => {
           tileX: 1,
           tileY: 1,
           health: 20,
+          effects: [],
         },
       ],
       [
@@ -385,6 +388,7 @@ describe("pickEntityUnderCursor", () => {
           tileX: 1,
           tileY: 1,
           health: 20,
+          effects: [],
         },
       ],
     );

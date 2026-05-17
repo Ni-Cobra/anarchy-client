@@ -51,6 +51,7 @@ function setupWorld(playerId: number, x: number, y: number): { world: World; ter
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     },
   ]);
   const terrain = new Terrain();

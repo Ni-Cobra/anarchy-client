@@ -29,6 +29,7 @@ const player = (
   equippedUtility: null,
   openChests: [],
   health: MAX_PLAYER_HEALTH,
+  effects: [],
 });
 
 function setup() {

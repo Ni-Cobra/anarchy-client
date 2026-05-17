@@ -23,6 +23,7 @@ export type {
   WireAttackOutcome,
   WireBlockEditEvent,
   WireBlockEditKind,
+  WireProjectileImpactEvent,
   WireTargetKind,
   WireTargetingStateEvent,
 } from "./wire.js";

@@ -88,6 +88,20 @@ export function dashOffsetForRemainingFrac(remainingFrac: number): number {
 export function mountSwordCooldownRing(
   slotEl: HTMLElement,
 ): SwordCooldownRingHandle {
+  return mountCooldownRing(slotEl, ATTACK_COOLDOWN_DURATION_MS);
+}
+
+/**
+ * Generalised cooldown ring used by both the sword slot (task 140, 5 s
+ * post-strike) and the blowgun slot (task 200c, 1 s between fires).
+ * Shape mirrors [`mountSwordCooldownRing`] — pass `durationMs` for the
+ * cooldown window length. Exported so callers outside this module can
+ * mount their own without duplicating the SVG / CSS.
+ */
+export function mountCooldownRing(
+  slotEl: HTMLElement,
+  durationMs: number,
+): SwordCooldownRingHandle {
   injectStyle();
 
   const root = document.createElement("div");
@@ -143,12 +157,12 @@ export function mountSwordCooldownRing(
         return;
       }
       const elapsed = nowMs - strikeMs;
-      if (elapsed < 0 || elapsed >= ATTACK_COOLDOWN_DURATION_MS) {
+      if (elapsed < 0 || elapsed >= durationMs) {
         setVisible(false);
         return;
       }
-      const remaining = ATTACK_COOLDOWN_DURATION_MS - elapsed;
-      const frac = remaining / ATTACK_COOLDOWN_DURATION_MS;
+      const remaining = durationMs - elapsed;
+      const frac = remaining / durationMs;
       const offset = dashOffsetForRemainingFrac(frac);
       if (offset !== lastOffset) {
         arc.setAttribute("stroke-dashoffset", `${offset}`);

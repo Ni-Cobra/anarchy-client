@@ -120,6 +120,7 @@ describe("applyServerMessage — Welcome", () => {
         equippedUtility: null,
         openChests: [],
         health: MAX_PLAYER_HEALTH,
+        effects: [],
       },
     ]);
     buffer.push(99, 5, 5, 100);
@@ -273,6 +274,7 @@ describe("applyServerMessage — TickUpdate", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
     expect(buffer.samplesOf(1)).toHaveLength(1);
     expect(buffer.samplesOf(1)[0]).toMatchObject({ x: 1.5, y: 2.5, timeMs: 5_000 });
@@ -393,6 +395,7 @@ describe("applyServerMessage — TickUpdate", () => {
       tileX: 3,
       tileY: 4,
       health: 20,
+      effects: [],
     });
     expect(chunk1?.entities.get(2)).toEqual({
       id: 2,
@@ -400,6 +403,7 @@ describe("applyServerMessage — TickUpdate", () => {
       tileX: 5,
       tileY: 6,
       health: 20,
+      effects: [],
     });
 
     // Tick 2: same chunk with no entities — full-state apply must clear
@@ -496,6 +500,7 @@ describe("applyServerMessage — TickUpdate", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
     expect(terrain.size()).toBe(1);
   });
@@ -541,6 +546,7 @@ describe("applyServerMessage — TickUpdate", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
   });
 

@@ -7,8 +7,8 @@
  */
 export type { Entity, EntityId } from "./entity.js";
 export { EntityKind } from "./entity.js";
-export type { OpenChestRef, Player, PlayerId } from "./player.js";
-export { Direction8, DEFAULT_FACING, MAX_PLAYER_HEALTH } from "./player.js";
+export type { ActiveEffect, OpenChestRef, Player, PlayerId } from "./player.js";
+export { Direction8, DEFAULT_FACING, EffectKind, MAX_PLAYER_HEALTH } from "./player.js";
 export { maxHealthForKind } from "./entity.js";
 export { World } from "./world.js";
 export { SnapshotBuffer } from "./snapshot_buffer.js";
@@ -46,6 +46,19 @@ export type {
   Slot,
   ToolKind,
 } from "./inventory.js";
+export {
+  PROJECTILE_LERP_MS,
+  ProjectileStore,
+  projectileVelocity,
+  sampleProjectilePosition,
+} from "./projectiles.js";
+export type {
+  ProjectileKind,
+  ProjectileSnapshot,
+  ProjectileState,
+  ProjectileTarget,
+  ProjectileTargetKind,
+} from "./projectiles.js";
 export { ChestState } from "./chest_state.js";
 export type { ChestLocation } from "./chest_state.js";
 export { RosterStore } from "./roster.js";

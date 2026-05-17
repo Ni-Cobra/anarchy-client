@@ -23,6 +23,7 @@ const p = (
   equippedUtility: null,
   openChests: [],
   health: MAX_PLAYER_HEALTH,
+  effects: [],
 });
 
 describe("World", () => {
@@ -47,6 +48,7 @@ describe("World", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
     expect(w.getPlayer(2)).toEqual({
       id: 2,
@@ -58,6 +60,7 @@ describe("World", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
   });
 
@@ -77,6 +80,7 @@ describe("World", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
     expect(w.getPlayer(3)).toBeUndefined();
   });
@@ -97,6 +101,7 @@ describe("World", () => {
       equippedUtility: null,
       openChests: [],
       health: MAX_PLAYER_HEALTH,
+      effects: [],
     });
   });
 

@@ -28,6 +28,8 @@ import {
   Inventory,
   LAYER_SIZE,
   LocalAttackChargeTracker,
+  EffectKind,
+  ProjectileStore,
   RosterStore,
   SnapshotBuffer,
   Terrain,
@@ -54,6 +56,7 @@ import {
 import {
   mountChestUi,
   mountCoordsHud,
+  mountCooldownRing,
   mountCraftingUi,
   mountDeathOverlay,
   mountHpBar,
@@ -66,6 +69,7 @@ import {
   type InventoryUiHandle,
   type SidePanelAction,
 } from "../ui/index.js";
+import { BLOWGUN_COOLDOWN_MS } from "../config.js";
 import { createActionSenders } from "./actions.js";
 import { attachBreakAndPlace } from "./break_place.js";
 import { attachKeybindings } from "./keybindings.js";
@@ -233,6 +237,28 @@ export interface AnarchyHandle {
    */
   sendAttackIntent: (targetKind: "player" | "entity", targetId: number) => void;
   /**
+   * Task 200c ship-on-the-wire shim: emit a `FireBlowgunIntent` against
+   * `(targetKind, targetId)`. Server validates blowgun-equipped +
+   * dart-in-inventory + range + cooldown + not-self.
+   */
+  sendFireBlowgunIntent: (
+    targetKind: "player" | "entity",
+    targetId: number,
+  ) => void;
+  /**
+   * Test handle (task 200c): number of in-flight projectile meshes in
+   * the scene. Lets a Playwright spec assert "the dart appeared in the
+   * world" without inspecting Three.js internals.
+   */
+  getProjectileCount: () => number;
+  /**
+   * Test handle (task 200c): number of status-effect indicators (today
+   * only `Slow`) rendered above targets.
+   */
+  getEffectIndicatorCount: () => number;
+  /** True iff the local player has an active `Slow` effect on them. */
+  isLocalPlayerSlowed: () => boolean;
+  /**
    * Test handle (task 070b): number of attack-charge beams currently
    * live in the scene. One per attacking player (server allows at most
    * one active attack per player). Lets an e2e spec assert the beam
@@ -383,6 +409,9 @@ export function constructSession(deps: SessionDeps): Session {
   const inventory = new Inventory();
   const chestState = new ChestState();
   const rosterStore = new RosterStore();
+  // Task 200c: per-tick projectile mirror, written by the wire layer
+  // and read by the renderer.
+  const projectiles = new ProjectileStore();
   // Task 110: tracks whether the local player is mid attack-charge so
   // the input controller can suppress outbound `MoveIntent` frames the
   // server is going to ignore anyway. Fed by the wire layer's per-tick
@@ -409,6 +438,7 @@ export function constructSession(deps: SessionDeps): Session {
     undefined,
     inventory,
     () => inventoryUi.selectedHotbarSlot(),
+    projectiles,
   );
   teardowns.push(() => renderer.dispose());
 
@@ -504,6 +534,12 @@ export function constructSession(deps: SessionDeps): Session {
               deathOverlay.trigger(performance.now());
             }
           },
+          applyProjectiles: (snapshots, tickReceivedMs) => {
+            projectiles.applySnapshots(snapshots, tickReceivedMs);
+          },
+          onProjectileImpacts: (events, tickReceivedMs) => {
+            renderer.onProjectileImpacts(events, tickReceivedMs);
+          },
         },
         daylightSink: {
           onTimeOfDay: (seconds) => {
@@ -526,6 +562,9 @@ export function constructSession(deps: SessionDeps): Session {
             // we observe on the new player never spuriously fires
             // shake/flash against a stale previous-session value.
             lastSeenLocalHp = null;
+            // Task 200c: drop the blowgun fire timestamp so the new
+            // local player isn't gated by the previous session's fire.
+            lastBlowgunFireMs = null;
             // Task 160: a local id reassign means a new life — hide any
             // previous overlay synchronously so the stale "You died"
             // from the prior session doesn't bleed over the new spawn.
@@ -562,6 +601,7 @@ export function constructSession(deps: SessionDeps): Session {
     sendOpenChest,
     sendCloseChest,
     sendAttackIntent,
+    sendFireBlowgunIntent,
   } = createActionSenders(conn);
 
   const input = new InputController(
@@ -695,6 +735,10 @@ export function constructSession(deps: SessionDeps): Session {
     unmount: () => inventoryUiInner.unmount(),
   };
 
+  // Task 200c: last wall-clock the local player dispatched a blowgun-fire
+  // intent — drives the blowgun-slot cooldown ring on the hotbar.
+  let lastBlowgunFireMs: number | null = null;
+
   // Top-left coordinates readout. Pumped from a dedicated rAF loop that
   // reads the latest authoritative `World` snapshot — independent of the
   // renderer's animation loop so the readout keeps refreshing even if the
@@ -721,6 +765,15 @@ export function constructSession(deps: SessionDeps): Session {
     );
   }
   const swordCooldownRing = mountSwordCooldownRing(swordSlotEl);
+  // Task 200c blowgun cooldown ring — mirrors the sword ring on the
+  // blowgun equipment slot. Same handle contract.
+  const blowgunSlotEl = document.querySelector<HTMLElement>(
+    ".anarchy-equipment-slot-blowgun",
+  );
+  const blowgunCooldownRing =
+    blowgunSlotEl !== null
+      ? mountCooldownRing(blowgunSlotEl, BLOWGUN_COOLDOWN_MS)
+      : null;
   let coordsRaf = 0;
   const pumpCoords = (): void => {
     const id = localPlayerId;
@@ -749,6 +802,7 @@ export function constructSession(deps: SessionDeps): Session {
     // time base so the elapsed delta stays meaningful. `performance.now`
     // is a monotonic-since-page-load clock and would skew by ~1e12 ms.
     swordCooldownRing.update(Date.now(), strikeMs);
+    blowgunCooldownRing?.update(Date.now(), lastBlowgunFireMs);
     deathOverlay.tick(performance.now());
     coordsRaf = window.requestAnimationFrame(pumpCoords);
   };
@@ -759,6 +813,7 @@ export function constructSession(deps: SessionDeps): Session {
     coordsHud.unmount();
     hpBar.unmount();
     swordCooldownRing.unmount();
+    blowgunCooldownRing?.unmount();
     deathOverlay.unmount();
   });
 
@@ -773,6 +828,10 @@ export function constructSession(deps: SessionDeps): Session {
       sendPlaceBlock,
       sendOpenChest,
       sendAttackIntent,
+      sendFireBlowgunIntent,
+      onBlowgunFireDispatched: (t) => {
+        lastBlowgunFireMs = t;
+      },
       getAttackTargetPosition: (kind, id) => {
         if (kind === "player") {
           const p = world.getPlayer(id);
@@ -866,6 +925,18 @@ export function constructSession(deps: SessionDeps): Session {
     isHpBarFlashing: () => hpBar.isFlashing(),
     getDeathOverlayState: () => deathOverlay.state(),
     sendAttackIntent,
+    sendFireBlowgunIntent,
+    getProjectileCount: () => renderer.getProjectileCount(),
+    getEffectIndicatorCount: () => renderer.getEffectIndicatorCount(),
+    isLocalPlayerSlowed: () => {
+      if (localPlayerId === null) return false;
+      const p = world.getPlayer(localPlayerId);
+      if (p === undefined) return false;
+      for (const e of p.effects) {
+        if (e.kind === EffectKind.Slow) return true;
+      }
+      return false;
+    },
     getAttackBeamCount: () => renderer.getAttackBeamCount(),
     getSlashCount: () => renderer.getSlashCount(),
     getMeshFlashCount: () => renderer.getMeshFlashCount(),

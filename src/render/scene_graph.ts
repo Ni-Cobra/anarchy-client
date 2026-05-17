@@ -24,7 +24,9 @@ import {
 } from "./effects/index.js";
 import { AttackBeamLayer } from "./attack_beam_layer.js";
 import { DamageNumbersLayer } from "./damage_numbers_layer.js";
+import { TargetEffectsLayer } from "./effects_layer.js";
 import { EntityLayer } from "./entity_layer.js";
+import { ProjectileLayer } from "./projectile_layer.js";
 import { GhostMesh } from "./ghost_mesh.js";
 import { LanternLights } from "./lantern_lights.js";
 import { MushroomLights } from "./mushroom_lights.js";
@@ -106,6 +108,8 @@ export class SceneGraph {
   readonly breakParticles: BreakParticles;
   readonly entities: EntityLayer;
   readonly attackBeams: AttackBeamLayer;
+  readonly projectiles: ProjectileLayer;
+  readonly targetEffects: TargetEffectsLayer;
   readonly slashes: SlashLayer;
   readonly damageNumbers: DamageNumbersLayer;
   readonly torchLights: TorchLights;
@@ -235,6 +239,12 @@ export class SceneGraph {
     this.attackBeams = new AttackBeamLayer();
     this.scene.add(this.attackBeams.group);
 
+    this.projectiles = new ProjectileLayer();
+    this.scene.add(this.projectiles.group);
+
+    this.targetEffects = new TargetEffectsLayer();
+    this.scene.add(this.targetEffects.group);
+
     // Slash layer (task 130) — shared white-on-transparent sprite tinted
     // per-mesh by the attacker's palette colour. Loaded once at scene
     // construction so the GPU upload happens before the first slash spawns.
@@ -319,6 +329,10 @@ export class SceneGraph {
     this.scene.remove(this.entities.group);
     this.attackBeams.dispose();
     this.scene.remove(this.attackBeams.group);
+    this.projectiles.dispose();
+    this.scene.remove(this.projectiles.group);
+    this.targetEffects.dispose();
+    this.scene.remove(this.targetEffects.group);
     this.slashes.dispose();
     this.scene.remove(this.slashes.group);
     this.damageNumbers.clearAll();

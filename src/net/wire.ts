@@ -39,6 +39,7 @@ import {
   type WireBlockEditKind,
   type WireDamageEvent,
   type WireDeathEvent,
+  type WireProjectileImpactEvent,
   type WireTargetKind,
   type WireTargetingStateEvent,
 } from "./wire_tick.js";
@@ -53,6 +54,7 @@ export type {
   WireBlockEditKind,
   WireDamageEvent,
   WireDeathEvent,
+  WireProjectileImpactEvent,
   WireTargetKind,
   WireTargetingStateEvent,
 };

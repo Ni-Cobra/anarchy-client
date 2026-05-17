@@ -37,8 +37,16 @@ import {
   LAYER_SIZE,
   type Player,
   type PlayerId,
+  type ProjectileKind,
+  type ProjectileSnapshot,
+  type ProjectileTarget,
 } from "../game/index.js";
-import { MAX_PLAYER_HEALTH, type OpenChestRef } from "../game/player.js";
+import {
+  type ActiveEffect,
+  EffectKind,
+  MAX_PLAYER_HEALTH,
+  type OpenChestRef,
+} from "../game/player.js";
 import { maxHealthForKind } from "../game/entity.js";
 
 import type { WireDeps } from "./wire.js";
@@ -160,6 +168,22 @@ export interface WireDeathEvent {
   readonly killerPlayerId: number;
 }
 
+/**
+ * Per-tick projectile-impact event (task 200c). Routed through
+ * `TickUpdate.projectile_impacts` and forwarded here by the bridge so the
+ * renderer can spawn a one-shot impact puff at `(x, y)` the same tick
+ * the dart despawns. Mirrors `ProjectileImpactEvent` on the wire — types
+ * translated to the network-free TypeScript shape so the bridge stays
+ * free of protobuf-numeric leaks.
+ */
+export interface WireProjectileImpactEvent {
+  readonly projectileId: number;
+  readonly attackerPlayerId: number;
+  readonly target: { readonly kind: WireTargetKind; readonly id: number };
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface EffectsSink {
   onBlockEdit?(event: WireBlockEditEvent): void;
   applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
@@ -183,6 +207,24 @@ export interface EffectsSink {
    * 2-second fade timeline.
    */
   onDeathEvents?(events: readonly WireDeathEvent[], tickReceivedMs: number): void;
+  /**
+   * Fan-out for `TickUpdate.projectiles` (task 200c) — replaces the
+   * client-side store wholesale each tick. Optional — tests that don't
+   * exercise the blowgun leave it absent and the bridge silently drops
+   * the data.
+   */
+  applyProjectiles?(
+    snapshots: readonly ProjectileSnapshot[],
+    tickReceivedMs: number,
+  ): void;
+  /**
+   * Fan-out for `TickUpdate.projectile_impacts` (task 200c). Optional —
+   * tests that don't exercise the blowgun puff visual leave it absent.
+   */
+  onProjectileImpacts?(
+    events: readonly WireProjectileImpactEvent[],
+    tickReceivedMs: number,
+  ): void;
 }
 
 /**
@@ -333,6 +375,104 @@ export function applyTickUpdate(
       }
       effects.onDeathEvents(events, timeMs);
     }
+    if (effects.applyProjectiles) {
+      const snaps: ProjectileSnapshot[] = [];
+      for (const wire of tick.projectiles ?? []) {
+        const snap = projectileSnapshotFromWire(wire);
+        if (snap) snaps.push(snap);
+      }
+      effects.applyProjectiles(snaps, timeMs);
+    }
+    if (effects.onProjectileImpacts) {
+      const events: WireProjectileImpactEvent[] = [];
+      for (const wire of tick.projectileImpacts ?? []) {
+        const ev = projectileImpactFromWire(wire);
+        if (ev) events.push(ev);
+      }
+      effects.onProjectileImpacts(events, timeMs);
+    }
+  }
+}
+
+function projectileSnapshotFromWire(
+  wire: anarchy.v1.IProjectileSnapshot,
+): ProjectileSnapshot | null {
+  const kind = projectileKindFromWire(wire.kind);
+  if (kind === null) return null;
+  const target = projectileTargetFromWire(
+    wire.targetPlayerId,
+    wire.targetEntityId,
+  );
+  if (target === null) return null;
+  return {
+    id: toNumber(wire.projectileId),
+    kind,
+    x: wire.posX ?? 0,
+    y: wire.posY ?? 0,
+    target,
+  };
+}
+
+function projectileImpactFromWire(
+  wire: anarchy.v1.IProjectileImpactEvent,
+): WireProjectileImpactEvent | null {
+  const target = projectileTargetFromWire(
+    wire.targetPlayerId,
+    wire.targetEntityId,
+  );
+  if (target === null) return null;
+  return {
+    projectileId: toNumber(wire.projectileId),
+    attackerPlayerId: toNumber(wire.attackerPlayerId),
+    target: { kind: target.kind, id: target.id },
+    x: wire.posX ?? 0,
+    y: wire.posY ?? 0,
+  };
+}
+
+function projectileKindFromWire(
+  kind: anarchy.v1.ProjectileKind | null | undefined,
+): ProjectileKind | null {
+  switch (kind) {
+    case anarchy.v1.ProjectileKind.PROJECTILE_KIND_POISON_DART:
+      return "poison-dart";
+    default:
+      return null;
+  }
+}
+
+function projectileTargetFromWire(
+  playerId: number | { toNumber(): number } | null | undefined,
+  entityId: number | { toNumber(): number } | null | undefined,
+): ProjectileTarget | null {
+  const pid = toNumber(playerId);
+  if (pid > 0) return { kind: "player", id: pid };
+  const eid = toNumber(entityId);
+  if (eid > 0) return { kind: "entity", id: eid };
+  return null;
+}
+
+function activeEffectsFromWire(
+  wire: readonly anarchy.v1.IActiveEffectSnapshot[] | null | undefined,
+): readonly ActiveEffect[] {
+  if (!wire || wire.length === 0) return [];
+  const out: ActiveEffect[] = [];
+  for (const e of wire) {
+    const kind = activeEffectKindFromWire(e.kind);
+    if (kind === null) continue;
+    out.push({ kind, remainingTicks: e.remainingTicks ?? 0 });
+  }
+  return out;
+}
+
+function activeEffectKindFromWire(
+  kind: anarchy.v1.EffectKind | null | undefined,
+): EffectKind | null {
+  switch (kind) {
+    case anarchy.v1.EffectKind.EFFECT_KIND_SLOW:
+      return EffectKind.Slow;
+    default:
+      return null;
   }
 }
 
@@ -483,6 +623,7 @@ function chunkFromWire(
       equippedUtility: itemIdFromWire(p.equippedUtility),
       openChests: openChestsFromWire(p.openChests),
       health: wireHealth === 0 ? MAX_PLAYER_HEALTH : wireHealth,
+      effects: activeEffectsFromWire(p.effects),
     });
   }
   const entities = new Map<EntityId, Entity>();
@@ -500,6 +641,7 @@ function chunkFromWire(
       tileX: e.tileX ?? 0,
       tileY: e.tileY ?? 0,
       health: entHealth === 0 ? maxHealthForKind(kind) : entHealth,
+      effects: activeEffectsFromWire(e.effects),
     });
   }
   return [[cx, cy] as const, { ground, top, players, entities }];

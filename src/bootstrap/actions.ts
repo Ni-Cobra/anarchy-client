@@ -69,6 +69,16 @@ export interface ActionSenders {
    * the server side is fine. Bumps the local action seq.
    */
   sendAttackIntent(targetKind: "player" | "entity", targetId: number): void;
+  /**
+   * Task 200c: ship a `FireBlowgunIntent` against `targetKind` /
+   * `targetId`. The server validates blowgun-equipped + dart-in-inventory
+   * + range + cooldown + not-self; rejections are silent. Bumps the local
+   * action seq.
+   */
+  sendFireBlowgunIntent(
+    targetKind: "player" | "entity",
+    targetId: number,
+  ): void;
 }
 
 /**
@@ -226,6 +236,20 @@ export function createActionSenders(conn: Connection): ActionSenders {
           clientSeq: seq,
         },
       });
+    },
+    sendFireBlowgunIntent(targetKind, targetId) {
+      const seq = ++actionSeq;
+      const payload: {
+        clientSeq: number;
+        targetPlayerId?: number;
+        targetEntityId?: number;
+      } = { clientSeq: seq };
+      if (targetKind === "player") {
+        payload.targetPlayerId = targetId;
+      } else {
+        payload.targetEntityId = targetId;
+      }
+      conn.send({ fireBlowgun: payload });
     },
   };
 }

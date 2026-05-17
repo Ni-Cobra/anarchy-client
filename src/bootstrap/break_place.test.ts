@@ -4,10 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BlockType,
   DEFAULT_FACING,
+  HOTBAR_SLOTS,
+  INVENTORY_SIZE,
   Inventory,
+  ItemId,
   MAX_PLAYER_HEALTH,
   World,
   type Player,
+  type Slot,
 } from "../game/index.js";
 import type { Renderer } from "../render/index.js";
 import { attachBreakAndPlace, type BreakPlaceDeps } from "./break_place.js";
@@ -48,6 +52,7 @@ function buildPlayer(): Player {
     equippedUtility: null,
     openChests: [],
     health: MAX_PLAYER_HEALTH,
+    effects: [],
   };
 }
 
@@ -380,5 +385,218 @@ describe("attachBreakAndPlace — task 070b target-pick", () => {
     // pickAtCursor returns null (no block under cursor).
     expect(sendBreakIntent).toHaveBeenCalledTimes(1);
     expect(sendBreakIntent).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe("attachBreakAndPlace — task 200c blowgun routing", () => {
+  let detach: (() => void) | null = null;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 600, configurable: true });
+  });
+
+  afterEach(() => {
+    if (detach) detach();
+    detach = null;
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+  });
+
+  function inventoryWithBlowgunAndDarts(darts: number): Inventory {
+    const inv = new Inventory();
+    const slots: Slot[] = new Array(INVENTORY_SIZE).fill(null);
+    slots[0] = { item: ItemId.Blowgun, count: 1 };
+    if (darts > 0) {
+      slots[1] = { item: ItemId.PoisonDart, count: darts };
+    }
+    inv.replaceFromWire(slots, null, null, [], null, null, null, 0);
+    return inv;
+  }
+
+  function inventoryNoBlowgun(): Inventory {
+    const inv = new Inventory();
+    inv.replaceFromWire(new Array(INVENTORY_SIZE).fill(null) as Slot[]);
+    return inv;
+  }
+
+  function buildBlowgunDeps(opts: {
+    attackPick: { kind: "player"; id: number } | { kind: "entity"; id: number } | null;
+    targetPos: { x: number; y: number } | null;
+    inventory: Inventory;
+    sendFireBlowgunIntent: BreakPlaceDeps["sendFireBlowgunIntent"];
+    sendPlaceBlock?: BreakPlaceDeps["sendPlaceBlock"];
+    nowMs?: () => number;
+    onBlowgunFireDispatched?: (nowMs: number) => void;
+    pick?: MockPick | null;
+  }): BreakPlaceDeps {
+    const { renderer } = buildRenderer(opts.pick ?? null, opts.attackPick);
+    return {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => opts.inventory,
+      sendBreakIntent: vi.fn(),
+      sendPlaceBlock: opts.sendPlaceBlock ?? vi.fn(),
+      sendFireBlowgunIntent: opts.sendFireBlowgunIntent,
+      getAttackTargetPosition: () => opts.targetPos,
+      onBlowgunFireDispatched: opts.onBlowgunFireDispatched,
+      nowMs: opts.nowMs,
+    };
+  }
+
+  function fireRightClick(clientX: number, clientY: number): void {
+    fireMouseDown(2, clientX, clientY);
+  }
+
+  it("ships FireBlowgunIntent on right-click against a player in range", () => {
+    const sendFire = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "player", id: 99 },
+        targetPos: { x: 4.5, y: 0.5 },
+        inventory: inventoryWithBlowgunAndDarts(5),
+        sendFireBlowgunIntent: sendFire,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).toHaveBeenCalledTimes(1);
+    expect(sendFire).toHaveBeenCalledWith("player", 99);
+  });
+
+  it("ships FireBlowgunIntent on right-click against an entity in range", () => {
+    const sendFire = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "entity", id: 42 },
+        targetPos: { x: 1.5, y: 1.5 },
+        inventory: inventoryWithBlowgunAndDarts(2),
+        sendFireBlowgunIntent: sendFire,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).toHaveBeenCalledTimes(1);
+    expect(sendFire).toHaveBeenCalledWith("entity", 42);
+  });
+
+  it("does NOT send PlaceBlock on right-click on a block while blowgun is equipped", () => {
+    const sendFire = vi.fn();
+    const sendPlace = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: null,
+        targetPos: null,
+        inventory: inventoryWithBlowgunAndDarts(3),
+        sendFireBlowgunIntent: sendFire,
+        sendPlaceBlock: sendPlace,
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Air),
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).not.toHaveBeenCalled();
+    expect(sendPlace).not.toHaveBeenCalled();
+  });
+
+  it("does not fire when no dart is in inventory", () => {
+    const sendFire = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "player", id: 99 },
+        targetPos: { x: 4.5, y: 0.5 },
+        inventory: inventoryWithBlowgunAndDarts(0),
+        sendFireBlowgunIntent: sendFire,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).not.toHaveBeenCalled();
+  });
+
+  it("does not fire when target is beyond BLOWGUN_RANGE_TILES", () => {
+    const sendFire = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "player", id: 99 },
+        targetPos: { x: 12.5, y: 0.5 },
+        inventory: inventoryWithBlowgunAndDarts(5),
+        sendFireBlowgunIntent: sendFire,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).not.toHaveBeenCalled();
+  });
+
+  it("local cooldown gate suppresses a second fire inside 1 s", () => {
+    const sendFire = vi.fn();
+    let nowMs = 1_000_000;
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "player", id: 99 },
+        targetPos: { x: 4.5, y: 0.5 },
+        inventory: inventoryWithBlowgunAndDarts(5),
+        sendFireBlowgunIntent: sendFire,
+        nowMs: () => nowMs,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).toHaveBeenCalledTimes(1);
+
+    nowMs += 500;
+    fireRightClick(400, 300);
+    expect(sendFire).toHaveBeenCalledTimes(1);
+
+    nowMs += 600;
+    fireRightClick(400, 300);
+    expect(sendFire).toHaveBeenCalledTimes(2);
+  });
+
+  it("notifies the session of dispatched fires via onBlowgunFireDispatched", () => {
+    const sendFire = vi.fn();
+    const onDispatched = vi.fn();
+    let nowMs = 50_000;
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "player", id: 99 },
+        targetPos: { x: 4.5, y: 0.5 },
+        inventory: inventoryWithBlowgunAndDarts(5),
+        sendFireBlowgunIntent: sendFire,
+        onBlowgunFireDispatched: onDispatched,
+        nowMs: () => nowMs,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(onDispatched).toHaveBeenCalledTimes(1);
+    expect(onDispatched).toHaveBeenCalledWith(50_000);
+  });
+
+  it("does not run the blowgun path when no blowgun is equipped", () => {
+    const sendFire = vi.fn();
+    const sendPlace = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: null,
+        targetPos: null,
+        inventory: inventoryNoBlowgun(),
+        sendFireBlowgunIntent: sendFire,
+        sendPlaceBlock: sendPlace,
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Air),
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).not.toHaveBeenCalled();
+    expect(sendPlace).toHaveBeenCalledTimes(1);
+  });
+
+  it("hotbar slot count is the standard 9", () => {
+    expect(HOTBAR_SLOTS).toBe(9);
   });
 });

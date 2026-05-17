@@ -58,6 +58,25 @@ export const ATTACK_RANGE_TILES = 6;
  */
 export const CHARGE_DURATION_SECS = 0.7;
 
+/**
+ * Maximum Euclidean distance (world units) between the local player and a
+ * blowgun-fire target at click time. Mirrors the server's
+ * `combat/config.rs::BLOWGUN_RANGE_TILES` — must stay equal so the
+ * client's right-click target-pick agrees with the server's admission
+ * gate. Task 200b/200c.
+ */
+export const BLOWGUN_RANGE_TILES = 8;
+
+/**
+ * Minimum spacing between consecutive `FireBlowgunIntent` sends, in
+ * milliseconds. Mirrors the server's `BLOWGUN_COOLDOWN_TICKS = 20` at the
+ * 20 Hz tick rate (1 s). The server is authoritative; this gate is a
+ * bandwidth saver — it suppresses repeat sends inside the same cooldown
+ * window so a rapidly clicking player doesn't pile no-op intents on the
+ * wire. Task 200c.
+ */
+export const BLOWGUN_COOLDOWN_MS = 1000;
+
 // ---- Render ----
 
 /**

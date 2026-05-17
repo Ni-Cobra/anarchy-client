@@ -54,6 +54,7 @@ export type { HpBarHandle } from "./hp_bar.js";
 export { attachTooltip } from "./tooltip.js";
 export type { TooltipContent, TooltipHandle } from "./tooltip.js";
 export {
+  mountCooldownRing,
   mountSwordCooldownRing,
   ATTACK_COOLDOWN_DURATION_MS,
   dashOffsetForRemainingFrac,

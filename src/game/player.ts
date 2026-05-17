@@ -79,6 +79,32 @@ export interface Player {
    * server snapshots pre-task 060).
    */
   health: number;
+  /**
+   * Task 200a — active status effects (`Slow`, future kinds). The wire
+   * carries one entry per active effect; the renderer reads this for
+   * the slow indicator over the player (task 200c). Empty when the
+   * player has no effect on them.
+   */
+  effects: readonly ActiveEffect[];
+}
+
+/**
+ * Task 200a — kind of an active status effect. Mirrors the proto
+ * `EffectKind` enum. Variants append on extension.
+ */
+export enum EffectKind {
+  Slow = 1,
+}
+
+/**
+ * Task 200a — one active effect on a player or entity snapshot.
+ * `remainingTicks` is `expires_at - now_tick` at the moment the snapshot
+ * was composed server-side; clients interpret it relative to their own
+ * frame budget rather than tracking server tick numbers.
+ */
+export interface ActiveEffect {
+  readonly kind: EffectKind;
+  readonly remainingTicks: number;
 }
 
 /**

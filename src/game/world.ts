@@ -32,6 +32,7 @@ export class World {
         equippedUtility: p.equippedUtility,
         openChests: p.openChests,
         health: p.health,
+        effects: p.effects,
       });
     }
   }

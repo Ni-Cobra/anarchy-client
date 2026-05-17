@@ -22,6 +22,8 @@
 
 import {
   ATTACK_RANGE_TILES,
+  BLOWGUN_COOLDOWN_MS,
+  BLOWGUN_RANGE_TILES,
   BREAK_HEARTBEAT_TICKS,
   INPUT_TICK_INTERVAL_MS,
   REACH_BLOCKS,
@@ -35,6 +37,8 @@ import { createMiningHint } from "./mining_hint.js";
 const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
 const ATTACK_RANGE_TILES_SQ = ATTACK_RANGE_TILES * ATTACK_RANGE_TILES;
+
+const BLOWGUN_RANGE_TILES_SQ = BLOWGUN_RANGE_TILES * BLOWGUN_RANGE_TILES;
 
 export interface BreakPlaceDeps {
   readonly world: World;
@@ -86,6 +90,28 @@ export interface BreakPlaceDeps {
     targetKind: "player" | "entity",
     targetId: number,
   ) => { x: number; y: number } | null;
+  /**
+   * Task 200c: ship a `FireBlowgunIntent` at `(kind, id)`. Optional —
+   * tests that don't exercise the blowgun leave it absent and right-
+   * click falls through to the existing place-block / open-chest path
+   * unconditionally.
+   */
+  readonly sendFireBlowgunIntent?: (
+    targetKind: "player" | "entity",
+    targetId: number,
+  ) => void;
+  /**
+   * Task 200c: notify the session that a `FireBlowgunIntent` was
+   * dispatched at `nowMs` (post-gate). The session uses this to drive
+   * the blowgun cooldown ring on the hotbar; break_place owns the gate.
+   */
+  readonly onBlowgunFireDispatched?: (nowMs: number) => void;
+  /**
+   * Task 200c: wall-clock-now read for the local cooldown gate. Optional
+   * — tests can stub this to drive the gate's logic deterministically;
+   * production passes `Date.now`.
+   */
+  readonly nowMs?: () => number;
 }
 
 /** Equipped pickaxe tier derived from the local-player inventory mirror. */
@@ -130,6 +156,13 @@ export function attachBreakAndPlace(
   let breakHeartbeat: ReturnType<typeof setInterval> | null = null;
 
   const miningHint = createMiningHint();
+
+  // Task 200c: bandwidth-saver local cooldown gate. Suppresses repeat
+  // `FireBlowgunIntent` sends inside the same ~1 s cooldown window the
+  // server uses. The server is authoritative; this just avoids piling
+  // no-op intents on the wire when the player mashes right-click.
+  let lastBlowgunFireMs: number | null = null;
+  const nowMs = deps.nowMs ?? (() => Date.now());
 
   /**
    * Pick the cell currently under the cursor. Returns the target plus a
@@ -333,6 +366,42 @@ export function attachBreakAndPlace(
       lastBreakTarget = stripPick(pick);
       deps.sendBreakIntent(lastBreakTarget);
       startBreakHeartbeat();
+      return;
+    }
+    // Task 200c: a right-click with a blowgun equipped is a fire-shoot,
+    // not a place-block. The pick path resolves the cursor's target —
+    // if it's a player or entity in range AND we have a dart, ship a
+    // `FireBlowgunIntent`. Otherwise the click silently no-ops (mirrors
+    // the attack-pick silent-drop posture). The local cooldown gate
+    // suppresses repeat sends inside the same server cooldown window.
+    if (
+      deps.sendFireBlowgunIntent &&
+      deps.getInventory().getEquipped("blowgun") === ItemId.Blowgun
+    ) {
+      // Suppress any place-block / open-chest fall-through while the
+      // blowgun is equipped, regardless of whether the click resolves a
+      // valid target. The brief calls this out explicitly: a right-click
+      // on a block with the blowgun equipped must NOT place a block.
+      const t = nowMs();
+      if (lastBlowgunFireMs !== null && t - lastBlowgunFireMs < BLOWGUN_COOLDOWN_MS) {
+        return;
+      }
+      const ndc = clientToNdc(ev.clientX, ev.clientY);
+      const target = deps.renderer.pickAttackTargetAtCursor(ndc);
+      if (target === null) return;
+      if (deps.getInventory().countOf(ItemId.PoisonDart) < 1) return;
+      const me = deps.world.getPlayer(localPlayerId);
+      if (me === undefined) return;
+      const pos = deps.getAttackTargetPosition
+        ? deps.getAttackTargetPosition(target.kind, target.id)
+        : null;
+      if (pos === null) return;
+      const dx = pos.x - me.x;
+      const dy = pos.y - me.y;
+      if (dx * dx + dy * dy > BLOWGUN_RANGE_TILES_SQ) return;
+      deps.sendFireBlowgunIntent(target.kind, target.id);
+      lastBlowgunFireMs = t;
+      deps.onBlowgunFireDispatched?.(t);
       return;
     }
     // Right-click on a chest or tombstone in range → open it (task 420 /
