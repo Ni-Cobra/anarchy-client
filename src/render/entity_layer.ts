@@ -26,6 +26,8 @@ import {
   EntityKind,
   type Terrain,
 } from "../game/index.js";
+import { BODY_LIT_MAT_USERDATA_KEY } from "./player_mesh.js";
+import { purgeMeshFlash } from "./mesh_flash.js";
 import { tileCenterToScene } from "./terrain.js";
 
 // Spider mesh dimensions (task 040). The spider renders as a small black
@@ -177,12 +179,31 @@ export class EntityLayer {
     for (const [id, state] of this.states) {
       if (seen.has(id)) continue;
       this.group.remove(state.mesh);
+      // Task 150: drop the mesh-flash side-table entry so it doesn't
+      // leak across despawn → respawn cycles. The per-mesh material
+      // clone is disposed too so the cloned colour state doesn't leak.
+      purgeMeshFlash(state.mesh);
+      const mat = state.mesh.material;
+      if (Array.isArray(mat)) {
+        for (const m of mat) m.dispose();
+      } else {
+        mat.dispose();
+      }
       this.states.delete(id);
     }
   }
 
   dispose(): void {
-    for (const state of this.states.values()) this.group.remove(state.mesh);
+    for (const state of this.states.values()) {
+      this.group.remove(state.mesh);
+      purgeMeshFlash(state.mesh);
+      const mat = state.mesh.material;
+      if (Array.isArray(mat)) {
+        for (const m of mat) m.dispose();
+      } else {
+        mat.dispose();
+      }
+    }
     this.states.clear();
     this.spiderGeometry.dispose();
     this.spiderMaterial.dispose();
@@ -275,11 +296,28 @@ export class EntityLayer {
   private buildMesh(kind: EntityKind): THREE.Mesh {
     switch (kind) {
       case EntityKind.Spider: {
-        const mesh = new THREE.Mesh(this.spiderGeometry, this.spiderMaterial);
+        // Clone the shared material so each spider has its own colour state.
+        // The damage-feedback flash (task 150) mutates `.color` per hit, so
+        // a shared material would whitewash every spider whenever any one
+        // of them took damage.
+        const material = this.spiderMaterial.clone();
+        const mesh = new THREE.Mesh(this.spiderGeometry, material);
         mesh.name = "spider";
+        // Mirror the player-mesh userData convention so `flashMeshWhite`
+        // finds the body material the same way for entities and players.
+        mesh.userData[BODY_LIT_MAT_USERDATA_KEY] = material;
         return mesh;
       }
     }
+  }
+
+  /**
+   * Test handle (task 150): the `THREE.Mesh` currently rendered for
+   * entity `id`, or `null` if no mesh exists. The renderer's
+   * `onDamageEvents` reads this to dispatch a flash on the right mesh.
+   */
+  getMesh(id: EntityId): THREE.Mesh | null {
+    return this.states.get(id)?.mesh ?? null;
   }
 }
 

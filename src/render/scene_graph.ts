@@ -23,6 +23,7 @@ import {
   EffectsLayer,
 } from "./effects/index.js";
 import { AttackBeamLayer } from "./attack_beam_layer.js";
+import { DamageNumbersLayer } from "./damage_numbers_layer.js";
 import { EntityLayer } from "./entity_layer.js";
 import { GhostMesh } from "./ghost_mesh.js";
 import { LanternLights } from "./lantern_lights.js";
@@ -106,6 +107,7 @@ export class SceneGraph {
   readonly entities: EntityLayer;
   readonly attackBeams: AttackBeamLayer;
   readonly slashes: SlashLayer;
+  readonly damageNumbers: DamageNumbersLayer;
   readonly torchLights: TorchLights;
   readonly mushroomLights: MushroomLights;
   readonly lanternLights: LanternLights;
@@ -241,6 +243,9 @@ export class SceneGraph {
     this.slashes = new SlashLayer(slashTexture);
     this.scene.add(this.slashes.group);
 
+    this.damageNumbers = new DamageNumbersLayer();
+    this.scene.add(this.damageNumbers.group);
+
     this.chunkBorderGrid = buildChunkBorderGrid();
     this.chunkBorderGrid.visible = false;
     this.scene.add(this.chunkBorderGrid);
@@ -316,6 +321,8 @@ export class SceneGraph {
     this.scene.remove(this.attackBeams.group);
     this.slashes.dispose();
     this.scene.remove(this.slashes.group);
+    this.damageNumbers.clearAll();
+    this.scene.remove(this.damageNumbers.group);
     this.torchLights.dispose();
     this.scene.remove(this.torchLights.scene());
     this.mushroomLights.dispose();

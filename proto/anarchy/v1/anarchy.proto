@@ -567,6 +567,42 @@ message TickUpdate {
   // the recipient's view window (events whose attacker is outside the
   // window are dropped). Empty when no attack events fired this tick.
   repeated AttackEvent attack_events = 6;
+  // Per-tick damage feed (task 150). One entry per HP-reducing event
+  // regardless of source — strike hit, admin damage, future env damage.
+  // The client uses these to fire the mesh-flash + floating-damage-number
+  // visuals on the target. Distinct from `AttackEvent` so non-attack
+  // damage sources can flow through the same path without spoofing an
+  // attack lifecycle. Scoped to the recipient's view window (events whose
+  // target's chunk is outside the window are dropped). Empty when no
+  // damage events fired this tick.
+  repeated DamageEvent damage_events = 7;
+}
+
+// Server→client per-damage record (task 150). Emitted once per HP-
+// reducing event regardless of source (attack strike, admin damage,
+// future env damage), routed through `TickUpdate.damage_events`. The
+// client uses these to drive damage-flash + floating damage numbers.
+//
+// Distinct from `AttackEvent` so admin / env damage can flow through
+// the same client visual without spoofing an attack lifecycle.
+message DamageEvent {
+  // Target: exactly one of these is non-zero. `target_kind` is the
+  // discriminator the client switches on; the unused id is 0.
+  TargetKind target_kind = 1;
+  uint64 target_id = 2;
+
+  // Damage applied this event (post-mitigation, post-clamp). Always
+  // >= 1 — zero-damage events are not emitted.
+  uint32 amount = 3;
+
+  // Attacker player id if the damage came from a player strike; 0 for
+  // admin / env damage. The client can use this to draw e.g. an
+  // attacker-coloured number; not required for v1 (red is always red).
+  uint64 attacker_player_id = 4;
+
+  // Tick the damage applied (server time). Lets late-binding handlers
+  // anchor the floating-number spawn relative to server time.
+  uint64 happened_at_tick = 5;
 }
 
 // One block edit emitted by the server this tick. `Placed` covers

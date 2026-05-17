@@ -121,6 +121,27 @@ export interface WireAttackEvent {
   readonly startedAtTick: number;
 }
 
+/**
+ * Per-tick damage event (task 150), routed through
+ * `TickUpdate.damage_events` and forwarded here by the bridge. One entry
+ * per HP-reducing event regardless of source (strike hit, admin damage,
+ * future env damage). The renderer flashes the target mesh white and
+ * spawns a floating `-N` red number at the target's head.
+ *
+ * Mirrors `DamageEvent` on the server; the wire enum is translated to
+ * the same TypeScript `WireTargetKind` strings used by `WireAttackEvent`
+ * so the bridge stays free of protobuf-numeric leaks. `attackerPlayerId
+ * == 0` means "no attacker" (admin / env damage) — v1 doesn't render
+ * attacker-coloured numbers, but the field stays for a future task.
+ */
+export interface WireDamageEvent {
+  readonly targetKind: WireTargetKind;
+  readonly targetId: number;
+  readonly amount: number;
+  readonly attackerPlayerId: number;
+  readonly happenedAtTick: number;
+}
+
 export interface EffectsSink {
   onBlockEdit?(event: WireBlockEditEvent): void;
   applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
@@ -130,6 +151,13 @@ export interface EffectsSink {
    * bridge silently drops the events.
    */
   onAttackEvents?(events: readonly WireAttackEvent[], tickReceivedMs: number): void;
+  /**
+   * Fan-out for `TickUpdate.damage_events` (task 150). Optional — tests
+   * that don't exercise damage feedback leave it absent and the bridge
+   * silently drops the events. `tickReceivedMs` lets the renderer anchor
+   * the floating-number / mesh-flash lifetimes to its own animation clock.
+   */
+  onDamageEvents?(events: readonly WireDamageEvent[], tickReceivedMs: number): void;
 }
 
 /**
@@ -264,7 +292,31 @@ export function applyTickUpdate(
       }
       effects.onAttackEvents(events, timeMs);
     }
+    if (effects.onDamageEvents) {
+      const events: WireDamageEvent[] = [];
+      for (const wire of tick.damageEvents ?? []) {
+        const ev = damageEventFromWire(wire);
+        if (ev) events.push(ev);
+      }
+      effects.onDamageEvents(events, timeMs);
+    }
   }
+}
+
+function damageEventFromWire(
+  wire: anarchy.v1.IDamageEvent,
+): WireDamageEvent | null {
+  const targetKind = targetKindFromWire(wire.targetKind);
+  if (targetKind === null) return null;
+  const amount = wire.amount ?? 0;
+  if (amount === 0) return null;
+  return {
+    targetKind,
+    targetId: toNumber(wire.targetId),
+    amount,
+    attackerPlayerId: toNumber(wire.attackerPlayerId),
+    happenedAtTick: toNumber(wire.happenedAtTick),
+  };
 }
 
 function attackEventFromWire(

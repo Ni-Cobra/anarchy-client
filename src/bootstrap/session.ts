@@ -242,6 +242,17 @@ export interface AnarchyHandle {
    */
   getSlashCount: () => number;
   /**
+   * Test handle (task 150): number of meshes currently mid-damage-flash.
+   * One per recently damaged player or entity inside the local view
+   * window; each entry retires after MESH_FLASH_DURATION_MS.
+   */
+  getMeshFlashCount: () => number;
+  /**
+   * Test handle (task 150): number of floating damage numbers currently
+   * in the scene. Each retires after DAMAGE_NUMBER_DURATION_MS.
+   */
+  getDamageNumberCount: () => number;
+  /**
    * Test handle (task 070b): the most recent `AttackEvent` observed
    * on this connection. Drives the `e2e/attack-client.spec.ts` checks
    * for "the beam appeared", "the strike landed", etc. without
@@ -455,6 +466,9 @@ export function constructSession(deps: SessionDeps): Session {
               localAttackChargeTracker.onAttackEvent(ev, localPlayerId);
             }
             renderer.onAttackEvents(events, tickReceivedMs);
+          },
+          onDamageEvents: (events, tickReceivedMs) => {
+            renderer.onDamageEvents(events, tickReceivedMs);
           },
         },
         daylightSink: {
@@ -806,6 +820,8 @@ export function constructSession(deps: SessionDeps): Session {
     sendAttackIntent,
     getAttackBeamCount: () => renderer.getAttackBeamCount(),
     getSlashCount: () => renderer.getSlashCount(),
+    getMeshFlashCount: () => renderer.getMeshFlashCount(),
+    getDamageNumberCount: () => renderer.getDamageNumberCount(),
     getLastAttackEvent: () => lastAttackEvent,
     getLocalCooldownStartedMs: () =>
       localPlayerId === null ? null : renderer.getStrikeStartedMs(localPlayerId),

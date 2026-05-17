@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { Direction8, type ItemId, type PlayerId } from "../game/index.js";
+import { purgeMeshFlash } from "./mesh_flash.js";
 import {
   BODY_LIT_MAT_USERDATA_KEY,
   BODY_UNLIT_MAT_USERDATA_KEY,
@@ -183,6 +184,9 @@ export function syncPlayerMeshes(
  */
 export function disposePlayerMesh(mesh: THREE.Mesh, parent: THREE.Object3D): void {
   parent.remove(mesh);
+  // Task 150: drop any pending damage-flash entry so the side table
+  // doesn't outlive the mesh through reconnects / local-player reassign.
+  purgeMeshFlash(mesh);
   const seenGeoms = new Set<THREE.BufferGeometry>();
   const seenMats = new Set<THREE.Material>();
   const seenTextures = new Set<THREE.Texture>();

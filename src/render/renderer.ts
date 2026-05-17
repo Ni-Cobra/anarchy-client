@@ -50,6 +50,11 @@ import {
   type TargetingStateEvent,
 } from "./effects/index.js";
 import { MS_PER_TICK, reconstructChargeStartMs } from "./attack_beam_layer.js";
+import {
+  flashMeshWhite,
+  meshFlashCount,
+  tickMeshFlashes,
+} from "./mesh_flash.js";
 import { computeGhostState, type GhostState } from "./ghost.js";
 import {
   applyHoverBillboards,
@@ -234,6 +239,7 @@ export class Renderer {
     this.screenShake.reset();
     this.graph.attackBeams.clearAll();
     this.graph.slashes.clearAll();
+    this.graph.damageNumbers.clearAll();
   }
 
   setTerrain(terrain: Terrain): void {
@@ -491,6 +497,95 @@ export class Renderer {
   }
 
   /**
+   * The wire layer observed `TickUpdate.damage_events` (task 150). Drops
+   * a white flash on the target mesh and spawns a floating `-N` red
+   * number at the target's head. Source-agnostic — every HP-reducing
+   * event (strike hit, admin damage, future env damage) routes here.
+   *
+   * `tickReceivedMs` anchors the flash + number lifetimes to the
+   * renderer's animation clock. A target that despawned in the same
+   * tick (killing blow) falls back to its last-known mesh position;
+   * a target whose mesh never existed (race) drops silently.
+   */
+  onDamageEvents(
+    events: ReadonlyArray<{
+      readonly targetKind: "player" | "entity";
+      readonly targetId: number;
+      readonly amount: number;
+      readonly attackerPlayerId: number;
+      readonly happenedAtTick: number;
+    }>,
+    tickReceivedMs: number,
+  ): void {
+    for (const ev of events) {
+      const mesh = this.resolveTargetMesh(ev.targetKind, ev.targetId);
+      const worldPos = this.resolveTargetWorldPos(ev.targetKind, ev.targetId);
+      if (mesh !== null) flashMeshWhite(mesh, tickReceivedMs);
+      if (worldPos !== null) {
+        this.graph.damageNumbers.spawn(worldPos, ev.amount, tickReceivedMs);
+      }
+    }
+  }
+
+  /**
+   * Resolve the renderer-side mesh for a damage target. Players come
+   * from the per-id mesh map (built by `syncPlayerMeshes`); entities
+   * come from the entity-layer state map.
+   */
+  private resolveTargetMesh(
+    kind: "player" | "entity",
+    id: number,
+  ): THREE.Object3D | null {
+    if (kind === "player") {
+      return this.meshes.get(id) ?? null;
+    }
+    return this.graph.entities.getMesh(id);
+  }
+
+  /**
+   * Resolve the *world* position for a damage target's head anchor.
+   * Players use the authoritative position from `World`; entities use
+   * the (interpolated) tile-centre derived from the game-state mirror.
+   * Falls back to the renderer-side last-rendered position if both
+   * lookups miss (target despawned same tick).
+   */
+  private resolveTargetWorldPos(
+    kind: "player" | "entity",
+    id: number,
+  ): { x: number; y: number } | null {
+    if (kind === "player") {
+      const p = this.world.getPlayer(id);
+      if (p) return { x: p.x, y: p.y };
+      const last = this.lastRenderedPos.get(id);
+      return last ?? null;
+    }
+    const terrain = this.terrain;
+    if (terrain !== null) {
+      for (const [, chunk] of terrain.iter()) {
+        const e = chunk.entities.get(id);
+        if (e !== undefined) return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Test handle (task 150): number of meshes currently mid-flash.
+   * Mirrors `getAttackBeamCount` / `getSlashCount` for e2e assertions.
+   */
+  getMeshFlashCount(): number {
+    return meshFlashCount();
+  }
+
+  /**
+   * Test handle (task 150): number of floating damage numbers
+   * currently in the scene.
+   */
+  getDamageNumberCount(): number {
+    return this.graph.damageNumbers.size();
+  }
+
+  /**
    * Test handle / cooldown read-out (task 070b). Returns the wall-clock
    * ms at which `playerId`'s most recent strike fired, or `null` if the
    * player has not struck this session. The HUD cooldown affordance
@@ -677,6 +772,11 @@ export class Renderer {
     // expired sprites. Position / rotation are fixed at spawn — the
     // slash anchor never moves, so no per-frame re-aim is needed.
     this.graph.slashes.tick(nowMs);
+    // Task 150: advance damage-feedback layers. The flash module restores
+    // body colour after the configured window; the damage-numbers layer
+    // advances each floating sprite's float + fade and retires expired ones.
+    tickMeshFlashes(nowMs);
+    this.graph.damageNumbers.tick(nowMs);
     // Capture this frame's rendered player positions so a strike
     // resolution next frame can lerp from where the attacker is
     // actually drawn.
