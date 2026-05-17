@@ -416,6 +416,12 @@ enum ToolKind {
   // mirrored to the wire so a future task can render the held sword
   // sprite without an extra schema bump.
   TOOL_KIND_SWORD = 5;
+  // Task 190 sixth equipment slot — blowgun (single tier, single item).
+  // Mutually exclusive with the sword slot per the task brief: equipping
+  // a blowgun unequips the sword (and vice versa) so the player carries
+  // at most one combat tool at a time. The right-click shoot mechanic
+  // lands in task 200.
+  TOOL_KIND_BLOWGUN = 6;
 }
 
 // Client→server "equip the tool currently at `source_slot` into the
@@ -1072,6 +1078,14 @@ enum ItemId {
   // Task 180 — second spider death drop. Always 1 per spider kill. Raw input
   // for the poison-dart recipe landing in task 190.
   ITEM_ID_VENOM_SACK = 50;
+  // Task 190 — new combat tool. Crafted from 3 Sticks → 1 Blowgun. Equipped
+  // into the dedicated `TOOL_KIND_BLOWGUN` slot (mutually exclusive with the
+  // sword slot). Non-stackable. Right-click shoot lands in task 200.
+  ITEM_ID_BLOWGUN = 51;
+  // Task 190 — poison-dart ammunition. Crafted from 1 VenomSack + 2 Sticks
+  // → 4 Poison Darts. Stack size 64. Consumed by the blowgun's shoot
+  // mechanic in task 200.
+  ITEM_ID_POISON_DART = 52;
 }
 
 // One inventory cell. `count == 0` is the canonical empty slot — the server
@@ -1121,6 +1135,12 @@ message InventoryUpdate {
   // `equipped_pickaxe_slot`. Empty by default; populated when a sword
   // tier is equipped. The matching cell paints red.
   int32 equipped_sword_slot = 10;
+  // Inventory slot index of the equipped blowgun (task 190) — see
+  // `equipped_pickaxe_slot`. Empty by default; populated when the single
+  // blowgun item is equipped. The matching cell paints with the same
+  // highlight as the sword slot (combat-tool family) since the two are
+  // mutually exclusive — only one can be populated at a time.
+  int32 equipped_blowgun_slot = 11;
   // Field 6 originally carried `repeated string craftable_recipe_ids`
   // (task 090). Task 100 reshaped it into a richer
   // `repeated RecipeEntry` so each row carries its availability tier

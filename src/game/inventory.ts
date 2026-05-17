@@ -157,6 +157,19 @@ export enum ItemId {
    * Raw input for the poison-dart recipe landing in task 190.
    */
   VenomSack = 50,
+  /**
+   * Task 190 — new combat tool. Crafted from 3 Sticks → 1 Blowgun. Equipped
+   * into the dedicated `blowgun` slot (mutually exclusive with the sword
+   * slot — equipping either clears the other). Non-stackable. Right-click
+   * shoot lands in task 200.
+   */
+  Blowgun = 51,
+  /**
+   * Task 190 — blowgun ammunition. Crafted from 1 VenomSack + 2 Sticks →
+   * 4 Poison Darts. Stackable. Consumed by the blowgun's shoot mechanic
+   * in task 200; no in-game effect on its own today.
+   */
+  PoisonDart = 52,
 }
 
 /** A non-empty pile of one item kind. */
@@ -178,7 +191,13 @@ export type Slot = ItemStack | null;
  * with task 100; Utility (task 360) is the third slot, sitting next to
  * them; Shovel (task 530) is the fourth.
  */
-export type ToolKind = "pickaxe" | "axe" | "utility" | "shovel" | "sword";
+export type ToolKind =
+  | "pickaxe"
+  | "axe"
+  | "utility"
+  | "shovel"
+  | "sword"
+  | "blowgun";
 
 /**
  * `true` iff `item` is one of the five pickaxe tiers. Used by the
@@ -236,12 +255,18 @@ export function isSword(item: ItemId): boolean {
   );
 }
 
+/** True iff `item` is the blowgun (task 190 — single tier). */
+export function isBlowgun(item: ItemId): boolean {
+  return item === ItemId.Blowgun;
+}
+
 /** Tool family the item belongs to, or `null` for non-tool items. */
 export function toolKindOf(item: ItemId): ToolKind | null {
   if (isPickaxe(item)) return "pickaxe";
   if (isAxe(item)) return "axe";
   if (isShovel(item)) return "shovel";
   if (isSword(item)) return "sword";
+  if (isBlowgun(item)) return "blowgun";
   if (isUtility(item)) return "utility";
   return null;
 }
@@ -278,6 +303,7 @@ export class Inventory {
   private equippedUtilitySlot: number | null = null;
   private equippedShovelSlot: number | null = null;
   private equippedSwordSlot: number | null = null;
+  private equippedBlowgunSlot: number | null = null;
   private craftable: readonly CraftableRecipe[] = [];
   private listeners: Array<() => void> = [];
 
@@ -314,6 +340,8 @@ export class Inventory {
         return this.equippedShovelSlot;
       case "sword":
         return this.equippedSwordSlot;
+      case "blowgun":
+        return this.equippedBlowgunSlot;
     }
   }
 
@@ -393,6 +421,7 @@ export class Inventory {
     equippedUtilitySlot: number | null = null,
     equippedShovelSlot: number | null = null,
     equippedSwordSlot: number | null = null,
+    equippedBlowgunSlot: number | null = null,
   ): void {
     if (slots.length !== INVENTORY_SIZE) {
       throw new Error(
@@ -405,6 +434,7 @@ export class Inventory {
     this.equippedUtilitySlot = normalizeEquipped(this.slots, equippedUtilitySlot, "utility");
     this.equippedShovelSlot = normalizeEquipped(this.slots, equippedShovelSlot, "shovel");
     this.equippedSwordSlot = normalizeEquipped(this.slots, equippedSwordSlot, "sword");
+    this.equippedBlowgunSlot = normalizeEquipped(this.slots, equippedBlowgunSlot, "blowgun");
     this.craftable = sortCraftable(normalizeCraftable(craftableRecipes));
     for (const listener of this.listeners) listener();
   }

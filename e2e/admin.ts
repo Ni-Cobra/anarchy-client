@@ -68,6 +68,11 @@ export const AdminItemId = {
   // Task 080 spider-string drop, used by the spider-kill spec to seed
   // inventory-full overflow scenarios.
   String: 49,
+  // Task 180 spider venom-sack drop, raw input for the poison-dart recipe.
+  VenomSack: 50,
+  // Task 190 craftables — blowgun + poison dart.
+  Blowgun: 51,
+  PoisonDart: 52,
 } as const;
 
 export type AdminItemId = (typeof AdminItemId)[keyof typeof AdminItemId];

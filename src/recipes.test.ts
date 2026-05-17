@@ -221,6 +221,19 @@ describe("recipes", () => {
         ],
         output: { item: ItemId.TungstenSword, count: 1 },
       },
+      {
+        id: "blowgun",
+        ingredients: [{ item: ItemId.Stick, count: 3 }],
+        output: { item: ItemId.Blowgun, count: 1 },
+      },
+      {
+        id: "poison-dart",
+        ingredients: [
+          { item: ItemId.VenomSack, count: 1 },
+          { item: ItemId.Stick, count: 2 },
+        ],
+        output: { item: ItemId.PoisonDart, count: 4 },
+      },
     ]);
   });
 

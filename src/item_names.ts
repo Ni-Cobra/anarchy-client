@@ -341,6 +341,21 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: null,
     textureUrl: null,
   },
+  // Task 190 — combat tool + ammunition. No dedicated icons yet; the
+  // crafting / hotbar / inventory cells fall back to the gray placeholder
+  // until a polish pass lands the textures under /textures/items/.
+  [ItemId.Blowgun]: {
+    id: ItemId.Blowgun,
+    displayName: "Blowgun",
+    placesBlock: null,
+    textureUrl: null,
+  },
+  [ItemId.PoisonDart]: {
+    id: ItemId.PoisonDart,
+    displayName: "Poison Dart",
+    placesBlock: null,
+    textureUrl: null,
+  },
 };
 
 /**

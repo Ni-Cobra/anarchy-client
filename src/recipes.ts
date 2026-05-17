@@ -269,6 +269,23 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.TungstenSword, count: 1 },
   },
+  // Task 190 — blowgun (single-tier, 3 Sticks → 1 Blowgun) and poison-dart
+  // (1 VenomSack + 2 Sticks → 4 PoisonDart). The blowgun slots into the
+  // dedicated combat-tool slot (mutually exclusive with the sword); the
+  // dart is the ammunition for task 200's shoot mechanic.
+  {
+    id: "blowgun",
+    ingredients: [{ item: ItemId.Stick, count: 3 }],
+    output: { item: ItemId.Blowgun, count: 1 },
+  },
+  {
+    id: "poison-dart",
+    ingredients: [
+      { item: ItemId.VenomSack, count: 1 },
+      { item: ItemId.Stick, count: 2 },
+    ],
+    output: { item: ItemId.PoisonDart, count: 4 },
+  },
 ];
 
 const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(

@@ -47,6 +47,7 @@ export function applyInventoryUpdate(
   const equippedUtilitySlot = equippedSlotFromWire(update.equippedUtilitySlot);
   const equippedShovelSlot = equippedSlotFromWire(update.equippedShovelSlot);
   const equippedSwordSlot = equippedSlotFromWire(update.equippedSwordSlot);
+  const equippedBlowgunSlot = equippedSlotFromWire(update.equippedBlowgunSlot);
   const craftableRecipes = (update.craftableRecipes ?? [])
     .map(craftableRecipeFromWire)
     .filter((r): r is CraftableRecipe => r !== null);
@@ -58,6 +59,7 @@ export function applyInventoryUpdate(
     equippedUtilitySlot,
     equippedShovelSlot,
     equippedSwordSlot,
+    equippedBlowgunSlot,
   );
 }
 
@@ -199,6 +201,10 @@ export function itemIdFromWire(
       return ItemId.String;
     case anarchy.v1.ItemId.ITEM_ID_VENOM_SACK:
       return ItemId.VenomSack;
+    case anarchy.v1.ItemId.ITEM_ID_BLOWGUN:
+      return ItemId.Blowgun;
+    case anarchy.v1.ItemId.ITEM_ID_POISON_DART:
+      return ItemId.PoisonDart;
     default:
       return null;
   }
