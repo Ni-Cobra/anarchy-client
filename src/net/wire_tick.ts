@@ -32,6 +32,8 @@ import {
   type Entity,
   type EntityId,
   EntityKind,
+  type FlagBlockState,
+  flagCellKey,
   LAYER_AREA,
   type Layer,
   LAYER_SIZE,
@@ -645,7 +647,17 @@ function chunkFromWire(
       effects: activeEffectsFromWire(e.effects),
     });
   }
-  return [[cx, cy] as const, { ground, top, players, entities }];
+  // Task 220: per-cell flag color for any placed flag blocks in this chunk.
+  // Drop entries whose local coords overflow `LAYER_SIZE` defensively
+  // (a malformed server frame should not corrupt local state).
+  const flagBlocks = new Map<string, FlagBlockState>();
+  for (const f of wire.flagBlocks ?? []) {
+    const lx = f.localX ?? 0;
+    const ly = f.localY ?? 0;
+    if (lx >= LAYER_SIZE || ly >= LAYER_SIZE) continue;
+    flagBlocks.set(flagCellKey(lx, ly), { colorIndex: f.colorIndex ?? 0 });
+  }
+  return [[cx, cy] as const, { ground, top, players, entities, flagBlocks }];
 }
 
 function entityKindFromWire(

@@ -286,6 +286,23 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.PoisonDart, count: 4 },
   },
+  // Task 220 — woven cloth + colored flag. The flag output is stamped
+  // server-side with the crafter's color via `ItemStackExtra.flag`; the
+  // client doesn't see the color until the inventory mirror updates,
+  // since this table just describes the recipe shape.
+  {
+    id: "cloth",
+    ingredients: [{ item: ItemId.String, count: 6 }],
+    output: { item: ItemId.Cloth, count: 1 },
+  },
+  {
+    id: "flag",
+    ingredients: [
+      { item: ItemId.Cloth, count: 2 },
+      { item: ItemId.Wood, count: 1 },
+    ],
+    output: { item: ItemId.Flag, count: 1 },
+  },
 ];
 
 const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(

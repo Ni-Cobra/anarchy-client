@@ -214,6 +214,11 @@ export const DEFAULT_BREAK_PARTICLE_COLORS: Readonly<Record<BlockType, number>> 
   [BlockType.Tombstone]: 0x808088,
   // Task 140: broken bioluminescent mushroom puffs cool cyan spore shards.
   [BlockType.LightMushroom]: 0x9fd9ff,
+  // Task 220: a broken flag puffs neutral cloth-coloured shards. The
+  // placed flag's color is per-cell, not per-kind, so a single tint
+  // here loses the color identity — kept generic rather than reaching
+  // into the per-cell `flagBlocks` map from inside the particle path.
+  [BlockType.Flag]: 0xd6cabb,
 };
 
 export function defaultBreakParticleColor(kind: BlockType): number {

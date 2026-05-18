@@ -14,6 +14,7 @@ import {
   INVENTORY_SIZE,
   ItemId,
   type CraftableRecipe,
+  type ItemStackExtra,
   type RecipeAvailability,
   type Slot,
 } from "../game/index.js";
@@ -36,7 +37,8 @@ export function applyInventoryUpdate(
     if (count === 0) return null;
     const item = itemIdFromWire(s.item);
     if (item === null) return null;
-    return { item, count };
+    const extra = itemStackExtraFromWire(s);
+    return extra === undefined ? { item, count } : { item, count, extra };
   });
   // Equipment slot pointers (task 010 rework). `-1` (or any out-of-range
   // value) means "nothing equipped"; otherwise the index of the cell in
@@ -205,7 +207,28 @@ export function itemIdFromWire(
       return ItemId.Blowgun;
     case anarchy.v1.ItemId.ITEM_ID_POISON_DART:
       return ItemId.PoisonDart;
+    case anarchy.v1.ItemId.ITEM_ID_CLOTH:
+      return ItemId.Cloth;
+    case anarchy.v1.ItemId.ITEM_ID_FLAG:
+      return ItemId.Flag;
     default:
       return null;
   }
+}
+
+/**
+ * Translate a wire `ItemSlot.extra` oneof into the client's
+ * `ItemStackExtra` (task 220). Returns `undefined` when no extra is set
+ * — the common case for every non-flag stack — so the call site can
+ * decide whether to omit the field on the resulting `ItemStack` rather
+ * than emitting `extra: undefined`.
+ */
+function itemStackExtraFromWire(
+  slot: anarchy.v1.IItemSlot,
+): ItemStackExtra | undefined {
+  const flag = slot.flag;
+  if (flag !== null && flag !== undefined) {
+    return { kind: "flag", colorIndex: flag.colorIndex ?? 0 };
+  }
+  return undefined;
 }

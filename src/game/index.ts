@@ -16,7 +16,7 @@ export {
   LOCAL_CHARGE_FAILSAFE_MS,
   LocalAttackChargeTracker,
 } from "./local_attack_charge_tracker.js";
-export type { Block, Chunk, ChunkCoord, Layer } from "./terrain.js";
+export type { Block, Chunk, ChunkCoord, FlagBlockState, Layer } from "./terrain.js";
 export {
   BlockType,
   CHUNK_SIZE,
@@ -24,6 +24,7 @@ export {
   LAYER_SIZE,
   Terrain,
   emptyChunk,
+  flagCellKey,
   getBlock,
   setBlock,
 } from "./terrain.js";
@@ -42,6 +43,7 @@ export {
 export type {
   CraftableRecipe,
   ItemStack,
+  ItemStackExtra,
   RecipeAvailability,
   Slot,
   ToolKind,

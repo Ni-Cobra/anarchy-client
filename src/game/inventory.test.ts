@@ -61,6 +61,30 @@ describe("Inventory", () => {
     expect(inv.slot(0)).toEqual({ item: ItemId.Wood, count: 1 });
   });
 
+  it("round-trips a Flag stack with its per-stack extra.colorIndex (task 220)", () => {
+    // The flag's color travels with the stack — placement reads it back
+    // to write the chunk's flag map. Pin the field round-trips through
+    // `replaceFromWire` unchanged.
+    const inv = new Inventory();
+    const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+    slots[0] = {
+      item: ItemId.Flag,
+      count: 1,
+      extra: { kind: "flag", colorIndex: 5 },
+    };
+    inv.replaceFromWire(slots);
+    expect(inv.slot(0)).toEqual({
+      item: ItemId.Flag,
+      count: 1,
+      extra: { kind: "flag", colorIndex: 5 },
+    });
+    // A non-flag stack omits the optional extra field — the mirror
+    // doesn't synthesize one.
+    slots[0] = { item: ItemId.Stick, count: 4 };
+    inv.replaceFromWire(slots);
+    expect(inv.slot(0)).toEqual({ item: ItemId.Stick, count: 4 });
+  });
+
   it("rejects a slot array of the wrong length", () => {
     const inv = new Inventory();
     expect(() => inv.replaceFromWire([])).toThrow();

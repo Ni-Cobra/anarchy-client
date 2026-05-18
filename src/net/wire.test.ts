@@ -229,6 +229,29 @@ describe("applyServerMessage — ConnectedPlayersList (task 170)", () => {
 });
 
 describe("applyServerMessage — TickUpdate", () => {
+  it("decodes per-cell flag_blocks into the chunk's flagBlocks map (task 220)", () => {
+    const { deps, terrain } = makeTerrainFixture();
+    const c00 = emptyChunk();
+    setBlock(c00.top, 3, 5, { kind: BlockType.Flag });
+    setBlock(c00.top, 7, 2, { kind: BlockType.Flag });
+    const wire00 = chunkFromGameWire(0, 0, c00);
+    wire00.flagBlocks = [
+      { localX: 3, localY: 5, colorIndex: 4 },
+      { localX: 7, localY: 2, colorIndex: 9 },
+    ];
+
+    const msg = decodeRoundtrip({
+      seq: 2,
+      tickUpdate: { fullStateChunks: [wire00], unmodifiedChunks: [] },
+    });
+    applyServerMessage(msg, deps);
+
+    const chunk = terrain.get(0, 0);
+    expect(chunk).toBeDefined();
+    expect(chunk!.flagBlocks.get("3,5")).toEqual({ colorIndex: 4 });
+    expect(chunk!.flagBlocks.get("7,2")).toEqual({ colorIndex: 9 });
+  });
+
   it("applies full-state chunks to terrain and notifies the sink", () => {
     const { deps, terrain, onChunkLoaded } = makeTerrainFixture();
 

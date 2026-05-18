@@ -356,6 +356,21 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: null,
     textureUrl: null,
   },
+  // Task 220 — woven cloth + colored flag. No dedicated icons yet; the
+  // crafting / hotbar / inventory cells fall back to the gray placeholder
+  // until a polish pass lands the textures under /textures/items/.
+  [ItemId.Cloth]: {
+    id: ItemId.Cloth,
+    displayName: "Cloth",
+    placesBlock: null,
+    textureUrl: null,
+  },
+  [ItemId.Flag]: {
+    id: ItemId.Flag,
+    displayName: "Flag",
+    placesBlock: BlockType.Flag,
+    textureUrl: null,
+  },
 };
 
 /**

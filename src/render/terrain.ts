@@ -4,10 +4,12 @@ import {
   BlockType,
   CHUNK_SIZE,
   type Chunk,
+  flagCellKey,
   LAYER_SIZE,
   type Terrain,
   getBlock,
 } from "../game/index.js";
+import { paletteColorHex } from "../game/palette.js";
 import type { BlockTextureSet } from "./texture_loader.js";
 
 // Fake-ambient-occlusion against `BlockType.Hidden` neighbours (task 290).
@@ -195,6 +197,25 @@ const MUSHROOM_WIDTH = 0.7;
 const MUSHROOM_HEIGHT = 0.55;
 const MUSHROOM_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
 
+// Flag (task 220) — a thin upright pole topped by a small colored cloth.
+// Solid `is_solid_top` server-side (collision blocks players), but rendered
+// as a pole + cloth rather than a full cube so the cell visually reads as
+// "a flag plot" rather than a wall. The cloth color comes from the
+// per-cell `flagBlocks` map (frozen at craft time); the pole is a neutral
+// wood-brown shared across all flags.
+const FLAG_POLE_WIDTH = 0.1;
+const FLAG_POLE_HEIGHT = 0.95;
+const FLAG_POLE_COLOR = 0x6b4423;
+const FLAG_POLE_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
+const FLAG_POLE_Y = FLAG_POLE_BOTTOM + FLAG_POLE_HEIGHT / 2;
+const FLAG_CLOTH_WIDTH = 0.5;
+const FLAG_CLOTH_HEIGHT = 0.3;
+const FLAG_CLOTH_DEPTH = 0.04;
+// Plant the cloth against the upper third of the pole, biased off-center
+// along +X so the pole reads as the staff side and the cloth flies free.
+const FLAG_CLOTH_X_OFFSET = FLAG_CLOTH_WIDTH / 2 - FLAG_POLE_WIDTH / 2;
+const FLAG_CLOTH_Y = FLAG_POLE_BOTTOM + FLAG_POLE_HEIGHT - FLAG_CLOTH_HEIGHT / 2 - 0.05;
+
 /**
  * Build a per-chunk sub-group named `chunk:cx,cy`. Exported so the renderer
  * can rebuild a single chunk on a `ChunkLoaded` event without throwing away
@@ -303,6 +324,16 @@ export function buildChunkMesh(
   // every mushroom in the chunk; material comes from the decor-mat cache so
   // it shares the alpha-transparent path with flowers / bushes.
   let mushroomGeom: THREE.BufferGeometry | null = null;
+
+  // Flag geometry (task 220). Pole geometry + material are shared across
+  // every flag in the chunk (one neutral wood-brown stick); the cloth
+  // material is per-color so two flags of different colors in the same
+  // chunk don't share state — colors are cached by `colorIndex` so two
+  // flags of the *same* color do share their cloth material.
+  let flagPoleGeom: THREE.BoxGeometry | null = null;
+  let flagPoleMat: THREE.MeshLambertMaterial | null = null;
+  let flagClothGeom: THREE.BoxGeometry | null = null;
+  const flagClothMatByColor = new Map<number, THREE.MeshLambertMaterial>();
 
   const group = new THREE.Group();
   group.name = `chunk:${cx},${cy}`;
@@ -425,6 +456,45 @@ export function buildChunkMesh(
         mesh.castShadow = false;
         mesh.receiveShadow = true;
         group.add(mesh);
+      } else if (topBlock.kind === BlockType.Flag) {
+        // Task 220: pole + per-color cloth. The cell's color lives in the
+        // hosting chunk's `flagBlocks` map, keyed by `flagCellKey(x, y)`.
+        // A missing entry shouldn't be reachable in practice (the server
+        // writes the map atomically with the top block) but defaults to
+        // color 0 so a phantom flag still renders rather than crashing.
+        const state = chunk.flagBlocks.get(flagCellKey(x, y));
+        const colorIndex = state?.colorIndex ?? 0;
+        if (!flagPoleGeom)
+          flagPoleGeom = new THREE.BoxGeometry(
+            FLAG_POLE_WIDTH,
+            FLAG_POLE_HEIGHT,
+            FLAG_POLE_WIDTH,
+          );
+        if (!flagPoleMat)
+          flagPoleMat = new THREE.MeshLambertMaterial({ color: FLAG_POLE_COLOR });
+        if (!flagClothGeom)
+          flagClothGeom = new THREE.BoxGeometry(
+            FLAG_CLOTH_WIDTH,
+            FLAG_CLOTH_HEIGHT,
+            FLAG_CLOTH_DEPTH,
+          );
+        let clothMat = flagClothMatByColor.get(colorIndex);
+        if (!clothMat) {
+          clothMat = new THREE.MeshLambertMaterial({
+            color: paletteColorHex(colorIndex),
+          });
+          flagClothMatByColor.set(colorIndex, clothMat);
+        }
+        const pole = new THREE.Mesh(flagPoleGeom, flagPoleMat);
+        pole.position.set(scene.x, FLAG_POLE_Y, scene.z);
+        pole.castShadow = true;
+        pole.receiveShadow = true;
+        group.add(pole);
+        const cloth = new THREE.Mesh(flagClothGeom, clothMat);
+        cloth.position.set(scene.x + FLAG_CLOTH_X_OFFSET, FLAG_CLOTH_Y, scene.z);
+        cloth.castShadow = true;
+        cloth.receiveShadow = true;
+        group.add(cloth);
       } else {
         // Standard full-cell top block. Tree/Sticks/flowers/bushes branch
         // away above; we don't AO those because they aren't `is_full` on

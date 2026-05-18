@@ -170,12 +170,39 @@ export enum ItemId {
    * in task 200; no in-game effect on its own today.
    */
   PoisonDart = 52,
+  /**
+   * Task 220 — woven cloth. Crafted from 6 String → 1 Cloth. Pure
+   * ingredient; no `places_block`, no tool kind. Stackable.
+   */
+  Cloth = 53,
+  /**
+   * Task 220 — placeable colored flag. Crafted from 2 Cloth + 1 Wood →
+   * 1 Flag stamped with the crafter's color via `ItemStackExtra.flag`.
+   * Places `BlockType.Flag` via the standard right-click flow; the
+   * placed flag's color is read from the placing stack's extra.
+   * Non-stackable so every stack carries exactly one color.
+   */
+  Flag = 54,
 }
+
+/**
+ * Per-stack metadata carried on individual `ItemStack`s (task 220).
+ * Today only `Flag` populates it with its frozen color index; every
+ * other item leaves the field undefined. Designed as a discriminated
+ * union so future per-stack metadata (durability, charges, owner)
+ * extends by appending a variant rather than threading another field.
+ */
+export type ItemStackExtra = { kind: "flag"; colorIndex: number };
 
 /** A non-empty pile of one item kind. */
 export interface ItemStack {
   readonly item: ItemId;
   readonly count: number;
+  /**
+   * Per-stack metadata (task 220 — today only flags populate it).
+   * `undefined` for every non-flag stack.
+   */
+  readonly extra?: ItemStackExtra;
 }
 
 /**

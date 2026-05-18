@@ -107,6 +107,14 @@ export enum BlockType {
    * torch (see `mushroom_lights.ts`).
    */
   LightMushroom = 26,
+  /**
+   * Task 220 placeable colored flag. Top-layer-only, solid (`is_solid_top`)
+   * but not a full cube — the renderer paints a pole + cloth tinted by the
+   * per-cell `colorIndex` from the parallel `Chunk.flagBlocks` map.
+   * Worldgen never generates flags; they enter the world only via player
+   * placement.
+   */
+  Flag = 27,
 }
 
 /**
@@ -181,16 +189,38 @@ export function setBlock(layer: Layer, x: number, y: number, block: Block): void
 }
 
 /**
+ * Per-cell flag state attached to a placed `BlockType.Flag` tile in a chunk
+ * (task 220). One entry per flag cell — keyed by `flagCellKey(lx, ly)` —
+ * carrying the color frozen at craft time. The renderer reads this to
+ * tint the rendered pole + cloth.
+ */
+export interface FlagBlockState {
+  readonly colorIndex: number;
+}
+
+/** Stable string key for a flag cell `(lx, ly)` inside a chunk. */
+export function flagCellKey(lx: number, ly: number): string {
+  return `${lx},${ly}`;
+}
+
+/**
  * One chunk: walkable `ground` floor + sparse `top` standing geometry +
  * the players whose center currently falls inside the chunk + the
- * tile-bound entities (task 010-entities) hosted by the chunk. Naming
- * mirrors the server `Chunk { ground, top, players, entities }`.
+ * tile-bound entities (task 010-entities) hosted by the chunk + the
+ * sparse per-cell flag color map (task 220). Naming mirrors the server
+ * `Chunk { ground, top, players, entities, flags }`.
  */
 export interface Chunk {
   readonly ground: Layer;
   readonly top: Layer;
   readonly players: ReadonlyMap<PlayerId, Player>;
   readonly entities: ReadonlyMap<EntityId, Entity>;
+  /**
+   * Sparse per-cell flag color, keyed by `flagCellKey(lx, ly)`. An entry
+   * exists iff the matching `top` cell holds `BlockType.Flag`. Empty
+   * when no flags are placed in this chunk.
+   */
+  readonly flagBlocks: ReadonlyMap<string, FlagBlockState>;
 }
 
 export function emptyChunk(): Chunk {
@@ -199,6 +229,7 @@ export function emptyChunk(): Chunk {
     top: emptyLayer(),
     players: new Map(),
     entities: new Map(),
+    flagBlocks: new Map(),
   };
 }
 

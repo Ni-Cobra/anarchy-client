@@ -73,6 +73,11 @@ export const AdminItemId = {
   // Task 190 craftables — blowgun + poison dart.
   Blowgun: 51,
   PoisonDart: 52,
+  // Task 220 craftables — cloth + colored flag. The flag-craft-place
+  // spec seeds these into the inventory via the admin endpoint to drive
+  // the cloth + flag recipes through the real UI.
+  Cloth: 53,
+  Flag: 54,
 } as const;
 
 export type AdminItemId = (typeof AdminItemId)[keyof typeof AdminItemId];

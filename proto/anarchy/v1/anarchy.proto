@@ -994,6 +994,15 @@ enum BlockType {
   // DenseForest and inside mountain caves; players may also place them
   // via the standard right-click flow.
   BLOCK_TYPE_LIGHT_MUSHROOM = 26;
+  // Task 220 placeable colored flag. Top-layer-only, solid (`is_solid_top`)
+  // but not a full cube — the client renders a pole + cloth instead of a
+  // wall, tinted by the per-cell color from `Chunk.flag_blocks`. Each
+  // placed flag's color is frozen at craft time (carried on the placing
+  // `ItemSlot.extra.flag.color_index`) and survives transfer / drop /
+  // break — the dropped stack is stamped with the placed color, not the
+  // breaker's. **No faction binding in task 220** — anyone can break a
+  // placed flag for now (task 250 layers the drain-to-destroy gate).
+  BLOCK_TYPE_FLAG = 27;
 }
 
 // One tile. Field set is intentionally minimal today — the wrapper
@@ -1031,6 +1040,22 @@ message Chunk {
   Layer top = 3;
   repeated PlayerSnapshot players = 4;
   repeated Entity entities = 5;
+  // Task 220 — per-cell color for placed flag blocks in this chunk. One
+  // entry per `BLOCK_TYPE_FLAG` cell on the `top` layer; the client looks
+  // up `(local_x, local_y)` to tint the rendered pole + cloth. Empty when
+  // no flags are placed in this chunk. Ordering is unspecified by shape;
+  // the server emits entries sorted by `(local_y * LAYER_SIZE + local_x)`
+  // so the wire form is deterministic for tests.
+  repeated FlagBlock flag_blocks = 6;
+}
+
+// Per-cell flag color for one placed `BLOCK_TYPE_FLAG` (task 220).
+// Mirrors the server's `FlagBlockState` map entry; the local coords
+// pair with the hosting chunk's coord on `Chunk.coord`.
+message FlagBlock {
+  uint32 local_x = 1;
+  uint32 local_y = 2;
+  uint32 color_index = 3;
 }
 
 // === Entities (task 010-entities) ===
@@ -1200,15 +1225,41 @@ enum ItemId {
   // → 4 Poison Darts. Stack size 64. Consumed by the blowgun's shoot
   // mechanic in task 200.
   ITEM_ID_POISON_DART = 52;
+  // Task 220 — woven cloth. Crafted from 6 String → 1 Cloth. Pure ingredient
+  // — no `places_block`, no tool kind. Stack size 64.
+  ITEM_ID_CLOTH = 53;
+  // Task 220 — placeable colored flag. Crafted from 2 Cloth + 1 Wood → 1
+  // Flag stamped with the crafter's color (via `ItemSlot.extra.flag`).
+  // Places `BLOCK_TYPE_FLAG` via the standard right-click flow; the placed
+  // flag's color comes from the placing stack's `extra.flag.color_index`.
+  // Non-stackable so every stack carries exactly one color.
+  ITEM_ID_FLAG = 54;
 }
 
 // One inventory cell. `count == 0` is the canonical empty slot — the server
 // emits `count == 0` (and `item == ITEM_ID_UNSPECIFIED`) for empty slots so
 // the wire shape mirrors the in-memory `Slot = Option<ItemStack>` exactly.
 // Receivers MUST treat `count == 0` as empty regardless of `item`.
+//
+// Per-stack metadata (task 220) lives on the optional `extra` oneof — today
+// only `ITEM_ID_FLAG` populates it with its frozen color. Designed as a
+// oneof so future per-stack metadata (durability, charges, owner) can
+// extend by appending a variant rather than threading another field
+// through every signature. Unset on every non-flag stack.
 message ItemSlot {
   ItemId item = 1;
   uint32 count = 2;
+  oneof extra {
+    FlagExtra flag = 3;
+  }
+}
+
+// Per-stack metadata for a Flag-item stack (task 220). The `color_index`
+// is the crafter's `PlayerSnapshot.color_index` frozen at craft time;
+// placement reads it and writes the matching `Chunk.flag_blocks` entry;
+// breaking a placed flag re-stamps the dropped stack with the same value.
+message FlagExtra {
+  uint32 color_index = 1;
 }
 
 message InventoryUpdate {

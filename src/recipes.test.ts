@@ -234,6 +234,19 @@ describe("recipes", () => {
         ],
         output: { item: ItemId.PoisonDart, count: 4 },
       },
+      {
+        id: "cloth",
+        ingredients: [{ item: ItemId.String, count: 6 }],
+        output: { item: ItemId.Cloth, count: 1 },
+      },
+      {
+        id: "flag",
+        ingredients: [
+          { item: ItemId.Cloth, count: 2 },
+          { item: ItemId.Wood, count: 1 },
+        ],
+        output: { item: ItemId.Flag, count: 1 },
+      },
     ]);
   });
 

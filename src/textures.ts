@@ -254,6 +254,15 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     minToolTier: null,
     isSolidTop: false,
   },
+  [BlockType.Flag]: {
+    kind: BlockType.Flag,
+    // The flag block is rendered as a runtime-tinted pole + cloth (see
+    // `render/flag_meshes.ts`), not a textured cube — no base texture URL.
+    textureUrl: null,
+    displayName: "Flag",
+    minToolTier: null,
+    isSolidTop: true,
+  },
 };
 
 /**
