@@ -137,12 +137,20 @@ describe("textureUrlForItem", () => {
     }
   });
 
-  it("VenomSack resolves to the gray-fallback path (task 180)", () => {
-    // Task 180 ships the item without a dedicated icon. The inventory grid
-    // paints a gray placeholder when `textureUrlForItem` returns null —
-    // assert that contract here so a future change doesn't quietly wire a
-    // missing PNG and break the cell.
-    expect(textureUrlForItem(ItemId.VenomSack)).toBeNull();
+  it("post-180/190/220 items all resolve to dedicated icons (task 300)", () => {
+    // Task 300 polish pass landed the five missing icons. Pin each item
+    // to a `/textures/items/<name>.png` URL so a future registry edit
+    // can't quietly drop them back to the gray placeholder.
+    const expected: Record<number, string> = {
+      [ItemId.VenomSack]: "/textures/items/venom-sack.png",
+      [ItemId.Blowgun]: "/textures/items/blowgun.png",
+      [ItemId.PoisonDart]: "/textures/items/poison-dart.png",
+      [ItemId.Cloth]: "/textures/items/cloth.png",
+      [ItemId.Flag]: "/textures/items/flag.png",
+    };
+    for (const [item, url] of Object.entries(expected)) {
+      expect(textureUrlForItem(Number(item) as ItemId)).toBe(url);
+    }
   });
 
   it("registry entry textureUrl agrees with textureUrlForItem", () => {

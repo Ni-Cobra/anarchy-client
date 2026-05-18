@@ -189,12 +189,15 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     preview.className = "anarchy-inventory-drag-preview";
     const icon = document.createElement("div");
     icon.className = "anarchy-inventory-icon";
-    applyItemIconStyle(icon, { item, count: 1 });
-    preview.appendChild(icon);
     const sourceSlot =
       src.kind === "player"
         ? ctx.getInventory().slot(src.idx)
         : ctx.getChestInventory(src.chestKey)?.slot(src.idx) ?? null;
+    // Pass `extra` through so per-stack tinting (today: Flag's color)
+    // survives the drag preview — without it a flag's tint would drop
+    // for the duration of the gesture.
+    applyItemIconStyle(icon, { item, count: 1, extra: sourceSlot?.extra });
+    preview.appendChild(icon);
     if (sourceSlot !== null && sourceSlot.count > 1) {
       const count = document.createElement("span");
       count.className = "anarchy-inventory-count";

@@ -17,7 +17,8 @@
  * `THREE.NearestFilter` intent on the renderer side.
  */
 
-import { type ItemStack, type Slot, type ToolKind } from "../game/index.js";
+import { ItemId, type ItemStack, type Slot, type ToolKind } from "../game/index.js";
+import { paletteColorCss } from "../game/palette.js";
 import { textureUrlForItem } from "../textures.js";
 
 /**
@@ -34,6 +35,12 @@ export type CellEquipmentMark = ToolKind | null;
  * world-renderer texture so the inventory and the placed block share a
  * pixel-perfect visual identity. Items without a texture (future tools /
  * consumables) get a neutral gray fallback.
+ *
+ * Per-stack tinting (task 220 / 300): `Flag` stacks ship with a grayscale
+ * base PNG and a `flag` extra carrying the player's `color_index`. The
+ * tint is applied as a `background-color` multiplied with the image —
+ * white-cloth pixels pick up the full tint, dark-pole pixels stay dark
+ * but still shift hue, mirroring how the placed block reads from a glance.
  */
 export function applyItemIconStyle(icon: HTMLElement, slot: ItemStack): void {
   const url = textureUrlForItem(slot.item);
@@ -42,9 +49,31 @@ export function applyItemIconStyle(icon: HTMLElement, slot: ItemStack): void {
     icon.style.backgroundSize = "100% 100%";
     icon.style.backgroundRepeat = "no-repeat";
     icon.style.imageRendering = "pixelated";
+    const tint = perStackTintCss(slot);
+    if (tint !== null) {
+      icon.style.backgroundColor = tint;
+      icon.style.backgroundBlendMode = "multiply";
+    } else {
+      icon.style.backgroundColor = "";
+      icon.style.backgroundBlendMode = "";
+    }
   } else {
     icon.style.background = "#888";
   }
+}
+
+/**
+ * CSS color string to multiply against the item's base texture, or `null`
+ * when the stack carries no per-stack tint. Today only `Flag` populates
+ * `extra.kind === "flag"` (task 220); the tint mirrors the per-flag
+ * cloth color used by `render/terrain.ts` so the icon and the placed
+ * block read as the same color at a glance.
+ */
+function perStackTintCss(slot: ItemStack): string | null {
+  if (slot.item === ItemId.Flag && slot.extra?.kind === "flag") {
+    return paletteColorCss(slot.extra.colorIndex);
+  }
+  return null;
 }
 
 /**

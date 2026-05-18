@@ -332,44 +332,38 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: null,
     textureUrl: `${ITEM_TEXTURES_BASE}/string.png`,
   },
-  // Task 180 — spider death drop, raw input for the poison-dart recipe
-  // (task 190). No dedicated icon yet; falls back to the inventory grid's
-  // gray placeholder until a polish pass lands one under /textures/items/.
   [ItemId.VenomSack]: {
     id: ItemId.VenomSack,
     displayName: "Venom Sack",
     placesBlock: null,
-    textureUrl: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/venom-sack.png`,
   },
-  // Task 190 — combat tool + ammunition. No dedicated icons yet; the
-  // crafting / hotbar / inventory cells fall back to the gray placeholder
-  // until a polish pass lands the textures under /textures/items/.
   [ItemId.Blowgun]: {
     id: ItemId.Blowgun,
     displayName: "Blowgun",
     placesBlock: null,
-    textureUrl: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/blowgun.png`,
   },
   [ItemId.PoisonDart]: {
     id: ItemId.PoisonDart,
     displayName: "Poison Dart",
     placesBlock: null,
-    textureUrl: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/poison-dart.png`,
   },
-  // Task 220 — woven cloth + colored flag. No dedicated icons yet; the
-  // crafting / hotbar / inventory cells fall back to the gray placeholder
-  // until a polish pass lands the textures under /textures/items/.
   [ItemId.Cloth]: {
     id: ItemId.Cloth,
     displayName: "Cloth",
     placesBlock: null,
-    textureUrl: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/cloth.png`,
   },
+  // Flag's `textureUrl` is a base grayscale PNG; the slot cell applies
+  // a runtime tint sourced from `ItemStackExtra.flag.colorIndex` via a
+  // multiply-blended overlay so different flag colors read distinctly.
   [ItemId.Flag]: {
     id: ItemId.Flag,
     displayName: "Flag",
     placesBlock: BlockType.Flag,
-    textureUrl: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/flag.png`,
   },
 };
 
