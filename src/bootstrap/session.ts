@@ -329,6 +329,17 @@ export interface AnarchyHandle {
    */
   setCursorNdc: (ndc: { x: number; y: number } | null) => void;
   /**
+   * Test handle (task 370): project a world tile `(worldX, worldY)` to
+   * the canvas's client-pixel coordinates so a Playwright spec can drive
+   * `page.mouse.move(x, y)` against a tile centre without reproducing the
+   * camera math externally. Returns `null` only when the canvas isn't
+   * laid out yet (e.g. mounted into a hidden container).
+   */
+  worldToClient: (
+    worldX: number,
+    worldY: number,
+  ) => { x: number; y: number } | null;
+  /**
    * Test handle (task 120): current screen-shake offset in tile units, or
    * `(0, 0)` when no shake is active. Lets an e2e spec assert "the shake
    * fired" without inspecting the camera.
@@ -967,6 +978,7 @@ export function constructSession(deps: SessionDeps): Session {
     getChestBeamCount: () => renderer.getChestBeamCount(),
     getRenderedEntities: () => renderer.getRenderedEntities(),
     setCursorNdc: (ndc) => renderer.setCursorNdc(ndc),
+    worldToClient: (worldX, worldY) => renderer.worldToClient(worldX, worldY),
     getScreenShakeOffset: () => renderer.getScreenShakeOffset(),
     isHpBarFlashing: () => hpBar.isFlashing(),
     getDeathOverlayState: () => deathOverlay.state(),

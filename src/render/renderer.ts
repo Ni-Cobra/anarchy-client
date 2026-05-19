@@ -71,6 +71,7 @@ import {
   shouldSpawnSlashFor,
   shouldTriggerAttackerShake,
 } from "./slash_layer.js";
+import { projectWorldToClient } from "./world_to_client.js";
 import { ZoomController, clampZoomHeight } from "./zoom.js";
 
 export type { Viewport } from "./scene_graph.js";
@@ -339,6 +340,27 @@ export class Renderer {
     cursorNdc: { readonly x: number; readonly y: number } | null,
   ): void {
     this.cursorNdc = cursorNdc === null ? null : { x: cursorNdc.x, y: cursorNdc.y };
+  }
+
+  /**
+   * Test handle (task 370): project a world tile `(x, y)` to the canvas's
+   * client-pixel coordinates. Lets a Playwright spec drive a real
+   * `page.mouse.move(x, y)` against a tile centre without reproducing the
+   * camera math externally. Reads the live camera matrices, so the
+   * result tracks the local-player camera as it follows the player.
+   *
+   * Returns `null` only when the underlying canvas isn't laid out yet
+   * (zero-sized rect) — production always yields a finite point. The
+   * map is straight projection: off-screen tiles return coordinates
+   * outside the canvas bounds rather than `null`.
+   */
+  worldToClient(
+    worldX: number,
+    worldY: number,
+  ): { x: number; y: number } | null {
+    const rect = this.graph.webgl.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return projectWorldToClient(worldX, worldY, this.graph.camera, rect);
   }
 
   /**
