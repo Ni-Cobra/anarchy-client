@@ -601,3 +601,185 @@ describe("attachBreakAndPlace — task 200c blowgun routing", () => {
     expect(HOTBAR_SLOTS).toBe(9);
   });
 });
+
+describe("attachBreakAndPlace — task 360 flag routing", () => {
+  let detach: (() => void) | null = null;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 600, configurable: true });
+  });
+
+  afterEach(() => {
+    if (detach) detach();
+    detach = null;
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+  });
+
+  function buildFlagDeps(opts: {
+    pick: MockPick | null;
+    sendFlagInteractIntent: BreakPlaceDeps["sendFlagInteractIntent"];
+    sendBreakIntent?: BreakPlaceDeps["sendBreakIntent"];
+    sendPlaceBlock?: BreakPlaceDeps["sendPlaceBlock"];
+  }): BreakPlaceDeps {
+    const { renderer } = buildRenderer(opts.pick);
+    return {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => new Inventory(),
+      sendBreakIntent: opts.sendBreakIntent ?? vi.fn(),
+      sendPlaceBlock: opts.sendPlaceBlock ?? vi.fn(),
+      sendFlagInteractIntent: opts.sendFlagInteractIntent,
+    };
+  }
+
+  it("left-click on a flag in range ships a Steal active=true intent (not a BreakIntent)", () => {
+    const sendFlag = vi.fn();
+    const sendBreak = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        sendFlagInteractIntent: sendFlag,
+        sendBreakIntent: sendBreak,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).toHaveBeenCalledTimes(1);
+    expect(sendFlag).toHaveBeenCalledWith(0, 0, 1, 0, "steal", true);
+    // Held-break path is suppressed when the click resolves to a flag.
+    expect(sendBreak).not.toHaveBeenCalled();
+  });
+
+  it("right-click on a flag in range ships a Deposit active=true intent (not a PlaceBlock)", () => {
+    const sendFlag = vi.fn();
+    const sendPlace = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        sendFlagInteractIntent: sendFlag,
+        sendPlaceBlock: sendPlace,
+      }),
+    );
+
+    fireMouseDown(2, 400, 300);
+
+    expect(sendFlag).toHaveBeenCalledTimes(1);
+    expect(sendFlag).toHaveBeenCalledWith(0, 0, 1, 0, "deposit", true);
+    expect(sendPlace).not.toHaveBeenCalled();
+  });
+
+  it("releases the flag-interact hold on mouseup (active=false against the same flag + mode)", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        sendFlagInteractIntent: sendFlag,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    fireMouseUp(0, 400, 300);
+
+    expect(sendFlag.mock.calls).toEqual([
+      [0, 0, 1, 0, "steal", true],
+      [0, 0, 1, 0, "steal", false],
+    ]);
+  });
+
+  it("right-click release also ships active=false even though break-release-on-mouseup only fires for left", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        sendFlagInteractIntent: sendFlag,
+      }),
+    );
+
+    fireMouseDown(2, 400, 300);
+    fireMouseUp(2, 400, 300);
+
+    expect(sendFlag.mock.calls).toEqual([
+      [0, 0, 1, 0, "deposit", true],
+      [0, 0, 1, 0, "deposit", false],
+    ]);
+  });
+
+  it("flag beyond FLAG_INTERACT_RANGE_TILES is dropped (falls through to BreakIntent on left, PlaceBlock on right)", () => {
+    const sendFlag = vi.fn();
+    const sendBreak = vi.fn();
+    const sendPlace = vi.fn();
+    // Player at (0.5, 0.5); flag at chunk (0,0) local (10, 0) → tile centre
+    // (10.5, 0.5) → distance 10 tiles, well past the 4-tile gate.
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 10, 0, BlockType.Flag),
+        sendFlagInteractIntent: sendFlag,
+        sendBreakIntent: sendBreak,
+        sendPlaceBlock: sendPlace,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    // Out of flag range → flag path drops. Out of break range (10 > 4)
+    // → break pick returns null and BreakIntent ships as null.
+    expect(sendFlag).not.toHaveBeenCalled();
+    expect(sendBreak).toHaveBeenCalledTimes(1);
+    expect(sendBreak).toHaveBeenCalledWith(null);
+
+    fireMouseDown(2, 400, 300);
+    expect(sendFlag).not.toHaveBeenCalled();
+    // Right-click on out-of-reach picks: place gate returns null → no place.
+    expect(sendPlace).not.toHaveBeenCalled();
+  });
+
+  it("falls through normally when sendFlagInteractIntent isn't provided (existing deps don't change behaviour)", () => {
+    // No `sendFlagInteractIntent` in deps — a left-click on a flag block
+    // routes through the normal held-break path as if the flag check
+    // were absent. This pins back-compat for tests that haven't been
+    // updated to the new dep.
+    const sendBreak = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        sendFlagInteractIntent: undefined,
+        sendBreakIntent: sendBreak,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    expect(sendBreak).toHaveBeenCalledTimes(1);
+    expect(sendBreak).toHaveBeenCalledWith({ cx: 0, cy: 0, lx: 1, ly: 0 });
+  });
+
+  it("detach during an active hold ships the release", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDeps({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        sendFlagInteractIntent: sendFlag,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    detach!();
+    detach = null;
+
+    expect(sendFlag.mock.calls).toEqual([
+      [0, 0, 1, 0, "steal", true],
+      [0, 0, 1, 0, "steal", false],
+    ]);
+  });
+});

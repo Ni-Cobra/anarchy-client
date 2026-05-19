@@ -277,6 +277,12 @@ export interface AnarchyHandle {
    */
   getAttackBeamCount: () => number;
   /**
+   * Test handle (task 360): number of flag-XP-interact beams currently
+   * live in the scene. One per active flag interact this tick; absent
+   * the next tick the beam is retired.
+   */
+  getFlagBeamCount: () => number;
+  /**
    * Test handle (task 130): number of strike-resolution slash sprites
    * currently live in the scene. Spawned on `STRIKE_HIT` /
    * `STRIKE_MISSED_OUT_OF_REACH`; each retires after 250 ms.
@@ -552,6 +558,9 @@ export function constructSession(deps: SessionDeps): Session {
           onProjectileImpacts: (events, tickReceivedMs) => {
             renderer.onProjectileImpacts(events, tickReceivedMs);
           },
+          applyFlagInteracts: (events) => {
+            renderer.applyFlagInteracts(events);
+          },
         },
         daylightSink: {
           onTimeOfDay: (seconds) => {
@@ -616,6 +625,7 @@ export function constructSession(deps: SessionDeps): Session {
     sendAttackIntent,
     sendFireBlowgunIntent,
     sendCreateFactionIntent,
+    sendFlagInteractIntent,
   } = createActionSenders(conn);
 
   const input = new InputController(
@@ -848,6 +858,7 @@ export function constructSession(deps: SessionDeps): Session {
       sendOpenChest,
       sendAttackIntent,
       sendFireBlowgunIntent,
+      sendFlagInteractIntent,
       onPlaceDispatched: (cx, cy, lx, ly) => {
         // Task 240: opening the create-faction dialog is part of the
         // place-block flow when the selected item is a Flag. Server
@@ -973,6 +984,7 @@ export function constructSession(deps: SessionDeps): Session {
       return false;
     },
     getAttackBeamCount: () => renderer.getAttackBeamCount(),
+    getFlagBeamCount: () => renderer.getFlagBeamCount(),
     getSlashCount: () => renderer.getSlashCount(),
     getMeshFlashCount: () => renderer.getMeshFlashCount(),
     getDamageNumberCount: () => renderer.getDamageNumberCount(),

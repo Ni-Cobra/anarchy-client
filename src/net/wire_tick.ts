@@ -186,6 +186,24 @@ export interface WireProjectileImpactEvent {
   readonly y: number;
 }
 
+/**
+ * Per-tick flag-XP-interact snapshot (task 250 + 360). Routed through
+ * `TickUpdate.flag_interacts` and forwarded here by the bridge so the
+ * renderer can draw a directional beam between the interactor and the
+ * flag. The server scopes the list to the receiver's view window —
+ * beams to a flag outside the receiver's view are dropped wire-side.
+ * Wholesale-replace shape: absence the next tick = "retire the beam".
+ */
+export type WireFlagInteractMode = "deposit" | "steal";
+export interface WireFlagInteractEvent {
+  readonly playerId: number;
+  readonly flagCx: number;
+  readonly flagCy: number;
+  readonly flagLx: number;
+  readonly flagLy: number;
+  readonly mode: WireFlagInteractMode;
+}
+
 export interface EffectsSink {
   onBlockEdit?(event: WireBlockEditEvent): void;
   applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
@@ -227,6 +245,11 @@ export interface EffectsSink {
     events: readonly WireProjectileImpactEvent[],
     tickReceivedMs: number,
   ): void;
+  /**
+   * Fan-out for `TickUpdate.flag_interacts` (task 360). Optional —
+   * wholesale-replace each tick (absence means "no beams this tick").
+   */
+  applyFlagInteracts?(events: readonly WireFlagInteractEvent[]): void;
 }
 
 /**
@@ -393,6 +416,46 @@ export function applyTickUpdate(
       }
       effects.onProjectileImpacts(events, timeMs);
     }
+    if (effects.applyFlagInteracts) {
+      const events: WireFlagInteractEvent[] = [];
+      for (const wire of tick.flagInteracts ?? []) {
+        const ev = flagInteractFromWire(wire);
+        if (ev) events.push(ev);
+      }
+      effects.applyFlagInteracts(events);
+    }
+  }
+}
+
+function flagInteractFromWire(
+  wire: anarchy.v1.IFlagInteractSnapshot,
+): WireFlagInteractEvent | null {
+  const playerId = toNumber(wire.playerId);
+  if (playerId === 0) return null;
+  const coord = wire.flagChunk;
+  if (!coord) return null;
+  const mode = flagInteractModeFromWire(wire.mode);
+  if (mode === null) return null;
+  return {
+    playerId,
+    flagCx: coord.cx ?? 0,
+    flagCy: coord.cy ?? 0,
+    flagLx: wire.flagLocalX ?? 0,
+    flagLy: wire.flagLocalY ?? 0,
+    mode,
+  };
+}
+
+function flagInteractModeFromWire(
+  mode: anarchy.v1.FlagInteractMode | null | undefined,
+): WireFlagInteractMode | null {
+  switch (mode) {
+    case anarchy.v1.FlagInteractMode.FLAG_INTERACT_MODE_DEPOSIT:
+      return "deposit";
+    case anarchy.v1.FlagInteractMode.FLAG_INTERACT_MODE_STEAL:
+      return "steal";
+    default:
+      return null;
   }
 }
 

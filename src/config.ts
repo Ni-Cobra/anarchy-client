@@ -77,6 +77,14 @@ export const BLOWGUN_RANGE_TILES = 8;
  */
 export const BLOWGUN_COOLDOWN_MS = 1000;
 
+/**
+ * Maximum Euclidean distance (world units) between the local player and a
+ * flag block they may transfer XP to/from. Mirrors the server's
+ * `combat/config.rs::FLAG_INTERACT_RANGE_TILES` — must stay equal so the
+ * client's click router and the server's admission gate agree. Task 360.
+ */
+export const FLAG_INTERACT_RANGE_TILES = 4;
+
 // ---- Render ----
 
 /**

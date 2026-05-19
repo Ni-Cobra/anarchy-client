@@ -24,6 +24,7 @@ import {
 } from "./effects/index.js";
 import { AttackBeamLayer } from "./attack_beam_layer.js";
 import { DamageNumbersLayer } from "./damage_numbers_layer.js";
+import { FlagBeamLayer } from "./flag_beam_layer.js";
 import { TargetEffectsLayer } from "./effects_layer.js";
 import { EntityLayer } from "./entity_layer.js";
 import { ProjectileLayer } from "./projectile_layer.js";
@@ -108,6 +109,7 @@ export class SceneGraph {
   readonly breakParticles: BreakParticles;
   readonly entities: EntityLayer;
   readonly attackBeams: AttackBeamLayer;
+  readonly flagBeams: FlagBeamLayer;
   readonly projectiles: ProjectileLayer;
   readonly targetEffects: TargetEffectsLayer;
   readonly slashes: SlashLayer;
@@ -239,6 +241,9 @@ export class SceneGraph {
     this.attackBeams = new AttackBeamLayer();
     this.scene.add(this.attackBeams.group);
 
+    this.flagBeams = new FlagBeamLayer();
+    this.scene.add(this.flagBeams.group);
+
     this.projectiles = new ProjectileLayer();
     this.scene.add(this.projectiles.group);
 
@@ -329,6 +334,8 @@ export class SceneGraph {
     this.scene.remove(this.entities.group);
     this.attackBeams.dispose();
     this.scene.remove(this.attackBeams.group);
+    this.flagBeams.dispose();
+    this.scene.remove(this.flagBeams.group);
     this.projectiles.dispose();
     this.scene.remove(this.projectiles.group);
     this.targetEffects.dispose();

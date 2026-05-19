@@ -248,6 +248,7 @@ export class Renderer {
     this.cooldownStartMsByAttacker.clear();
     this.screenShake.reset();
     this.graph.attackBeams.clearAll();
+    this.graph.flagBeams.clearAll();
     this.graph.slashes.clearAll();
     this.graph.damageNumbers.clearAll();
     this.graph.projectiles.clearAll();
@@ -538,6 +539,32 @@ export class Renderer {
         this.graph.damageNumbers.spawn(worldPos, ev.amount, tickReceivedMs);
       }
     }
+  }
+
+  /**
+   * The wire layer observed `TickUpdate.flag_interacts` (task 360) —
+   * the per-tick set of admitted flag-XP transfers. Wholesale-replace
+   * into the beam layer: a player in the list keeps / updates their
+   * beam, a player no longer in the list retires theirs. Absent
+   * `flag_interacts` means "nothing transferring this tick" — the
+   * common case — and clears the layer.
+   */
+  applyFlagInteracts(
+    specs: ReadonlyArray<{
+      readonly playerId: number;
+      readonly flagCx: number;
+      readonly flagCy: number;
+      readonly flagLx: number;
+      readonly flagLy: number;
+      readonly mode: "deposit" | "steal";
+    }>,
+  ): void {
+    this.graph.flagBeams.applyFlagInteracts(specs);
+  }
+
+  /** Test handle (task 360): live flag-beam count. */
+  getFlagBeamCount(): number {
+    return this.graph.flagBeams.size();
   }
 
   /**
@@ -837,6 +864,11 @@ export class Renderer {
       }
       return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
     }, nowMs);
+    // Task 360: re-aim every active flag-interact beam against the
+    // latest player position. Beams whose interactor walked out of
+    // view this frame are hidden (not retired) — the next tick may
+    // bring the player back in via the chunk window.
+    this.graph.flagBeams.update((id) => positionByPlayer.get(id) ?? null);
     // Task 200c: status-effect indicators above each effected target,
     // then projectile-layer reconcile against the per-tick store.
     const effectTargets: EffectTarget[] = [];

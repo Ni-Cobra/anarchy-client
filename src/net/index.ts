@@ -23,6 +23,8 @@ export type {
   WireAttackOutcome,
   WireBlockEditEvent,
   WireBlockEditKind,
+  WireFlagInteractEvent,
+  WireFlagInteractMode,
   WireProjectileImpactEvent,
   WireTargetKind,
   WireTargetingStateEvent,

@@ -25,6 +25,7 @@ import {
   BLOWGUN_COOLDOWN_MS,
   BLOWGUN_RANGE_TILES,
   BREAK_HEARTBEAT_TICKS,
+  FLAG_INTERACT_RANGE_TILES,
   INPUT_TICK_INTERVAL_MS,
   REACH_BLOCKS,
 } from "../config.js";
@@ -39,6 +40,9 @@ const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 const ATTACK_RANGE_TILES_SQ = ATTACK_RANGE_TILES * ATTACK_RANGE_TILES;
 
 const BLOWGUN_RANGE_TILES_SQ = BLOWGUN_RANGE_TILES * BLOWGUN_RANGE_TILES;
+
+const FLAG_INTERACT_RANGE_TILES_SQ =
+  FLAG_INTERACT_RANGE_TILES * FLAG_INTERACT_RANGE_TILES;
 
 export interface BreakPlaceDeps {
   readonly world: World;
@@ -125,6 +129,22 @@ export interface BreakPlaceDeps {
    * production passes `Date.now`.
    */
   readonly nowMs?: () => number;
+  /**
+   * Task 360: ship a held `FlagInteractIntent` against the flag at
+   * `(cx, cy, lx, ly)` in `mode` (`deposit` / `steal`). The router
+   * sends `active=true` on press and `active=false` on release.
+   * Optional — tests / wire-only paths that don't exercise the flag
+   * UX leave it absent and right/left-click on a flag falls through
+   * to the existing place / break paths.
+   */
+  readonly sendFlagInteractIntent?: (
+    cx: number,
+    cy: number,
+    lx: number,
+    ly: number,
+    mode: "deposit" | "steal",
+    active: boolean,
+  ) => void;
 }
 
 /** Equipped pickaxe tier derived from the local-player inventory mirror. */
@@ -176,6 +196,63 @@ export function attachBreakAndPlace(
   // no-op intents on the wire when the player mashes right-click.
   let lastBlowgunFireMs: number | null = null;
   const nowMs = deps.nowMs ?? (() => Date.now());
+
+  // Task 360: active flag-interact hold. Pressed on a flag cell within
+  // `FLAG_INTERACT_RANGE_TILES`, released on `mouseup`. The state lives
+  // here so the matching `active=false` ships against the same flag /
+  // mode that was pressed even if the cursor has wandered off the cell.
+  let activeFlagInteract:
+    | {
+        cx: number;
+        cy: number;
+        lx: number;
+        ly: number;
+        mode: "deposit" | "steal";
+      }
+    | null = null;
+
+  /** Pick the cell currently under the cursor and return `(cx, cy, lx, ly)`
+   *  iff it holds a Flag block within `FLAG_INTERACT_RANGE_TILES` of the
+   *  local player. Returns `null` otherwise. Distinct from `pickBreakTargetAt`
+   *  because the flag range gate is tighter than the break/place reach and
+   *  we want a "miss" on out-of-range to silently drop the click. */
+  function pickFlagTargetAt(
+    clientX: number,
+    clientY: number,
+  ): { cx: number; cy: number; lx: number; ly: number } | null {
+    const localPlayerId = deps.getLocalPlayerId();
+    if (localPlayerId === null) return null;
+    const me = deps.world.getPlayer(localPlayerId);
+    if (!me) return null;
+    const ndc = {
+      x: (clientX / target.innerWidth) * 2 - 1,
+      y: -(clientY / target.innerHeight) * 2 + 1,
+    };
+    const pick = deps.renderer.pickAtCursor(ndc);
+    if (!pick) return null;
+    if (pick.block.kind !== BlockType.Flag) return null;
+    const [cx, cy] = pick.chunkCoord;
+    const [lx, ly] = pick.localXY;
+    const tileCenterX = cx * CHUNK_SIZE + lx + 0.5;
+    const tileCenterY = cy * CHUNK_SIZE + ly + 0.5;
+    const dx = tileCenterX - me.x;
+    const dy = tileCenterY - me.y;
+    if (dx * dx + dy * dy > FLAG_INTERACT_RANGE_TILES_SQ) return null;
+    return { cx, cy, lx, ly };
+  }
+
+  function releaseFlagInteract(): void {
+    if (activeFlagInteract === null) return;
+    deps.sendFlagInteractIntent?.(
+      activeFlagInteract.cx,
+      activeFlagInteract.cy,
+      activeFlagInteract.lx,
+      activeFlagInteract.ly,
+      activeFlagInteract.mode,
+      false,
+    );
+    activeFlagInteract = null;
+  }
 
   /**
    * Pick the cell currently under the cursor. Returns the target plus a
@@ -333,6 +410,26 @@ export function attachBreakAndPlace(
     const localPlayerId = deps.getLocalPlayerId();
     if (localPlayerId === null) return;
     if (ev.button !== 0 && ev.button !== 2) return;
+    // Task 360: a click on a Flag block within `FLAG_INTERACT_RANGE_TILES`
+    // routes to `sendFlagInteractIntent` — left = Steal, right = Deposit.
+    // Suppress the normal break / place / attack / blowgun-fire paths for
+    // that click so the flag never doubles as a swing target or place
+    // surface while the player is transferring XP. Out-of-range clicks
+    // on a flag drop silently (the server would reject anyway).
+    if (deps.sendFlagInteractIntent) {
+      const flag = pickFlagTargetAt(ev.clientX, ev.clientY);
+      if (flag !== null) {
+        // A second press while one is already held releases the prior
+        // hold first so we never strand the server with two outstanding
+        // intents for the same player. Latest-wins per player on the
+        // server side (250 spec), but releasing keeps the client tidy.
+        releaseFlagInteract();
+        const mode: "deposit" | "steal" = ev.button === 0 ? "steal" : "deposit";
+        activeFlagInteract = { ...flag, mode };
+        deps.sendFlagInteractIntent(flag.cx, flag.cy, flag.lx, flag.ly, mode, true);
+        return;
+      }
+    }
     if (ev.button === 0) {
       // Task 070b: a left-click that lands on a player or entity in
       // range is an attack — ship `AttackIntent` and fall through. The
@@ -440,6 +537,11 @@ export function attachBreakAndPlace(
   target.addEventListener("mousedown", onMousedown);
 
   const onMouseup = (ev: MouseEvent): void => {
+    // Task 360: any mouse release ends an active flag-interact hold,
+    // regardless of which button it was. Press is button-discriminating
+    // (left = Steal / right = Deposit); release is mode-agnostic — the
+    // server stops the transfer the next tick after `active=false` lands.
+    if (ev.button === 0 || ev.button === 2) releaseFlagInteract();
     if (ev.button !== 0) return;
     endHeldBreak();
   };
@@ -472,6 +574,9 @@ export function attachBreakAndPlace(
     target.removeEventListener("mousemove", onMouseMoveBreakRetarget);
     target.removeEventListener("contextmenu", onContextMenu);
     stopBreakHeartbeat();
+    // Task 360: detach during an active hold ships the release so the
+    // server doesn't strand a stale interact intent.
+    releaseFlagInteract();
     miningHint.unmount();
   };
 }
