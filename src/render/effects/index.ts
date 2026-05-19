@@ -18,3 +18,5 @@ export {
   defaultBreakParticleColor,
 } from "./break_particles.js";
 export type { BreakParticleColorLookup } from "./break_particles.js";
+export { SlowParticles, hasSlow } from "./slow_particles.js";
+export type { EffectTarget } from "./slow_particles.js";

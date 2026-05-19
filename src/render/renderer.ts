@@ -30,7 +30,6 @@ import {
   type Terrain,
   type World,
 } from "../game/index.js";
-import { type EffectTarget } from "./effects_layer.js";
 import { composePlayerEntities } from "./compose.js";
 import {
   disposePlayerMesh,
@@ -49,6 +48,7 @@ import { sampleDaylight } from "./daylight.js";
 import {
   type BlockEditEvent,
   type ChestBeamTarget,
+  type EffectTarget,
   type TargetingStateEvent,
 } from "./effects/index.js";
 import { MS_PER_TICK, reconstructChargeStartMs } from "./attack_beam_layer.js";
@@ -253,7 +253,7 @@ export class Renderer {
     this.graph.slashes.clearAll();
     this.graph.damageNumbers.clearAll();
     this.graph.projectiles.clearAll();
-    this.graph.targetEffects.clearAll();
+    this.graph.slowParticles.clearAll();
     this.projectiles?.clear();
   }
 
@@ -613,9 +613,12 @@ export class Renderer {
     return this.graph.projectiles.size();
   }
 
-  /** Test handle (task 200c): live status-effect indicator count. */
+  /** Test handle (task 020 / 200c lineage): number of targets currently
+   *  visualising an active Slow effect. The cyan-disc indicator was
+   *  retired in task 020 for a particle trail; this handle now returns
+   *  the live emitter count, which is stable while Slow is active. */
   getEffectIndicatorCount(): number {
-    return this.graph.targetEffects.size();
+    return this.graph.slowParticles.emitterCount();
   }
 
   /** Test handle (task 200c): live impact-puff particle count. */
@@ -922,7 +925,8 @@ export class Renderer {
         }
       }
     }
-    this.graph.targetEffects.update(effectTargets);
+    this.graph.slowParticles.applyTargets(effectTargets, nowMs);
+    this.graph.slowParticles.update(nowMs);
     if (this.projectiles !== null) {
       this.graph.projectiles.update(this.projectiles, nowMs, (kind, id) => {
         if (kind === "player") {

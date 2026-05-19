@@ -21,11 +21,11 @@ import {
   BreakParticles,
   defaultBreakParticleColor,
   EffectsLayer,
+  SlowParticles,
 } from "./effects/index.js";
 import { AttackBeamLayer } from "./attack_beam_layer.js";
 import { DamageNumbersLayer } from "./damage_numbers_layer.js";
 import { FlagBeamLayer } from "./flag_beam_layer.js";
-import { TargetEffectsLayer } from "./effects_layer.js";
 import { EntityLayer } from "./entity_layer.js";
 import { ProjectileLayer } from "./projectile_layer.js";
 import { GhostMesh } from "./ghost_mesh.js";
@@ -111,7 +111,7 @@ export class SceneGraph {
   readonly attackBeams: AttackBeamLayer;
   readonly flagBeams: FlagBeamLayer;
   readonly projectiles: ProjectileLayer;
-  readonly targetEffects: TargetEffectsLayer;
+  readonly slowParticles: SlowParticles;
   readonly slashes: SlashLayer;
   readonly damageNumbers: DamageNumbersLayer;
   readonly torchLights: TorchLights;
@@ -247,8 +247,8 @@ export class SceneGraph {
     this.projectiles = new ProjectileLayer();
     this.scene.add(this.projectiles.group);
 
-    this.targetEffects = new TargetEffectsLayer();
-    this.scene.add(this.targetEffects.group);
+    this.slowParticles = new SlowParticles();
+    this.scene.add(this.slowParticles.group);
 
     // Slash layer (task 130) — shared white-on-transparent sprite tinted
     // per-mesh by the attacker's palette colour. Loaded once at scene
@@ -338,8 +338,8 @@ export class SceneGraph {
     this.scene.remove(this.flagBeams.group);
     this.projectiles.dispose();
     this.scene.remove(this.projectiles.group);
-    this.targetEffects.dispose();
-    this.scene.remove(this.targetEffects.group);
+    this.slowParticles.dispose();
+    this.scene.remove(this.slowParticles.group);
     this.slashes.dispose();
     this.scene.remove(this.slashes.group);
     this.damageNumbers.clearAll();
