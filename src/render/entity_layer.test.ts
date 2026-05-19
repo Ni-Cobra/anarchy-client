@@ -7,8 +7,16 @@
 
 import { describe, expect, it } from "vitest";
 
+import { ENTITY_STEP_TRANSITION_MS } from "../config.js";
+import {
+  type Entity,
+  EntityKind,
+  Terrain,
+  emptyChunk,
+} from "../game/index.js";
 import {
   ENTITY_STACK_OFFSET_RADIUS,
+  EntityLayer,
   SPIDER_HEIGHT,
   SPIDER_SIDE,
   SPIDER_Y,
@@ -127,5 +135,80 @@ describe("stackingOffset", () => {
     const first = stackingOffset(2, 5);
     const second = stackingOffset(2, 5);
     expect(first).toEqual(second);
+  });
+});
+
+/**
+ * Drive the layer through a single tile step `(0,0) → (1,0)` and assert
+ * `getRenderedWorldPosition` reports an interpolated value mid-step —
+ * not the destination tile centre. This is the regression pin for
+ * task 320 (overlay visuals must track the mesh lerp).
+ */
+describe("EntityLayer.getRenderedWorldPosition", () => {
+  function makeSpider(tileX: number, tileY: number): Entity {
+    return {
+      id: 1,
+      kind: EntityKind.Spider,
+      tileX,
+      tileY,
+      health: 20,
+      effects: [],
+    };
+  }
+
+  function terrainWith(entity: Entity): Terrain {
+    const base = emptyChunk();
+    const chunk = { ...base, entities: new Map([[entity.id, entity]]) };
+    const terrain = new Terrain();
+    terrain.insert(0, 0, chunk);
+    return terrain;
+  }
+
+  it("returns null before the first update", () => {
+    const layer = new EntityLayer();
+    expect(layer.getRenderedWorldPosition(1)).toBeNull();
+    layer.dispose();
+  });
+
+  it("snaps to the spawn tile centre on first appearance", () => {
+    const layer = new EntityLayer();
+    layer.update(terrainWith(makeSpider(0, 0)), 0);
+    const pos = layer.getRenderedWorldPosition(1);
+    expect(pos).not.toBeNull();
+    expect(pos!.x).toBeCloseTo(0.5, 10);
+    expect(pos!.y).toBeCloseTo(0.5, 10);
+    layer.dispose();
+  });
+
+  it("returns an interpolated mid-step value, not the destination tile centre", () => {
+    const layer = new EntityLayer();
+    // Frame 0 — entity at (0, 0).
+    layer.update(terrainWith(makeSpider(0, 0)), 0);
+    // Frame 1 — entity teleported to (1, 0); kicks off the lerp.
+    layer.update(terrainWith(makeSpider(1, 0)), 0);
+    // Frame 2 — sample at the halfway mark.
+    layer.update(terrainWith(makeSpider(1, 0)), ENTITY_STEP_TRANSITION_MS / 2);
+    const pos = layer.getRenderedWorldPosition(1);
+    expect(pos).not.toBeNull();
+    // smoothstep(0.5) === 0.5 so the midpoint of (0.5 → 1.5) is exactly 1.0.
+    expect(pos!.x).toBeCloseTo(1.0, 6);
+    // y stays at the row centre across the step.
+    expect(pos!.y).toBeCloseTo(0.5, 10);
+    // Strictly between the source and the destination tile centres.
+    expect(pos!.x).toBeGreaterThan(0.5);
+    expect(pos!.x).toBeLessThan(1.5);
+    layer.dispose();
+  });
+
+  it("settles on the destination tile centre after the transition window", () => {
+    const layer = new EntityLayer();
+    layer.update(terrainWith(makeSpider(0, 0)), 0);
+    layer.update(terrainWith(makeSpider(1, 0)), 0);
+    layer.update(terrainWith(makeSpider(1, 0)), ENTITY_STEP_TRANSITION_MS + 50);
+    const pos = layer.getRenderedWorldPosition(1);
+    expect(pos).not.toBeNull();
+    expect(pos!.x).toBeCloseTo(1.5, 10);
+    expect(pos!.y).toBeCloseTo(0.5, 10);
+    layer.dispose();
   });
 });

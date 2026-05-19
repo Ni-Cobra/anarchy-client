@@ -228,6 +228,22 @@ export class EntityLayer {
     return { x: state.renderedSceneX, z: state.renderedSceneZ };
   }
 
+  /**
+   * Read the world-space `(x, y)` the entity is currently rendered at —
+   * the interpolated mid-step position, not the server tile centre.
+   * World↔scene flips the y axis (`sceneZ = -worldY`), see
+   * `tileCenterToScene` in `terrain.ts`. Returns `null` when no mesh
+   * exists for the given id (first-frame appearance — callers fall back
+   * to the raw tile centre).
+   */
+  getRenderedWorldPosition(
+    id: EntityId,
+  ): { x: number; y: number } | null {
+    const state = this.states.get(id);
+    if (!state) return null;
+    return { x: state.renderedSceneX, y: -state.renderedSceneZ };
+  }
+
   /** Iterate `(id, sceneX, sceneZ)` for every entity currently rendered. */
   *iterRendered(): IterableIterator<{
     id: EntityId;

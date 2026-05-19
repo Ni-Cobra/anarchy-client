@@ -617,6 +617,35 @@ export class Renderer {
   }
 
   /**
+   * Resolve the *rendered* world position for an entity, picking up the
+   * mesh-layer's mid-step interpolation so beam / projectile / status-
+   * effect overlays track the spider as it visibly walks rather than
+   * snapping to its tile centre. Returns `null` when no mesh exists yet
+   * (first-frame appearance) so callers can fall back to the tile centre.
+   */
+  private resolveEntityRenderedWorldPos(
+    id: number,
+  ): { x: number; y: number } | null {
+    return this.graph.entities.getRenderedWorldPosition(id);
+  }
+
+  /**
+   * Tile-centre fallback used when no entity mesh exists yet (the wire
+   * mirror has the entity but the layer hasn't built the mesh on this
+   * frame). Scans loaded chunks; returns `null` if the entity is gone
+   * from the mirror too.
+   */
+  private entityTileCentre(id: number): { x: number; y: number } | null {
+    const terrain = this.terrain;
+    if (terrain === null) return null;
+    for (const [, chunk] of terrain.iter()) {
+      const e = chunk.entities.get(id);
+      if (e !== undefined) return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
+    }
+    return null;
+  }
+
+  /**
    * Test handle (task 150): number of meshes currently mid-flash.
    * Mirrors `getAttackBeamCount` / `getSlashCount` for e2e assertions.
    */
@@ -797,23 +826,16 @@ export class Renderer {
     // Task 070b: the charge beam connects the attacker's body to the
     // target's body (player or entity), and aims at whichever position
     // is rendered this frame so a moving target keeps the beam glued
-    // on. Entities are tile-bound; the entity-layer renders them at
-    // the (interpolated) scene position derived from tile + stack
-    // rank, but for the beam we want the *world* position — read the
-    // tile centre out of the game-state mirror directly.
+    // on. Entities are tile-bound server-side but the entity layer
+    // smooth-lerps the mesh between tiles, so we read the layer's
+    // rendered world position rather than snapping to tile centre.
+    // Fallback to tile centre covers the first-frame-appearance case
+    // (no mesh yet).
     this.graph.attackBeams.update((kind, id) => {
       if (kind === "player") {
         return positionByPlayer.get(id) ?? null;
       }
-      // entity
-      const terrain = this.terrain;
-      if (terrain === null) return null;
-      for (const [, chunk] of terrain.iter()) {
-        const e = chunk.entities.get(id);
-        if (e === undefined) continue;
-        return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
-      }
-      return null;
+      return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
     }, nowMs);
     // Task 200c: status-effect indicators above each effected target,
     // then projectile-layer reconcile against the per-tick store.
@@ -832,11 +854,15 @@ export class Renderer {
       for (const [, chunk] of this.terrain.iter()) {
         for (const e of chunk.entities.values()) {
           if (e.effects.length === 0) continue;
+          const pos = this.resolveEntityRenderedWorldPos(e.id) ?? {
+            x: e.tileX + 0.5,
+            y: e.tileY + 0.5,
+          };
           effectTargets.push({
             kind: "entity",
             id: e.id,
-            x: e.tileX + 0.5,
-            y: e.tileY + 0.5,
+            x: pos.x,
+            y: pos.y,
             effects: e.effects,
           });
         }
@@ -848,14 +874,7 @@ export class Renderer {
         if (kind === "player") {
           return positionByPlayer.get(id) ?? null;
         }
-        const terrain = this.terrain;
-        if (terrain === null) return null;
-        for (const [, chunk] of terrain.iter()) {
-          const e = chunk.entities.get(id);
-          if (e === undefined) continue;
-          return { x: e.tileX + 0.5, y: e.tileY + 0.5 };
-        }
-        return null;
+        return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
       });
     }
     // Task 130: advance slash lifetimes (fade + expand) and retire
