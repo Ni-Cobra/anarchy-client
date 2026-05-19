@@ -484,7 +484,11 @@ describe("attachBreakAndPlace — task 200c blowgun routing", () => {
     expect(sendFire).toHaveBeenCalledWith("entity", 42);
   });
 
-  it("does NOT send PlaceBlock on right-click on a block while blowgun is equipped", () => {
+  it("falls through to PlaceBlock on right-click on a block while blowgun is equipped (task 010-blowgun-place)", () => {
+    // Regression for the user-reported "blowgun blocks block placement"
+    // bug: with the blowgun equipped and the cursor over a non-entity
+    // tile, the click must still place. The blowgun only intercepts
+    // right-clicks that land on an entity / player.
     const sendFire = vi.fn();
     const sendPlace = vi.fn();
     detach = attachBreakAndPlace(
@@ -500,6 +504,36 @@ describe("attachBreakAndPlace — task 200c blowgun routing", () => {
     );
     fireRightClick(400, 300);
     expect(sendFire).not.toHaveBeenCalled();
+    expect(sendPlace).toHaveBeenCalledTimes(1);
+    expect(sendPlace).toHaveBeenCalledWith(0, 0, 1, 0);
+  });
+
+  it("suppresses both fire and place when targeting an entity but the cooldown gate is hot", () => {
+    // Targeting an entity → user's intent is to shoot. If we can't fire
+    // (cooldown), the click must NOT silently turn into a place-block —
+    // that would surprise the user when their dart fizzle bursts a tile
+    // under the entity.
+    const sendFire = vi.fn();
+    const sendPlace = vi.fn();
+    let now = 1_000_000;
+    detach = attachBreakAndPlace(
+      window,
+      buildBlowgunDeps({
+        attackPick: { kind: "player", id: 99 },
+        targetPos: { x: 4.5, y: 0.5 },
+        inventory: inventoryWithBlowgunAndDarts(5),
+        sendFireBlowgunIntent: sendFire,
+        sendPlaceBlock: sendPlace,
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Air),
+        nowMs: () => now,
+      }),
+    );
+    fireRightClick(400, 300);
+    expect(sendFire).toHaveBeenCalledTimes(1);
+    now += 200;
+    fireRightClick(400, 300);
+    // Cooldown blocked the second fire; place did NOT take over.
+    expect(sendFire).toHaveBeenCalledTimes(1);
     expect(sendPlace).not.toHaveBeenCalled();
   });
 

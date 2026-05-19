@@ -478,12 +478,11 @@ export function attachBreakAndPlace(
       startBreakHeartbeat();
       return;
     }
-    // Task 200c: a right-click with a blowgun equipped is a fire-shoot,
-    // not a place-block. The pick path resolves the cursor's target —
-    // if it's a player or entity in range AND we have a dart, ship a
-    // `FireBlowgunIntent`. Otherwise the click silently no-ops (mirrors
-    // the attack-pick silent-drop posture). The local cooldown gate
-    // suppresses repeat sends inside the same server cooldown window.
+    // Task 200c / task 010-blowgun-place: a right-click with the
+    // blowgun equipped that lands on an entity or player in range is a
+    // fire-shoot. Right-clicks on blocks (or empty space) fall through
+    // to the regular place / open-chest path — the blowgun adds the
+    // shoot affordance, it doesn't take place-block away.
     //
     // Task 310: the blowgun shares the utility slot with the lantern.
     // The fire path is only armed when the utility slot specifically
@@ -492,31 +491,34 @@ export function attachBreakAndPlace(
       deps.sendFireBlowgunIntent &&
       deps.getInventory().getEquipped("utility") === ItemId.Blowgun
     ) {
-      // Suppress any place-block / open-chest fall-through while the
-      // blowgun is equipped, regardless of whether the click resolves a
-      // valid target. The brief calls this out explicitly: a right-click
-      // on a block with the blowgun equipped must NOT place a block.
-      const t = nowMs();
-      if (lastBlowgunFireMs !== null && t - lastBlowgunFireMs < BLOWGUN_COOLDOWN_MS) {
-        return;
-      }
       const ndc = clientToNdc(ev.clientX, ev.clientY);
       const target = deps.renderer.pickAttackTargetAtCursor(ndc);
-      if (target === null) return;
-      if (deps.getInventory().countOf(ItemId.PoisonDart) < 1) return;
-      const me = deps.world.getPlayer(localPlayerId);
-      if (me === undefined) return;
-      const pos = deps.getAttackTargetPosition
-        ? deps.getAttackTargetPosition(target.kind, target.id)
-        : null;
-      if (pos === null) return;
-      const dx = pos.x - me.x;
-      const dy = pos.y - me.y;
-      if (dx * dx + dy * dy > BLOWGUN_RANGE_TILES_SQ) return;
-      deps.sendFireBlowgunIntent(target.kind, target.id);
-      lastBlowgunFireMs = t;
-      deps.onBlowgunFireDispatched?.(t);
-      return;
+      if (target !== null) {
+        // Cursor over an entity / player: user's intent is to shoot.
+        // The local cooldown / dart / range gates can each suppress the
+        // send, but the click does not fall through to place — the user
+        // wasn't aiming at a block.
+        const t = nowMs();
+        if (lastBlowgunFireMs !== null && t - lastBlowgunFireMs < BLOWGUN_COOLDOWN_MS) {
+          return;
+        }
+        if (deps.getInventory().countOf(ItemId.PoisonDart) < 1) return;
+        const me = deps.world.getPlayer(localPlayerId);
+        if (me === undefined) return;
+        const pos = deps.getAttackTargetPosition
+          ? deps.getAttackTargetPosition(target.kind, target.id)
+          : null;
+        if (pos === null) return;
+        const dx = pos.x - me.x;
+        const dy = pos.y - me.y;
+        if (dx * dx + dy * dy > BLOWGUN_RANGE_TILES_SQ) return;
+        deps.sendFireBlowgunIntent(target.kind, target.id);
+        lastBlowgunFireMs = t;
+        deps.onBlowgunFireDispatched?.(t);
+        return;
+      }
+      // No entity / player under the cursor — fall through to the
+      // regular right-click handling (place-block / open-chest).
     }
     // Right-click on a chest or tombstone in range → open it (task 420 /
     // task 010-tombstone). The pick path resolves the cursor's current

@@ -190,41 +190,68 @@ test("real-click PvP blowgun: A shoots B, B HP -1, slow indicator, dart count -1
   }
 });
 
-test("right-click on a block with blowgun equipped does NOT place a block", async ({
+test("right-click on a block with blowgun equipped falls through to PlaceBlock (task 010-blowgun-place)", async ({
   browser,
 }) => {
+  // Regression for the user-reported bug: equipping the blowgun used to
+  // gate ALL right-clicks, so block placement silently failed any time
+  // the blowgun was in the utility slot. The fix narrows the blowgun
+  // intercept to right-clicks that land on a player/entity — clicks on
+  // blocks fall through to the normal place path, unchanged.
+  test.setTimeout(30_000);
   const ctxA = await browser.newContext();
   const a = await ctxA.newPage();
   try {
-    const selfA = await openClient(a, "bg-noplace");
+    const selfA = await openClient(a, "bg-place");
     await adminTeleport(selfA.id, 0.5, 0.5);
     await setupAttackerWithBlowgun(a, selfA.id);
 
-    // Make sure the block under cursor is Air so a place would otherwise
-    // be valid. Aim at tile (1, 0).
-    await adminSetBlock(0, 0, "top", 1, 0, "air");
+    // Make sure the target tile (2, 0) is Air so a place is valid; wait
+    // for the client mirror to receive it so the renderer pick agrees.
+    // Tile (2, 0) center is at (2.5, 0.5), 2 tiles east of the player —
+    // matches `place-block-mouse.spec.ts` to keep the cursor clear of
+    // the player mesh.
+    await adminSetBlock(0, 0, "top", 2, 0, "air");
+    await a.waitForFunction(() => {
+      const chunk = window.__anarchy!.terrain.get(0, 0);
+      if (!chunk) return false;
+      return chunk.top.blocks[0 * 16 + 2]?.kind === 0; // BlockType.Air
+    });
 
-    // Track the inventory's slot 1 (poison darts) and the world tile's
-    // block kind. A successful (wrongful) place would have consumed a
-    // dart-or-block; a wrongful fire would have consumed a dart.
     const dartsBefore = await a.evaluate(
       () => window.__anarchy!.inventory.countOf(52 as 52),
     );
 
-    await realRightClickAt(a, 1.5, 0.5);
+    // Starter slot 0 holds Gold — pin the hotbar selection there so the
+    // place path ships Gold even after admin item-grants / equips have
+    // shuffled the selection.
+    await a.keyboard.press("Digit1");
+    await a.waitForFunction(
+      () => window.__anarchy!.getSelectedHotbarSlot() === 0,
+    );
 
-    // Wait a bit then assert no block was placed at (0,0,1,0). The pick
-    // target is a Player or Entity — there's no player or entity at
-    // (1.5, 0.5), so the fire path no-ops. Place must not run either.
-    await a.waitForTimeout(400);
-    const blockKind = await a.evaluate(() => {
+    // Real mouse, real NDC. The synthetic dispatchEvent path used elsewhere
+    // in this file skips the renderer's tile pick, which the place gate
+    // depends on.
+    await a.waitForTimeout(200);
+    const pixel = await a.evaluate(
+      (args: { x: number; y: number }) =>
+        window.__anarchy!.worldToClient(args.x, args.y),
+      { x: 2.5, y: 0.5 },
+    );
+    if (pixel === null) throw new Error("worldToClient returned null");
+    await a.mouse.move(pixel.x, pixel.y);
+    await a.mouse.down({ button: "right" });
+    await a.mouse.up({ button: "right" });
+
+    // The cursor is on an Air tile with Gold in slot 0 → place ships Gold.
+    await a.waitForFunction(() => {
       const chunk = window.__anarchy!.terrain.get(0, 0);
-      if (!chunk) return null;
-      return chunk.top.blocks[0 * 16 + 1]?.kind ?? null;
+      if (!chunk) return false;
+      return chunk.top.blocks[0 * 16 + 2]?.kind === 4; // BlockType.Gold
     });
-    expect(blockKind).toBe(0); // BlockType.Air
 
-    // Dart count unchanged — no target under cursor, so no fire dispatched.
+    // No entity / player under cursor → blowgun fire path did NOT run.
     const dartsAfter = await a.evaluate(
       () => window.__anarchy!.inventory.countOf(52 as 52),
     );
