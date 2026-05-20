@@ -21,11 +21,17 @@
 
 import { HOTBAR_SLOTS } from "../game/index.js";
 import { type Renderer } from "../render/index.js";
-import { type InventoryUiHandle } from "../ui/index.js";
+import { type ChatInputHandle, type InventoryUiHandle } from "../ui/index.js";
 
 export interface KeybindingDeps {
   readonly inventoryUi: InventoryUiHandle;
   readonly renderer: Renderer;
+  /**
+   * Task 090: the chat input field. Pressing `Enter` while the field
+   * is closed opens it (the field's own listener handles Enter when
+   * focused — submit + close).
+   */
+  readonly chatInput: ChatInputHandle;
 }
 
 /**
@@ -64,6 +70,14 @@ export function attachKeybindings(
     if (key === "m") {
       zoomedOut = !zoomedOut;
       deps.renderer.setZoomedOut(zoomedOut);
+      return;
+    }
+    // Task 090 — Enter opens the chat input. While the input is open,
+    // its own input-gate stops keystrokes from reaching this window
+    // listener, so this branch only fires from the gameplay context.
+    // The field's own Enter handler submits + closes.
+    if (ev.code === "Enter" && !deps.chatInput.isOpen()) {
+      deps.chatInput.open();
       return;
     }
     // `+` / `-` continuous zoom. We accept `Equal` (the unshifted `=`/`+`

@@ -58,6 +58,7 @@ import {
 import {
   mountChestUi,
   mountChatHud,
+  mountChatInput,
   mountCoordsHud,
   mountCooldownRing,
   mountCraftingUi,
@@ -71,6 +72,7 @@ import {
   mountSwordCooldownRing,
   mountXpLabel,
   type ChatHudHandle,
+  type ChatInputHandle,
   type CraftingUiHandle,
   type DeathOverlayState,
   type InventoryUiHandle,
@@ -461,6 +463,12 @@ export function constructSession(deps: SessionDeps): Session {
   // envelopes into. The callback reads `chatHud` at call time (the first
   // message can't arrive before the synchronous construction finishes).
   let chatHud!: ChatHudHandle;
+  // Task 090: chat input. Mounted alongside chat HUD; keybindings.ts
+  // opens it on Enter; on submit it routes through `sendChat`. Forward-
+  // declared so `attachKeybindings` and the action senders can read it
+  // at construction time even though the actual mount happens after
+  // `sendChat` is bound.
+  let chatInput!: ChatInputHandle;
   const renderer = new Renderer(
     world,
     buffer,
@@ -650,6 +658,7 @@ export function constructSession(deps: SessionDeps): Session {
     sendFireBlowgunIntent,
     sendCreateFactionIntent,
     sendFlagInteractIntent,
+    sendChat,
   } = createActionSenders(conn);
 
   const input = new InputController(
@@ -799,6 +808,10 @@ export function constructSession(deps: SessionDeps): Session {
   // `ChatMessage` envelope into `chatHud.append`; nothing else writes here
   // (player typing lands in task 090).
   chatHud = mountChatHud();
+  chatInput = mountChatInput({
+    onSubmit: (body) => sendChat(body),
+    onOpenChange: (open) => chatHud.setShifted(open),
+  });
   const leaderboardHud = mountLeaderboardHud({ store: leaderboardStore });
   const coordsHud = mountCoordsHud();
   const hpBar = mountHpBar();
@@ -865,6 +878,7 @@ export function constructSession(deps: SessionDeps): Session {
   teardowns.push(() => {
     window.cancelAnimationFrame(coordsRaf);
     playerListHud.unmount();
+    chatInput.unmount();
     chatHud.unmount();
     leaderboardHud.unmount();
     coordsHud.unmount();
@@ -875,7 +889,7 @@ export function constructSession(deps: SessionDeps): Session {
     deathOverlay.unmount();
   });
 
-  teardowns.push(attachKeybindings(window, { inventoryUi, renderer }));
+  teardowns.push(attachKeybindings(window, { inventoryUi, renderer, chatInput }));
   teardowns.push(
     attachBreakAndPlace(window, {
       world,

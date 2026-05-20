@@ -56,6 +56,13 @@ message ClientMessage {
     // 10/s via a per-player milli-XP accumulator while the intent
     // is `active`. Latest-wins per player.
     FlagInteractIntent flag_interact = 34;
+    // Task 090 — player typing in the chat HUD. The server validates
+    // length + a chat-specific token bucket; an admitted message is
+    // fanned out via the same `Hub::broadcast_chat` path used by the
+    // admin `broadcast` CLI / HTTP endpoint (task 080). Silent drop on
+    // reject — no error envelope, no toast. No `client_seq`; chat is
+    // out-of-band and the client doesn't reconcile it.
+    SendChat send_chat = 35;
   }
 }
 
@@ -226,6 +233,23 @@ message ConnectedPlayersList {
 // new line is produced (admin `broadcast` CLI today; player typing in
 // task 090). No ring buffer, no replay on join, no persistence — a
 // freshly admitted client only sees lines sent after its welcome.
+// Client→server "post this body as a chat line from me" (task 090).
+// Server-side validation: the body is trimmed; an empty body or a body
+// that exceeds `crate::config::CHAT_BODY_MAX_LEN` (256 chars) is
+// silently dropped. A per-connection token bucket
+// (`crate::config::CHAT_RATE_PER_SECOND`, burst
+// `crate::config::CHAT_RATE_BURST`) gates the rate independently of the
+// inbound-frame limiter — chat shouldn't compete with movement for the
+// shared frame budget. Admitted messages fan out through the same
+// `Hub::broadcast_chat` path used by the admin `broadcast` CLI (task
+// 080), stamped with the sender's authoritative `Player::username` and
+// `ChatKind::Player`. No `client_seq` (chat is out-of-band; the client
+// doesn't reconcile its own messages — it waits for the round-trip
+// `ChatMessage` echo before rendering).
+message SendChat {
+  string body = 1;
+}
+
 message ChatMessage {
   // Source kind. Drives styling on the receiving client — `Admin`
   // lines render bold + warm tint, `Player` lines render plain.

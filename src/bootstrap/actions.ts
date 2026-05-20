@@ -107,6 +107,13 @@ export interface ActionSenders {
     mode: "deposit" | "steal",
     active: boolean,
   ): void;
+  /**
+   * Task 090: ship a `SendChat { body }` frame. The caller has already
+   * trimmed the body; the server re-trims + length-checks defensively
+   * and silently drops over-cap / empty bodies. No `clientSeq` — chat
+   * is out-of-band and the client doesn't reconcile it.
+   */
+  sendChat(body: string): void;
 }
 
 /**
@@ -301,6 +308,9 @@ export function createActionSenders(conn: Connection): ActionSenders {
           clientSeq: seq,
         },
       });
+    },
+    sendChat(body) {
+      conn.send({ sendChat: { body } });
     },
   };
 }

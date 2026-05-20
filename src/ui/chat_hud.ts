@@ -25,6 +25,13 @@ export const CHAT_HUD_MAX_LINES = 50;
  */
 export const CHAT_HUD_ADMIN_COLOR = "#ffb347";
 
+/**
+ * Bottom offset (px) added to the chat overlay while the task-090 chat
+ * input is open, so the active line lifts above the input field instead
+ * of being covered by it.
+ */
+export const CHAT_HUD_INPUT_SHIFT_PX = 36;
+
 const STYLE = `
   #${ROOT_ID} {
     position: fixed;
@@ -38,6 +45,7 @@ const STYLE = `
     max-width: 40vw;
     user-select: none;
   }
+  #${ROOT_ID}.shifted { bottom: ${12 + CHAT_HUD_INPUT_SHIFT_PX}px; }
   #${ROOT_ID}.hidden { display: none; }
   #${LIST_ID} {
     list-style: none;
@@ -77,6 +85,12 @@ export interface ChatHudHandle {
   append(line: ChatLine): void;
   /** Test affordance: current line count. */
   size(): number;
+  /**
+   * Task 090: bump the overlay's bottom anchor up by
+   * [`CHAT_HUD_INPUT_SHIFT_PX`] while the chat input is open so the
+   * lowest line clears the input field. Idempotent.
+   */
+  setShifted(shifted: boolean): void;
   unmount(): void;
 }
 
@@ -129,6 +143,9 @@ export function mountChatHud(): ChatHudHandle {
   return {
     append,
     size: () => list.children.length,
+    setShifted: (shifted: boolean): void => {
+      root.classList.toggle("shifted", shifted);
+    },
     unmount: () => {
       root.remove();
     },
