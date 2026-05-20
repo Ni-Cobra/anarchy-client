@@ -228,6 +228,73 @@ describe("applyServerMessage — ConnectedPlayersList (task 170)", () => {
   });
 });
 
+describe("applyServerMessage — ChatMessage (task 080)", () => {
+  it("routes a top-level chat envelope into the chat sink", () => {
+    const { deps: base } = makeFixture();
+    const lines: Array<{ kind: string; sender: string; body: string }> = [];
+    const deps: WireDeps = {
+      ...base,
+      chatSink: { append: (l) => lines.push(l) },
+    };
+
+    const adminMsg = decodeRoundtrip({
+      seq: 1,
+      chatMessage: {
+        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN,
+        sender: "SERVER",
+        body: "hello world",
+      },
+    });
+    applyServerMessage(adminMsg, deps);
+    const playerMsg = decodeRoundtrip({
+      seq: 2,
+      chatMessage: {
+        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_PLAYER,
+        sender: "Alice",
+        body: "hi",
+      },
+    });
+    applyServerMessage(playerMsg, deps);
+
+    expect(lines).toEqual([
+      { kind: "admin", sender: "SERVER", body: "hello world" },
+      { kind: "player", sender: "Alice", body: "hi" },
+    ]);
+  });
+
+  it("is a no-op when no chatSink is wired", () => {
+    const { deps } = makeFixture();
+    const msg = decodeRoundtrip({
+      seq: 1,
+      chatMessage: {
+        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN,
+        sender: "SERVER",
+        body: "hi",
+      },
+    });
+    expect(() => applyServerMessage(msg, deps)).not.toThrow();
+  });
+
+  it("drops the UNSPECIFIED kind sentinel (defensive)", () => {
+    const { deps: base } = makeFixture();
+    const lines: unknown[] = [];
+    const deps: WireDeps = {
+      ...base,
+      chatSink: { append: (l) => lines.push(l) },
+    };
+    const msg = decodeRoundtrip({
+      seq: 1,
+      chatMessage: {
+        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_UNSPECIFIED,
+        sender: "x",
+        body: "x",
+      },
+    });
+    applyServerMessage(msg, deps);
+    expect(lines).toEqual([]);
+  });
+});
+
 describe("applyServerMessage — TickUpdate", () => {
   it("decodes per-cell flag_blocks into the chunk's flagBlocks map (task 220)", () => {
     const { deps, terrain } = makeTerrainFixture();

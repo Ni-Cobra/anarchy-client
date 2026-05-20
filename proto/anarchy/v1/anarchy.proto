@@ -75,6 +75,12 @@ message ServerMessage {
     // tick-rate spam. The initial roster also rides in ServerWelcome so
     // a fresh client paints the list before the first join/leave event.
     ConnectedPlayersList connected_players_list = 32;
+    // Task 080 — single chat line from "somewhere" (today: admin
+    // `broadcast` CLI, future: player typing in task 090). Ephemeral —
+    // no ring buffer, no replay on join, no persistence. Fan-out: the
+    // server walks the connection registry on each send and pushes one
+    // envelope per connected client, mirroring `ConnectedPlayersList`.
+    ChatMessage chat_message = 33;
   }
 }
 
@@ -211,6 +217,37 @@ message ConnectedPlayersList {
   // render `N / max` without mirroring the constant. Re-shipped on
   // every broadcast in case the constant is ever retuned at runtime.
   uint32 max_players = 2;
+}
+
+// === Chat (task 080) ===
+//
+// Server→client one-shot chat line. The server walks the connection
+// registry and pushes one envelope per connected client every time a
+// new line is produced (admin `broadcast` CLI today; player typing in
+// task 090). No ring buffer, no replay on join, no persistence — a
+// freshly admitted client only sees lines sent after its welcome.
+message ChatMessage {
+  // Source kind. Drives styling on the receiving client — `Admin`
+  // lines render bold + warm tint, `Player` lines render plain.
+  // `CHAT_MESSAGE_KIND_UNSPECIFIED = 0` is the proto3 default
+  // sentinel and is never emitted by the server.
+  enum Kind {
+    CHAT_MESSAGE_KIND_UNSPECIFIED = 0;
+    CHAT_MESSAGE_KIND_PLAYER = 1;
+    CHAT_MESSAGE_KIND_ADMIN = 2;
+  }
+  Kind kind = 1;
+  // Display name of the sender. `"SERVER"` for admin lines emitted
+  // by the `broadcast` CLI. The server does not echo a `player_id`
+  // because the field would have no useful client-side semantics
+  // beyond what `sender` already carries — chat lines are display-
+  // only, not interactive.
+  string sender = 2;
+  // Free-form body text. The server applies length / charset gating
+  // for client-driven chat in task 090; admin-issued lines pass
+  // through whatever the CLI joined together from the rest of its
+  // input line.
+  string body = 3;
 }
 
 // === Heartbeat ===

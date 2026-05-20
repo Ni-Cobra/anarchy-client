@@ -57,6 +57,7 @@ import {
 } from "../render/screen_shake.js";
 import {
   mountChestUi,
+  mountChatHud,
   mountCoordsHud,
   mountCooldownRing,
   mountCraftingUi,
@@ -69,6 +70,7 @@ import {
   showCreateFactionDialog,
   mountSwordCooldownRing,
   mountXpLabel,
+  type ChatHudHandle,
   type CraftingUiHandle,
   type DeathOverlayState,
   type InventoryUiHandle,
@@ -453,6 +455,12 @@ export function constructSession(deps: SessionDeps): Session {
   // current synchronous tick finishes, by which time `inventoryUi` is set.
   let inventoryUi!: InventoryUiHandle;
   let craftingUi!: CraftingUiHandle;
+  // Forward-declared for the same reason — the chat HUD mounts alongside
+  // the other DOM chrome later in this function, but the wire callback
+  // built inside `connect()` below needs a sink to route `ChatMessage`
+  // envelopes into. The callback reads `chatHud` at call time (the first
+  // message can't arrive before the synchronous construction finishes).
+  let chatHud!: ChatHudHandle;
   const renderer = new Renderer(
     world,
     buffer,
@@ -583,6 +591,11 @@ export function constructSession(deps: SessionDeps): Session {
         chestSink: { chestState },
         rosterStore,
         leaderboardStore,
+        // Read `chatHud` at call time — the closure outlives the
+        // synchronous construction phase, but the wire callback can't
+        // fire until at least one frame has crossed the socket, by
+        // which time `chatHud` has been assigned.
+        chatSink: { append: (line) => chatHud.append(line) },
         local: {
           setLocalPlayerId: (id) => {
             localPlayerId = id;
@@ -782,6 +795,10 @@ export function constructSession(deps: SessionDeps): Session {
     store: rosterStore,
     getLocalPlayerId: () => localPlayerId,
   });
+  // Task 080: bottom-left chat overlay. The wire bridge above routes every
+  // `ChatMessage` envelope into `chatHud.append`; nothing else writes here
+  // (player typing lands in task 090).
+  chatHud = mountChatHud();
   const leaderboardHud = mountLeaderboardHud({ store: leaderboardStore });
   const coordsHud = mountCoordsHud();
   const hpBar = mountHpBar();
@@ -848,6 +865,7 @@ export function constructSession(deps: SessionDeps): Session {
   teardowns.push(() => {
     window.cancelAnimationFrame(coordsRaf);
     playerListHud.unmount();
+    chatHud.unmount();
     leaderboardHud.unmount();
     coordsHud.unmount();
     hpBar.unmount();

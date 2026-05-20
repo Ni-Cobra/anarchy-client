@@ -391,3 +391,22 @@ export async function adminFlagInteract(
 export async function adminFlagInteractRelease(playerId: number): Promise<void> {
   await postOk(`${SERVER_URL}/admin/flag-interact-release/${playerId}`);
 }
+
+/**
+ * Send a single admin chat line (task 080). Calls the same
+ * `Hub::broadcast_chat` path the CLI `broadcast` command uses, so every
+ * currently-connected client receives a `ChatMessage` envelope with
+ * sender `"SERVER"` + kind Admin.
+ */
+export async function adminBroadcast(text: string): Promise<void> {
+  const r = await fetch(`${SERVER_URL}/admin/broadcast`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) {
+    throw new Error(
+      `admin call failed: POST /admin/broadcast → ${r.status} ${r.statusText}`,
+    );
+  }
+}

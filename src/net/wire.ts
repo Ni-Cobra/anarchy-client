@@ -25,6 +25,7 @@ import {
   type World,
 } from "../game/index.js";
 
+import { applyChatMessage, type ChatSink } from "./wire_chat.js";
 import { applyChestUpdate, type ChestSink } from "./wire_chest.js";
 import { toNumber } from "./wire_codec.js";
 import { applyInventoryUpdate } from "./wire_inventory.js";
@@ -130,6 +131,13 @@ export interface WireDeps {
    * `initial_factions` and the per-tick `factions_delta` feed the HUD.
    */
   readonly leaderboardStore?: LeaderboardStore;
+  /**
+   * Task 080 chat HUD sink. Optional — tests that don't exercise the
+   * chat overlay leave it absent; production bootstrap mounts a
+   * `ChatHudHandle.append`-bound sink so `ChatMessage` envelopes feed
+   * the overlay.
+   */
+  readonly chatSink?: ChatSink;
   /** Wall-clock for stamping samples. Override in tests. */
   readonly now?: () => number;
 }
@@ -193,6 +201,11 @@ export function applyServerMessage(
 
   if (msg.connectedPlayersList) {
     applyConnectedPlayersList(msg.connectedPlayersList, deps.rosterStore);
+    return;
+  }
+
+  if (msg.chatMessage) {
+    applyChatMessage(msg.chatMessage, deps.chatSink);
     return;
   }
 }

@@ -71,6 +71,12 @@ export type {
 } from "./death_overlay.js";
 export { mountXpLabel } from "./xp_label.js";
 export type { XpLabelHandle } from "./xp_label.js";
+export {
+  mountChatHud,
+  CHAT_HUD_ADMIN_COLOR,
+  CHAT_HUD_MAX_LINES,
+} from "./chat_hud.js";
+export type { ChatHudHandle, ChatLine } from "./chat_hud.js";
 export { mountLeaderboardHud, formatFactionCoords } from "./leaderboard_hud.js";
 export type {
   LeaderboardHudHandle,
