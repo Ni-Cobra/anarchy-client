@@ -1,6 +1,7 @@
 import { runApp, type AnarchyHandle } from "./bootstrap/index.js";
 import { isValidColorIndex, validateUsername } from "./game/index.js";
 import type { LobbyIdentity } from "./net/index.js";
+import { mountHelp } from "./ui/index.js";
 
 declare global {
   interface Window {
@@ -40,6 +41,9 @@ if (params.get("stub-terrain") === "1") {
     runTerrainStub();
   });
 } else {
+  // Help dialog (task 110) — visible from the lobby too, so mount once at
+  // the page level rather than per-session in `bootstrap/`.
+  mountHelp();
   void runApp(lobbyBypassFromQuery(params), resolveWsUrl(params));
 }
 

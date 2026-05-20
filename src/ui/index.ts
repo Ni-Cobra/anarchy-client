@@ -93,3 +93,7 @@ export type {
   CreateFactionDialogHandle,
   CreateFactionDialogOptions,
 } from "./create_faction_dialog.js";
+export { mountHelp } from "./help_button.js";
+export type { HelpHandle } from "./help_button.js";
+export { showHelpDialog } from "./help_dialog.js";
+export type { HelpDialogHandle, HelpDialogOptions } from "./help_dialog.js";
