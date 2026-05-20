@@ -6,7 +6,7 @@
  * inventory-only and stays local.
  */
 
-import { ItemId, type ItemStack, type ToolKind } from "../../game/index.js";
+import { type ItemId, type ToolKind } from "../../game/index.js";
 import { applyItemIconStyle } from "../slot_cell.js";
 
 export {
@@ -16,11 +16,32 @@ export {
   paintSlot,
 } from "../slot_cell.js";
 
+const SLOT_PLACEHOLDER_BASE = "/textures/slots";
+
 /**
- * Paint one equipment-slot cell (task 100). Empty slots get a faded
- * silhouette of the wood-tier tool so the slot affordance reads as a
- * pickaxe / axe slot at a glance; populated slots paint the equipped
- * tool's full icon.
+ * URL of the outline-glyph SVG painted on an empty equipment cell, per
+ * `ToolKind`. Each glyph is a thin line-art hint at the slot's purpose —
+ * pickaxe head, axe head, shovel head, sword, cog — drawn as stroke-only
+ * SVG so the icon stays crisp at any DPR. The same `.empty .icon` CSS
+ * rule that faded the old wood-tier silhouette still knocks the opacity
+ * down to ~30%, so the glyph reads as an affordance rather than a
+ * populated item.
+ *
+ * Exported so vitest can pin the per-kind URL choice (task 050).
+ */
+export const EMPTY_SLOT_PLACEHOLDER_URLS: Record<ToolKind, string> = {
+  pickaxe: `${SLOT_PLACEHOLDER_BASE}/pickaxe.svg`,
+  axe: `${SLOT_PLACEHOLDER_BASE}/axe.svg`,
+  shovel: `${SLOT_PLACEHOLDER_BASE}/shovel.svg`,
+  sword: `${SLOT_PLACEHOLDER_BASE}/sword.svg`,
+  utility: `${SLOT_PLACEHOLDER_BASE}/cog.svg`,
+};
+
+/**
+ * Paint one equipment-slot cell (task 100). Empty slots get a bespoke
+ * outline glyph hinting at the slot's purpose (task 050) — pickaxe head,
+ * axe head, shovel head, sword, cog — instead of the old wood-tier
+ * silhouette. Populated slots paint the equipped tool's full icon.
  *
  * Manages just the `.anarchy-inventory-icon` child in place — other
  * children (notably the sword-slot cooldown ring added by task 140)
@@ -40,41 +61,18 @@ export function paintEquipmentSlot(
   } else {
     // Clear any stale background-* styles before re-applying — switching
     // from a populated slot back to the empty branch must drop the
-    // previous icon's texture.
+    // previous icon's texture (and switching kinds within empty must
+    // drop the previous outline).
     icon.removeAttribute("style");
   }
   if (item !== null) {
     applyItemIconStyle(icon, { item, count: 1 });
     cell.classList.remove("empty");
   } else {
-    // Wood-tier silhouette is the cheapest "this is what goes here"
-    // affordance for pickaxe / axe — same texture pipeline as the rest
-    // of the inventory surface, just at low opacity. The CSS rule
-    // `.empty .icon` knocks it down to ~30% alpha.
-    //
-    // Utility (task 360) has no items yet — the lantern lands in task
-    // 370 — so the empty cell ships icon-less. The blue border on
-    // `.anarchy-equipment-slot.utility` is enough affordance until a
-    // real silhouette exists.
-    const placeholder = utilityPlaceholder(kind);
-    if (placeholder !== null) {
-      applyItemIconStyle(icon, placeholder);
-    }
+    const url = EMPTY_SLOT_PLACEHOLDER_URLS[kind];
+    icon.style.backgroundImage = `url("${url}")`;
+    icon.style.backgroundSize = "100% 100%";
+    icon.style.backgroundRepeat = "no-repeat";
     cell.classList.add("empty");
-  }
-}
-
-function utilityPlaceholder(kind: ToolKind): ItemStack | null {
-  switch (kind) {
-    case "pickaxe":
-      return { item: ItemId.WoodPickaxe, count: 1 };
-    case "axe":
-      return { item: ItemId.WoodAxe, count: 1 };
-    case "shovel":
-      return { item: ItemId.WoodShovel, count: 1 };
-    case "sword":
-      return { item: ItemId.WoodSword, count: 1 };
-    case "utility":
-      return null;
   }
 }

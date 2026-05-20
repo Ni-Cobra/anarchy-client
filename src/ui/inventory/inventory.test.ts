@@ -1014,6 +1014,37 @@ describe("inventory UI", () => {
       expect(cells[4].classList.contains("empty")).toBe(true);
     });
 
+    it("paints each empty equipment cell with the bespoke outline-glyph SVG for its kind (task 050)", () => {
+      // The five equipment slots render in this order: pickaxe, axe,
+      // shovel, sword, utility. Each empty cell paints with the
+      // corresponding outline SVG under `/textures/slots/` — pickaxe head,
+      // axe head, shovel head, sword, cog. No empty slot should keep
+      // pulling a tool icon from `/textures/items/`.
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const expectedUrls = [
+        "/textures/slots/pickaxe.svg",
+        "/textures/slots/axe.svg",
+        "/textures/slots/shovel.svg",
+        "/textures/slots/sword.svg",
+        "/textures/slots/cog.svg",
+      ];
+      const cells = equipmentCells();
+      for (let i = 0; i < expectedUrls.length; i++) {
+        const icon = cells[i].querySelector<HTMLElement>(".anarchy-inventory-icon");
+        expect(icon).not.toBeNull();
+        const bg = icon!.style.backgroundImage;
+        expect(bg).toContain(expectedUrls[i]);
+        // No empty slot may reuse the items-texture pipeline.
+        expect(bg).not.toMatch(/\/textures\/items\//);
+      }
+    });
+
     it("renders the sword slot as the fourth equipment cell with a red background when populated", () => {
       // Task 050: sword slot sits between shovel and utility. The
       // .equipped-sword class drives the red background (style.ts).
