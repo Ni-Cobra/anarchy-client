@@ -56,7 +56,9 @@ const AXIS_Y_COLOR = 0x60a0ff;
 // from any viewpoint while keeping the shadow camera frustum bounded. The
 // shadow camera is a square orthographic frustum sized to the camera's
 // reach — bigger than the visible window so blocks just past the edge can
-// still cast into it.
+// still cast into it. The moon (task 070) shares the same orbital radius so
+// it stays anchored to the same focus point; it does not cast shadows to
+// avoid the cost of a second shadow pass for a secondary light source.
 const SUN_DISTANCE = 60;
 const SHADOW_HALF_EXTENT = 50;
 const SHADOW_MAP_SIZE = 1024;
@@ -118,6 +120,7 @@ export class SceneGraph {
   readonly mushroomLights: MushroomLights;
   readonly lanternLights: LanternLights;
   readonly sun: THREE.DirectionalLight;
+  readonly moon: THREE.DirectionalLight;
   readonly ambient: THREE.AmbientLight;
 
   private readonly ground: THREE.Mesh;
@@ -168,6 +171,15 @@ export class SceneGraph {
     shadowCam.updateProjectionMatrix();
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
+
+    // Moon directional (task 070). Placeholder values — renderer's
+    // per-frame `updateDaylight` drives colour / intensity / position from
+    // the daylight sample. Intentionally not a shadow caster: shadow
+    // mapping is the dominant cost in the lighting pass, and at night the
+    // already-low intensity makes any moon shadows visually noisy.
+    this.moon = new THREE.DirectionalLight(0xffffff, 0);
+    this.scene.add(this.moon);
+    this.scene.add(this.moon.target);
 
     this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(500, 500),

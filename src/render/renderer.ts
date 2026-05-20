@@ -1054,6 +1054,8 @@ export class Renderer {
     this.graph.ambient.intensity = sample.ambientIntensity;
     this.graph.sun.color.setHex(sample.sunColor);
     this.graph.sun.intensity = sample.sunIntensity;
+    this.graph.moon.color.setHex(sample.moonColor);
+    this.graph.moon.intensity = sample.moonIntensity;
     (this.graph.scene.background as THREE.Color).setHex(sample.skyColor);
 
     const local =
@@ -1075,6 +1077,17 @@ export class Renderer {
     // refresh the shadow camera matrix every frame is cheap (one matrix
     // multiply) and avoids ghost-shadows from a stale frustum.
     this.graph.sun.shadow.camera.updateProjectionMatrix();
+    // Moon (task 070): same focus-anchored sphere placement, but no shadow
+    // pass — it only contributes diffuse fill so up-facing surfaces are
+    // legible after dusk. `moonDir` is the antipode of `sunDir`, so this
+    // automatically lands above the horizon whenever the sun is below.
+    this.graph.moon.target.position.copy(focus);
+    this.graph.moon.target.updateMatrixWorld();
+    this.graph.moon.position.set(
+      focus.x + sample.moonDir.x * SUN_DISTANCE,
+      focus.y + sample.moonDir.y * SUN_DISTANCE,
+      focus.z + sample.moonDir.z * SUN_DISTANCE,
+    );
     // Torches (task 350): light-pool driven by the same daylight sample
     // and the same focus point as the sun. Pinning the focus to the local
     // player keeps the "32 nearest torches" pick stable as the world

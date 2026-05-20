@@ -43,24 +43,43 @@ export interface DaylightSample {
    * once natural light has fallen.
    */
   readonly nightFactor: number;
+  /**
+   * Unit vector from world origin toward the moon. Antipode of `sunDir`:
+   * the moon is above the horizon exactly when the sun is below, tracing
+   * the same arc on the opposite side. With the sun's `NIGHT_FLOOR_INTENSITY`
+   * pointed straight down at midnight, three.js's diffuse term gives
+   * up-facing surfaces ~no contribution from it; the moon directional
+   * (positive y at midnight) is the actual legibility driver at night.
+   */
+  readonly moonDir: { readonly x: number; readonly y: number; readonly z: number };
+  /** Moon-light intensity in `[0, MOON_PEAK_INTENSITY]`. Scales with `nightFactor`. */
+  readonly moonIntensity: number;
+  /** Hex colour for the directional moon (cool pale blue). */
+  readonly moonColor: number;
 }
 
 // Intensity envelope. The sun never goes fully dark (otherwise night is a
-// solid black smear); ambient never tops the day value either, so noon
-// reads as the bright extreme rather than a washed-out midnight.
+// solid black smear at the horizon transition); ambient never tops the day
+// value either, so noon reads as the bright extreme rather than a washed-out
+// midnight.
 export const SUN_PEAK_INTENSITY = 1.1;
-// Bumped from 0.05 (task 120): the previous floor still painted shaded
-// faces near-black at midnight. 0.12 lifts the sun-light contribution
-// enough that geometry stays readable while preserving the clear "the
-// sun is gone" mood — peak/floor ratio drops from 22× to ~9×, still a
-// strong contrast against the SUN_PEAK_INTENSITY noon extreme.
+// The sun's `NIGHT_FLOOR_INTENSITY` only meaningfully contributes during the
+// dusk/dawn shoulders — at midnight `sunDir.y ≈ -0.93` so three.js's diffuse
+// term zeroes the sun for up-facing surfaces. The moon (task 070, see
+// MOON_PEAK_INTENSITY below) is the real legibility driver after dark, so
+// 0.12 here only needs to keep the horizon transition smooth.
 export const NIGHT_FLOOR_INTENSITY = 0.12;
 export const DAY_AMBIENT = 0.55;
-// Bumped from 0.26 (task 120) — the prior tuning still felt "can barely
-// see" at midnight. 0.38 keeps a clear day-vs-night contrast against
-// the 0.55 day ambient (~1.45× day vs ~3.7× before, still mood-shifting)
-// while making the world legible without a torch.
+// 0.38 ambient at midnight blended with the deep-navy `COLOR_NIGHT_AMBIENT`
+// barely registers (effective ~(0.036, 0.051, 0.083)); the moon directional
+// is what makes geometry legible. Kept here so dusk/dawn ambient still
+// shifts perceptibly into the night palette.
 export const NIGHT_AMBIENT = 0.38;
+// Moon directional (task 070). Peaks at midnight (nightFactor = 1) and is
+// 0 during the day. 0.55 lands well below sun peak (1.1) so noon stays the
+// bright extreme, but is enough to lift up-facing surfaces out of the
+// "black smear" the ambient-only night produced.
+export const MOON_PEAK_INTENSITY = 0.55;
 
 // Sun-arc orientation (task 440). The arc is originally a great circle in
 // the xz=0 plane — noon sat at the +y zenith, so shaded faces read flat.
@@ -91,6 +110,10 @@ const COLOR_NIGHT_AMBIENT = 0x182238;
 const COLOR_NOON_SKY = 0x8ec8ff;
 const COLOR_HORIZON_SKY = 0xff9c5a;
 const COLOR_NIGHT_SKY = 0x0a1428;
+
+// Cool pale blue-white for the moon directional — picked to read as
+// "moonlight" rather than competing with the warm horizon sun.
+const COLOR_MOON = 0xb8c8e0;
 
 /**
  * Convert raw seconds into a normalised `phase ∈ [0, 1)`. Negative inputs
@@ -157,6 +180,12 @@ export function sampleDaylight(seconds: number): DaylightSample {
   const ambientIntensity =
     NIGHT_AMBIENT + (DAY_AMBIENT - NIGHT_AMBIENT) * dayWeight;
 
+  // Moon directional: antipode of `sunDir` so it sits above the horizon
+  // whenever the sun is below. Intensity ramps from 0 (day) to
+  // MOON_PEAK_INTENSITY at midnight via `nightWeight`.
+  const moonDir = { x: -sunDir.x, y: -sunDir.y, z: -sunDir.z };
+  const moonIntensity = MOON_PEAK_INTENSITY * nightWeight;
+
   return {
     phase,
     sunDir,
@@ -166,6 +195,9 @@ export function sampleDaylight(seconds: number): DaylightSample {
     ambientColor,
     skyColor,
     nightFactor: nightWeight,
+    moonDir,
+    moonIntensity,
+    moonColor: COLOR_MOON,
   };
 }
 
