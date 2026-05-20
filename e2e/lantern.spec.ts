@@ -55,11 +55,12 @@ test("craft + equip lantern, advance to night, the lantern light lands in the sc
     return inv.countOf(34) === 1 && inv.countOf(33) === 0 && inv.countOf(31) === 0;
   });
 
-  // Find the cell the freshly-crafted lantern landed in (auto-equip
-  // doesn't fire because the inventory has 10 Gold ahead of it; the
-  // crafting `try_add_with_auto_equip` only flips the equipment slot
-  // when no utility item is already in inventory under the auto-equip
-  // rules). Walk the slots and find the cell holding ItemId.Lantern.
+  // Find the cell the freshly-crafted lantern landed in. Task 030 makes
+  // craft auto-equip into the Utility slot, but the test still walks the
+  // slots to discover the landing index (it's an emergent property of
+  // `try_add_main_first`, not a fixed slot) and ships an explicit
+  // `EquipTool` so this spec exercises the equip wire path even if the
+  // post-craft auto-equip is later retuned.
   const lanternSlot = await page.evaluate(() => {
     const inv = window.__anarchy!.inventory;
     const slots = inv.allSlots();
