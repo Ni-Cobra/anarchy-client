@@ -55,6 +55,17 @@ const STYLE = `
     margin-bottom: 14px;
     line-height: 1.4;
   }
+  #anarchy-register-modal-root .prototype-warning {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffb454;
+    background: rgba(255, 180, 84, 0.10);
+    border: 1px solid rgba(255, 180, 84, 0.35);
+    border-radius: 5px;
+    padding: 8px 10px;
+    margin-bottom: 14px;
+    line-height: 1.35;
+  }
   #anarchy-register-modal-root label {
     display: block;
     font-size: 12px;
@@ -155,6 +166,9 @@ export function showRegisterModal(
       <div class="lede">
         Lock the username "<span id="anarchy-register-username"></span>" to a
         password. Future sessions under this name will require it.
+      </div>
+      <div class="prototype-warning" id="anarchy-register-warning">
+        THIS IS A PROTOTYPE &mdash; Do not use a password you use somewhere else
       </div>
       <label for="anarchy-register-pw">Password</label>
       <input id="anarchy-register-pw" type="password" autocomplete="new-password"

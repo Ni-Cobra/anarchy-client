@@ -21,6 +21,22 @@ describe("register modal (ADR 0007)", () => {
     expect(span.textContent).toBe("Alice");
   });
 
+  it("shows the prototype password-reuse warning above the password field", () => {
+    showRegisterModal({ username: "X", onSubmit: () => {} });
+    const r = root();
+    const warning = r.querySelector("#anarchy-register-warning");
+    expect(warning).not.toBeNull();
+    expect(warning!.textContent).toContain("PROTOTYPE");
+    expect(warning!.textContent).toContain(
+      "Do not use a password you use somewhere else",
+    );
+    // Warning must come before the password input in DOM order so the
+    // user reads it before typing.
+    const pw = r.querySelector("#anarchy-register-pw")!;
+    const order = warning!.compareDocumentPosition(pw);
+    expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("submit stays disabled until both fields are filled and match", () => {
     showRegisterModal({ username: "X", onSubmit: () => {} });
     const r = root();
