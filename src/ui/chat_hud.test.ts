@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CHAT_HUD_ADMIN_COLOR,
   CHAT_HUD_MAX_LINES,
+  CHAT_HUD_TIME_COLOR,
+  CHAT_HUD_TIME_OPACITY,
   type ChatHudHandle,
+  formatTimestamp,
   mountChatHud,
 } from "./chat_hud.js";
 
@@ -96,6 +99,32 @@ describe("mountChatHud", () => {
     const first = rows()[0];
     // The first 5 lines should have been trimmed; the new first is line-5.
     expect(first.textContent).toContain("line-5");
+  });
+
+  it("prefixes each row with a dim-gray HH:MM:SS timestamp (task 020)", () => {
+    handle = mountChatHud();
+    handle.append({ kind: "player", sender: "Alice", body: "hi" });
+    const row = rows()[0];
+    const time = row.querySelector<HTMLSpanElement>(".anarchy-chat-time");
+    expect(time).not.toBeNull();
+    // Format: zero-padded HH:MM:SS followed by a single space gap before
+    // the sender. textContent on the span includes that trailing space.
+    expect(time!.textContent).toMatch(/^\d{2}:\d{2}:\d{2} $/);
+    // The time span is the first child so the prefix actually leads.
+    expect(row.firstElementChild).toBe(time);
+    // Styling resolves through the injected stylesheet.
+    const style = window.getComputedStyle(time!);
+    const expectedRgb = hexToRgb(CHAT_HUD_TIME_COLOR);
+    expect([CHAT_HUD_TIME_COLOR, expectedRgb]).toContain(style.color);
+    expect(parseFloat(style.opacity)).toBeCloseTo(CHAT_HUD_TIME_OPACITY, 2);
+  });
+
+  it("formatTimestamp zero-pads hours, minutes, and seconds", () => {
+    // Local-time wall clock; build a Date with known components.
+    const d = new Date(2026, 4, 21, 3, 7, 9);
+    expect(formatTimestamp(d)).toBe("03:07:09");
+    const d2 = new Date(2026, 4, 21, 23, 59, 59);
+    expect(formatTimestamp(d2)).toBe("23:59:59");
   });
 
   it("exposes an input host slot positioned directly below the message list (task 010)", () => {

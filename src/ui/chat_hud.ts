@@ -4,9 +4,11 @@
  * Bottom-left transparent overlay. Each `ChatMessage` envelope appended in
  * arrival order; recent lines drift upward as new ones arrive (newest at
  * the bottom). Admin-kind lines render bold + warm tint; player-kind lines
- * render plain. No open/close gating, no fade in this task (task 090 may
- * revisit fade). No scrollback — the overlay caps the visible row count
- * and trims oldest as new ones arrive.
+ * render plain. Every row is prefixed with a dim-gray `HH:MM:SS` local
+ * wall-clock time captured at append (arrival) so it can't drift if the
+ * row is re-styled later. No open/close gating, no fade in this task
+ * (task 090 may revisit fade). No scrollback — the overlay caps the
+ * visible row count and trims oldest as new ones arrive.
  *
  * The root is a bottom-anchored flex column with two children: the
  * message list, then an empty input slot exposed via
@@ -32,6 +34,14 @@ export const CHAT_HUD_MAX_LINES = 50;
  * picked to read clearly against the dark UI chrome without being neon.
  */
 export const CHAT_HUD_ADMIN_COLOR = "#ffb347";
+
+/**
+ * Dim gray applied to the `HH:MM:SS` timestamp prefix on each row.
+ * Combined with [`CHAT_HUD_TIME_OPACITY`] so the timestamp recedes
+ * against the sender + body without dropping below legibility.
+ */
+export const CHAT_HUD_TIME_COLOR = "#888";
+export const CHAT_HUD_TIME_OPACITY = 0.55;
 
 /**
  * Bottom offset (px) for the chat overlay baseline. Sized so the input
@@ -76,6 +86,11 @@ const STYLE = `
     font-weight: 700;
     color: ${CHAT_HUD_ADMIN_COLOR};
   }
+  #${LIST_ID} .anarchy-chat-time {
+    color: ${CHAT_HUD_TIME_COLOR};
+    opacity: ${CHAT_HUD_TIME_OPACITY};
+    font-weight: 400;
+  }
 `;
 
 /**
@@ -104,6 +119,15 @@ export interface ChatHudHandle {
    */
   inputHost(): HTMLElement;
   unmount(): void;
+}
+
+/**
+ * Format a Date as zero-padded `HH:MM:SS` in local wall-clock time.
+ * Exported for unit tests; the runtime uses `new Date()` at append time.
+ */
+export function formatTimestamp(d: Date): string {
+  const pad = (n: number): string => (n < 10 ? `0${n}` : `${n}`);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 function injectStyle(): void {
@@ -138,15 +162,20 @@ export function mountChatHud(): ChatHudHandle {
     } else {
       li.classList.add("anarchy-chat-player");
     }
-    // Render as `<sender>: <body>`. We deliberately use textContent
-    // for both halves so user-supplied content can't smuggle in HTML;
-    // the bold/tint styling is class-driven, not body-driven.
+    // Render as `HH:MM:SS <sender>: <body>`. Timestamp is captured at
+    // append time (arrival, not render) so it doesn't drift if the row
+    // is re-styled later. textContent everywhere so user-supplied
+    // content can't smuggle in HTML; styling is class-driven.
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "anarchy-chat-time";
+    timeSpan.textContent = `${formatTimestamp(new Date())} `;
     const senderSpan = document.createElement("span");
     senderSpan.className = "anarchy-chat-sender";
     senderSpan.textContent = `${line.sender}: `;
     const bodySpan = document.createElement("span");
     bodySpan.className = "anarchy-chat-body";
     bodySpan.textContent = line.body;
+    li.appendChild(timeSpan);
     li.appendChild(senderSpan);
     li.appendChild(bodySpan);
     list.appendChild(li);
