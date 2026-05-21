@@ -145,6 +145,28 @@ export interface BreakPlaceDeps {
     mode: "deposit" | "steal",
     active: boolean,
   ) => void;
+  /**
+   * Task 170: bound-faction XP for the flag at `(cx, cy, lx, ly)`, or
+   * `null` when the cell holds no claimed flag. The flag-interact
+   * intercept only fires when the bound faction still has `xp > 0`;
+   * unclaimed or drained-to-zero flags fall through to the regular
+   * break/place paths so a drained flag is actually breakable per task
+   * 250's drain-to-destroy rule (without this fall-through every click
+   * lands on `sendFlagInteractIntent`, the server admission rejects it
+   * because there's nothing to steal/no faction to deposit into, and
+   * the held break never starts).
+   *
+   * Optional — tests that don't exercise the leaderboard leave it absent,
+   * in which case every flag click within `FLAG_INTERACT_RANGE_TILES`
+   * intercepts (legacy task 360 behavior). Production wires this from
+   * the `LeaderboardStore`.
+   */
+  readonly getFactionXpAt?: (
+    cx: number,
+    cy: number,
+    lx: number,
+    ly: number,
+  ) => number | null;
 }
 
 /** Equipped pickaxe tier derived from the local-player inventory mirror. */
@@ -212,14 +234,30 @@ export function attachBreakAndPlace(
     | null = null;
 
   /** Pick the cell currently under the cursor and return `(cx, cy, lx, ly)`
-   *  iff it holds a Flag block within `FLAG_INTERACT_RANGE_TILES` of the
-   *  local player. Returns `null` otherwise. Distinct from `pickBreakTargetAt`
-   *  because the flag range gate is tighter than the break/place reach and
-   *  we want a "miss" on out-of-range to silently drop the click. */
+   *  plus the bound faction's XP (or `null` if unclaimed) iff it holds a
+   *  Flag block within `FLAG_INTERACT_RANGE_TILES` of the local player.
+   *  Returns `null` otherwise. The caller applies the per-button intercept
+   *  rule (task 170 / 250) — left-click on drained → fall through to break,
+   *  right-click on drained still deposits (a fresh faction is xp=0 by
+   *  construction so deposit-into-empty is normal).
+   *
+   *  Distinct from `pickBreakTargetAt` because the flag range gate is
+   *  tighter than the break/place reach and we want a "miss" on
+   *  out-of-range to silently drop the click. */
   function pickFlagTargetAt(
     clientX: number,
     clientY: number,
-  ): { cx: number; cy: number; lx: number; ly: number } | null {
+  ):
+    | {
+        cx: number;
+        cy: number;
+        lx: number;
+        ly: number;
+        /** Bound faction XP; `null` when the flag is unclaimed.
+         *  `undefined` when `getFactionXpAt` is absent (legacy callers). */
+        factionXp: number | null | undefined;
+      }
+    | null {
     const localPlayerId = deps.getLocalPlayerId();
     if (localPlayerId === null) return null;
     const me = deps.world.getPlayer(localPlayerId);
@@ -238,7 +276,9 @@ export function attachBreakAndPlace(
     const dx = tileCenterX - me.x;
     const dy = tileCenterY - me.y;
     if (dx * dx + dy * dy > FLAG_INTERACT_RANGE_TILES_SQ) return null;
-    return { cx, cy, lx, ly };
+    const factionXp =
+      deps.getFactionXpAt !== undefined ? deps.getFactionXpAt(cx, cy, lx, ly) : undefined;
+    return { cx, cy, lx, ly, factionXp };
   }
 
   function releaseFlagInteract(): void {
@@ -416,18 +456,43 @@ export function attachBreakAndPlace(
     // that click so the flag never doubles as a swing target or place
     // surface while the player is transferring XP. Out-of-range clicks
     // on a flag drop silently (the server would reject anyway).
+    //
+    // Task 170: the intercept is gated per-button by the bound faction's
+    // state so a drained / unclaimed flag is actually breakable
+    // (drain-to-destroy, 250 spec). The router falls through to the
+    // break/place path when:
+    //   - `factionXp === null`   → flag is unclaimed (no faction to
+    //     interact with on either button).
+    //   - `factionXp === 0` and `button === 0` → drained claimed flag,
+    //     left-click means "break it" (steal is impossible anyway).
+    // Right-click on a drained flag still intercepts as Deposit — a
+    // fresh faction starts at xp=0 by construction, so deposit-into-empty
+    // is the normal flow. `factionXp === undefined` (legacy caller with
+    // no `getFactionXpAt` dep) preserves the original "always intercept"
+    // behavior so existing tests keep passing.
     if (deps.sendFlagInteractIntent) {
       const flag = pickFlagTargetAt(ev.clientX, ev.clientY);
       if (flag !== null) {
-        // A second press while one is already held releases the prior
-        // hold first so we never strand the server with two outstanding
-        // intents for the same player. Latest-wins per player on the
-        // server side (250 spec), but releasing keeps the client tidy.
-        releaseFlagInteract();
-        const mode: "deposit" | "steal" = ev.button === 0 ? "steal" : "deposit";
-        activeFlagInteract = { ...flag, mode };
-        deps.sendFlagInteractIntent(flag.cx, flag.cy, flag.lx, flag.ly, mode, true);
-        return;
+        const isLeft = ev.button === 0;
+        const fallThrough =
+          flag.factionXp === null || (isLeft && flag.factionXp === 0);
+        if (!fallThrough) {
+          // A second press while one is already held releases the prior
+          // hold first so we never strand the server with two outstanding
+          // intents for the same player. Latest-wins per player on the
+          // server side (250 spec), but releasing keeps the client tidy.
+          releaseFlagInteract();
+          const mode: "deposit" | "steal" = isLeft ? "steal" : "deposit";
+          activeFlagInteract = {
+            cx: flag.cx,
+            cy: flag.cy,
+            lx: flag.lx,
+            ly: flag.ly,
+            mode,
+          };
+          deps.sendFlagInteractIntent(flag.cx, flag.cy, flag.lx, flag.ly, mode, true);
+          return;
+        }
       }
     }
     if (ev.button === 0) {

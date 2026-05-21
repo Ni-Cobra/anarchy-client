@@ -817,3 +817,154 @@ describe("attachBreakAndPlace — task 360 flag routing", () => {
     ]);
   });
 });
+
+// Task 170: drain-to-destroy fall-through. Before the fix, every click on
+// a flag block within `FLAG_INTERACT_RANGE_TILES` routed unconditionally to
+// `sendFlagInteractIntent`, so a faction-drained flag could never be
+// broken (server-side admission rejected the steal because faction xp == 0,
+// and the held break never started). The fix: the click router consults
+// `getFactionXpAt` and falls through to the break path when the cell holds
+// an unclaimed or drained flag.
+describe("attachBreakAndPlace — task 170 drain-to-destroy fall-through", () => {
+  let detach: (() => void) | null = null;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 600, configurable: true });
+  });
+
+  afterEach(() => {
+    if (detach) detach();
+    detach = null;
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+  });
+
+  function buildFlagDepsWithXp(opts: {
+    pick: MockPick | null;
+    factionXp: number | null;
+    sendFlagInteractIntent: BreakPlaceDeps["sendFlagInteractIntent"];
+    sendBreakIntent?: BreakPlaceDeps["sendBreakIntent"];
+    sendPlaceBlock?: BreakPlaceDeps["sendPlaceBlock"];
+  }): BreakPlaceDeps {
+    const { renderer } = buildRenderer(opts.pick);
+    return {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => new Inventory(),
+      sendBreakIntent: opts.sendBreakIntent ?? vi.fn(),
+      sendPlaceBlock: opts.sendPlaceBlock ?? vi.fn(),
+      sendFlagInteractIntent: opts.sendFlagInteractIntent,
+      getFactionXpAt: () => opts.factionXp,
+    };
+  }
+
+  it("left-click on a drained claimed flag (xp=0) falls through to BreakIntent", () => {
+    const sendFlag = vi.fn();
+    const sendBreak = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDepsWithXp({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        factionXp: 0,
+        sendFlagInteractIntent: sendFlag,
+        sendBreakIntent: sendBreak,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).not.toHaveBeenCalled();
+    expect(sendBreak).toHaveBeenCalledTimes(1);
+    expect(sendBreak).toHaveBeenCalledWith({ cx: 0, cy: 0, lx: 1, ly: 0 });
+  });
+
+  it("left-click on an unclaimed flag (no faction) falls through to BreakIntent", () => {
+    const sendFlag = vi.fn();
+    const sendBreak = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDepsWithXp({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        factionXp: null,
+        sendFlagInteractIntent: sendFlag,
+        sendBreakIntent: sendBreak,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).not.toHaveBeenCalled();
+    expect(sendBreak).toHaveBeenCalledTimes(1);
+    expect(sendBreak).toHaveBeenCalledWith({ cx: 0, cy: 0, lx: 1, ly: 0 });
+  });
+
+  it("left-click on a claimed flag with xp > 0 still intercepts (legacy behavior)", () => {
+    const sendFlag = vi.fn();
+    const sendBreak = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDepsWithXp({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        factionXp: 5,
+        sendFlagInteractIntent: sendFlag,
+        sendBreakIntent: sendBreak,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).toHaveBeenCalledTimes(1);
+    expect(sendFlag).toHaveBeenCalledWith(0, 0, 1, 0, "steal", true);
+    expect(sendBreak).not.toHaveBeenCalled();
+  });
+
+  it("right-click on a drained claimed flag still intercepts as Deposit", () => {
+    // A fresh `try_create_faction` starts at xp == 0, so the deposit
+    // affordance must still fire — losing it would break the very flow
+    // the user uses to build XP up on their own faction. The drain-to-
+    // destroy fall-through is left-button-only.
+    const sendFlag = vi.fn();
+    const sendPlace = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDepsWithXp({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        factionXp: 0,
+        sendFlagInteractIntent: sendFlag,
+        sendPlaceBlock: sendPlace,
+      }),
+    );
+
+    fireMouseDown(2, 400, 300);
+
+    expect(sendFlag).toHaveBeenCalledTimes(1);
+    expect(sendFlag).toHaveBeenCalledWith(0, 0, 1, 0, "deposit", true);
+    expect(sendPlace).not.toHaveBeenCalled();
+  });
+
+  it("right-click on an unclaimed flag falls through to PlaceBlock", () => {
+    // No bound faction → nothing to deposit into; the click belongs to
+    // the regular right-click handling.
+    const sendFlag = vi.fn();
+    const sendPlace = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildFlagDepsWithXp({
+        pick: tilePickAt(0, 0, 1, 0, BlockType.Flag),
+        factionXp: null,
+        sendFlagInteractIntent: sendFlag,
+        sendPlaceBlock: sendPlace,
+      }),
+    );
+
+    fireMouseDown(2, 400, 300);
+
+    expect(sendFlag).not.toHaveBeenCalled();
+    expect(sendPlace).toHaveBeenCalledTimes(1);
+    expect(sendPlace).toHaveBeenCalledWith(0, 0, 1, 0);
+  });
+});

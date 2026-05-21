@@ -902,6 +902,23 @@ export function constructSession(deps: SessionDeps): Session {
       sendAttackIntent,
       sendFireBlowgunIntent,
       sendFlagInteractIntent,
+      getFactionXpAt: (cx, cy, lx, ly) => {
+        // Task 170: scan the leaderboard mirror for a faction bound to
+        // this flag cell. `null` means unclaimed; `0` means drained.
+        // The break_place click router uses both as "fall through to
+        // the break path" — the flag's drain-to-destroy invariant.
+        for (const fac of leaderboardStore.current().values()) {
+          if (
+            fac.flagChunk[0] === cx &&
+            fac.flagChunk[1] === cy &&
+            fac.flagLocal[0] === lx &&
+            fac.flagLocal[1] === ly
+          ) {
+            return fac.xp;
+          }
+        }
+        return null;
+      },
       onPlaceDispatched: (cx, cy, lx, ly) => {
         // Task 240: opening the create-faction dialog is part of the
         // place-block flow when the selected item is a Flag. Server
