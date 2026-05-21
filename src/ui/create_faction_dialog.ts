@@ -221,10 +221,21 @@ export function showCreateFactionDialog(
 
   const gate = attachInputGate(root);
 
+  // The dialog backdrop covers the full viewport, so every right-click
+  // while it's mounted lands inside `root`. The input gate stops the
+  // event from bubbling to the `window`-level `contextmenu` suppression
+  // in `bootstrap/break_place.ts`, so we'd fall through to the browser's
+  // default menu unless we cancel it here. Capture phase wires the
+  // listener ahead of anything dialog-internal that might
+  // `stopPropagation`.
+  const onContextMenu = (ev: MouseEvent): void => ev.preventDefault();
+  root.addEventListener("contextmenu", onContextMenu, { capture: true });
+
   function close(): void {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onEscape, true);
+    root.removeEventListener("contextmenu", onContextMenu, { capture: true });
     gate.detach();
     root.remove();
   }

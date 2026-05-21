@@ -110,4 +110,28 @@ describe("showCreateFactionDialog", () => {
     handle.close();
     expect(document.getElementById("anarchy-create-faction-modal-root")).toBeNull();
   });
+
+  test("right-click inside the dialog has its default prevented (task 160)", () => {
+    const handle = showCreateFactionDialog({ onSubmit: () => {} });
+    const root = document.getElementById("anarchy-create-faction-modal-root")!;
+    const ev = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    root.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    handle.close();
+  });
+
+  test("contextmenu listener is detached on close (task 160)", () => {
+    const handle = showCreateFactionDialog({ onSubmit: () => {} });
+    const root = document.getElementById("anarchy-create-faction-modal-root")!;
+    handle.close();
+    const ev = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    root.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+  });
 });
