@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { showLobby } from "./lobby.js";
 
@@ -102,6 +102,28 @@ describe("lobby form (ADR 0007)", () => {
     username.value = "ok";
     username.dispatchEvent(new Event("input"));
     expect(submit.disabled).toBe(false);
+  });
+
+  it("Enter on the username field swallows the keystroke so it can't leak into in-world bindings (task 060)", () => {
+    showLobby();
+    const root = panel();
+    const username = root.querySelector<HTMLInputElement>("#anarchy-username")!;
+    username.value = "Carol";
+    username.dispatchEvent(new Event("input"));
+    const onWindow = vi.fn();
+    window.addEventListener("keydown", onWindow);
+    const ev = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+    username.dispatchEvent(ev);
+    // preventDefault + stopPropagation on the lobby's listener — the
+    // bubbling stop is what keeps the same keydown from reaching a
+    // freshly-attached window-level keybind on the in-world session.
+    expect(ev.defaultPrevented).toBe(true);
+    expect(onWindow).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", onWindow);
   });
 
   it("switching from Returning to New clears any typed password", () => {

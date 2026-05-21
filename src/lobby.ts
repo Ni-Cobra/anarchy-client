@@ -120,12 +120,22 @@ export function showLobby(defaults: LobbyDefaults = {}): Promise<LobbyIdentity> 
     applyMode();
   });
   dom.usernameInput.addEventListener("input", refresh);
-  dom.usernameInput.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter" && !dom.submit.disabled) dom.submit.click();
-  });
-  dom.passwordInput.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter" && !dom.submit.disabled) dom.submit.click();
-  });
+  // Task 060: Enter on either field is "submit the lobby". Swallow the
+  // keydown (preventDefault + stopPropagation) so the same keystroke
+  // can't bubble up past the lobby and reach the in-world chat keybind
+  // the moment the session mounts. (`bootstrap/keybindings` also has a
+  // belt-and-suspenders `ev.timeStamp` guard for the same reason — the
+  // window-level listener can be attached as a microtask between event-
+  // listener invocations, so the stop here is the cleanest line of
+  // defense.)
+  const submitOnEnter = (ev: KeyboardEvent): void => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!dom.submit.disabled) dom.submit.click();
+  };
+  dom.usernameInput.addEventListener("keydown", submitOnEnter);
+  dom.passwordInput.addEventListener("keydown", submitOnEnter);
   applyMode();
   // Focus the input after the panel mounts so a player can start typing
   // immediately without clicking. If we're rehydrating from a rejection,

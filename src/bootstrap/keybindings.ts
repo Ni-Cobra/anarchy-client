@@ -44,6 +44,15 @@ export function attachKeybindings(
   deps: KeybindingDeps,
 ): () => void {
   let zoomedOut = false;
+  // Task 060: ignore Enter keydowns whose dispatch began before this
+  // listener was attached. The lobby's submit-on-Enter resolves a Promise
+  // synchronously inside its keydown handler; the await continuation
+  // (which constructs the session and attaches *us*) can run as a
+  // microtask between event-listener invocations, so the same keydown
+  // can still bubble up to `window` after we're live and open chat on
+  // spawn. `ev.timeStamp` is set at event creation, which is before any
+  // of that happens — comparing against `attachedAt` rejects the leak.
+  const attachedAt = performance.now();
 
   const onKeydown = (ev: KeyboardEvent): void => {
     if (ev.repeat) return;
@@ -77,6 +86,10 @@ export function attachKeybindings(
     // listener, so this branch only fires from the gameplay context.
     // The field's own Enter handler submits + closes.
     if (ev.code === "Enter" && !deps.chatInput.isOpen()) {
+      // Task 060 — drop any Enter whose dispatch started before we
+      // attached; that's the lobby-submit keystroke leaking into the
+      // freshly-mounted session.
+      if (ev.timeStamp < attachedAt) return;
       deps.chatInput.open();
       return;
     }
