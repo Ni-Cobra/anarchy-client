@@ -32,20 +32,28 @@ export const CHAT_HUD_ADMIN_COLOR = "#ffb347";
  */
 export const CHAT_HUD_INPUT_SHIFT_PX = 36;
 
+/**
+ * Bottom offset (px) for the chat overlay baseline. Sized so the
+ * lowest chat row clears the bottom-center hotbar (anchored at
+ * `bottom: 16px`, ~60px tall) with comfortable headroom on a typical
+ * 1440×900 viewport.
+ */
+const CHAT_HUD_BOTTOM_PX = 90;
+
 const STYLE = `
   #${ROOT_ID} {
     position: fixed;
     left: 12px;
-    bottom: 12px;
+    bottom: ${CHAT_HUD_BOTTOM_PX}px;
     z-index: 8400;
     pointer-events: none;
     font-family: system-ui, -apple-system, sans-serif;
     color: #f0f0f0;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-    max-width: 40vw;
+    max-width: 45vw;
     user-select: none;
   }
-  #${ROOT_ID}.shifted { bottom: ${12 + CHAT_HUD_INPUT_SHIFT_PX}px; }
+  #${ROOT_ID}.shifted { bottom: ${CHAT_HUD_BOTTOM_PX + CHAT_HUD_INPUT_SHIFT_PX}px; }
   #${ROOT_ID}.hidden { display: none; }
   #${LIST_ID} {
     list-style: none;
@@ -56,7 +64,7 @@ const STYLE = `
     gap: 2px;
   }
   #${LIST_ID} li {
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.3;
     word-break: break-word;
   }

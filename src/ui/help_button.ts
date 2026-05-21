@@ -36,14 +36,14 @@ const STYLE = `
     font-family: system-ui, -apple-system, sans-serif;
   }
   #${ROOT_ID} button {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.18);
     background: rgba(20, 24, 30, 0.45);
     color: rgba(240, 240, 240, 0.72);
     cursor: pointer;
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 600;
     line-height: 1;
     padding: 0;
