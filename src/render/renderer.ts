@@ -22,6 +22,8 @@ import {
   ZOOM_TWEEN_MS,
 } from "../config.js";
 import {
+  BlockType,
+  getBlock,
   type Inventory,
   type ItemId,
   type PlayerId,
@@ -404,10 +406,34 @@ export class Renderer {
   /**
    * The wire layer just observed this tick's full set of held-break
    * targeting states. Replaces the live targeting overlays wholesale.
+   *
+   * Each target is enriched with its targeted layer (`top` if the cell's
+   * top kind is non-Air, else `ground`) so the effects layer can draw a
+   * flat square outline on the ground for a ground-layer break instead
+   * of a cube hanging in the air at the top layer (task 030 follow-up).
+   * The beam layer ignores the extra field (structural typing).
    */
   applyTargetingStates(targets: readonly TargetingStateEvent[]): void {
-    this.graph.effects.applyTargets(targets);
-    this.graph.beams.applyBreakTargets(targets);
+    const enriched = targets.map((t) => ({ ...t, layer: this.deriveTargetLayer(t) }));
+    this.graph.effects.applyTargets(enriched);
+    this.graph.beams.applyBreakTargets(enriched);
+  }
+
+  /**
+   * Resolve the layer a held-break targeting state is hitting by reading
+   * the local terrain mirror. Top-kind `Air` means the player is mining
+   * the ground layer (break-via-replace); anything else is a top-layer
+   * break. Defaults to `"top"` when terrain isn't available so legacy
+   * behavior is preserved.
+   */
+  private deriveTargetLayer(
+    target: { cx: number; cy: number; lx: number; ly: number },
+  ): "ground" | "top" {
+    if (!this.terrain) return "top";
+    const chunk = this.terrain.get(target.cx, target.cy);
+    if (!chunk) return "top";
+    const top = getBlock(chunk.top, target.lx, target.ly);
+    return top.kind === BlockType.Air ? "ground" : "top";
   }
 
   /**

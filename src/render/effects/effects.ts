@@ -33,6 +33,15 @@ export interface TargetingStateEvent {
   readonly ly: number;
   /** `0..=100`. */
   readonly durabilityPct: number;
+  /**
+   * Which terrain layer the held break is hitting (task 030 follow-up).
+   * `"top"` draws a unit-cube outline at the cell; `"ground"` draws a
+   * flat square outline on the ground floor — so a ground-layer break
+   * doesn't render a cube hanging in the air at the top layer. Omitted
+   * by tests / pre-task-030 callers, in which case the layer defaults
+   * to `"top"` so existing behavior is preserved.
+   */
+  readonly layer?: "ground" | "top";
 }
 
 /**
@@ -70,6 +79,11 @@ const SOFT_BREAK_INTENSITY = 0.45;
 const TARGETING_FRAME_SIZE = 1.05;
 const TARGETING_FRAME_OPACITY = 0.85;
 const TARGETING_FRAME_LIFT = 0.55;
+// Ground-layer outline (task 030 follow-up): flat square on the floor at
+// the targeted tile, sized to match the cube outline's footprint. Lifted
+// just above `TILE_TOP_Y` (and above the place-pulse plane) so it sits
+// cleanly on the ground without z-fighting the grass underneath.
+const TARGETING_GROUND_LIFT = 0.06;
 // Durability bar — width tracks the pct, height + lift are static.
 const DURABILITY_BAR_MAX_WIDTH = 0.9;
 const DURABILITY_BAR_HEIGHT = 0.08;
@@ -79,6 +93,48 @@ const DURABILITY_BAR_BG_COLOR = 0x202020;
 const DURABILITY_BAR_FILL_COLOR = 0xf5f5f5;
 
 const TILE_TOP_Y = 0.04;
+
+/**
+ * Build the targeting frame for `layer`:
+ * - `"top"` — outlined unit cube (`EdgesGeometry` over a box so corners
+ *   stay sharp), centered at `TARGETING_FRAME_LIFT`. Existing behavior.
+ * - `"ground"` — flat square outline on the ground, lifted just above
+ *   the tile floor so a ground-layer break doesn't paint a cube hanging
+ *   in mid-air (task 030 follow-up).
+ *
+ * The shared `LineBasicMaterial` is owned by the caller; both flavors
+ * draw with the same color / opacity / line width so a layer swap reads
+ * as "geometry changed", not "highlight switched on".
+ */
+function buildTargetingFrame(
+  layer: "ground" | "top",
+  material: THREE.LineBasicMaterial,
+): THREE.Line {
+  if (layer === "ground") {
+    const h = TARGETING_FRAME_SIZE / 2;
+    const positions = new Float32Array([
+      -h, 0, -h,
+       h, 0, -h,
+       h, 0,  h,
+      -h, 0,  h,
+    ]);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const loop = new THREE.LineLoop(geom, material);
+    loop.position.y = TARGETING_GROUND_LIFT;
+    return loop;
+  }
+  const boxGeom = new THREE.BoxGeometry(
+    TARGETING_FRAME_SIZE,
+    TARGETING_FRAME_SIZE,
+    TARGETING_FRAME_SIZE,
+  );
+  const edges = new THREE.EdgesGeometry(boxGeom);
+  boxGeom.dispose();
+  const segs = new THREE.LineSegments(edges, material);
+  segs.position.y = TARGETING_FRAME_LIFT;
+  return segs;
+}
 
 interface TimedEffect {
   readonly startMs: number;
@@ -97,14 +153,22 @@ interface BreakShatter extends TimedEffect {
 
 interface TargetingOverlay {
   readonly group: THREE.Group;
-  readonly frame: THREE.LineSegments;
-  readonly frameMaterial: THREE.LineBasicMaterial;
+  /** `LineSegments` for a cube outline (`top` layer) or `LineLoop` for a
+   *  flat square (`ground` layer). The common base is `THREE.Line`. */
+  frame: THREE.Line;
+  frameMaterial: THREE.LineBasicMaterial;
   readonly barFill: THREE.Mesh;
   readonly barFillMaterial: THREE.MeshBasicMaterial;
   readonly barBg: THREE.Mesh;
   readonly barBgMaterial: THREE.MeshBasicMaterial;
   /** Last-known durability pct so frame-rebuilds skip redundant scale work. */
   lastPct: number;
+  /** Layer of the most recent target so a re-target that changes layer
+   *  (top → ground or vice versa) rebuilds the frame geometry in place. */
+  lastLayer: "ground" | "top";
+  /** Tint captured at first paint so a frame rebuild on layer change keeps
+   *  the original color without re-resolving the palette index. */
+  readonly tint: number;
 }
 
 /**
@@ -291,9 +355,11 @@ export class EffectsLayer {
 
   private upsertTargeting(target: TargetingStateEvent): void {
     const center = tileCenterToScene(target.cx, target.cy, target.lx, target.ly);
+    const layer = target.layer ?? "top";
     const existing = this.targetingByPlayer.get(target.playerId);
     if (existing) {
       existing.group.position.set(center.x, 0, center.z);
+      if (existing.lastLayer !== layer) this.rebuildFrame(existing, layer);
       this.updateDurabilityBar(existing, target.durabilityPct);
       return;
     }
@@ -301,23 +367,13 @@ export class EffectsLayer {
     const group = new THREE.Group();
     group.position.set(center.x, 0, center.z);
 
-    // Frame: outlined unit cube. Use `EdgesGeometry` over a box so the
-    // corners stay sharp; line material avoids fill flicker at low alpha.
-    const boxGeom = new THREE.BoxGeometry(
-      TARGETING_FRAME_SIZE,
-      TARGETING_FRAME_SIZE,
-      TARGETING_FRAME_SIZE,
-    );
-    const edges = new THREE.EdgesGeometry(boxGeom);
-    boxGeom.dispose();
     const frameMat = new THREE.LineBasicMaterial({
       color: tint,
       transparent: true,
       opacity: TARGETING_FRAME_OPACITY,
       depthWrite: false,
     });
-    const frame = new THREE.LineSegments(edges, frameMat);
-    frame.position.y = TARGETING_FRAME_LIFT;
+    const frame = buildTargetingFrame(layer, frameMat);
     group.add(frame);
 
     const barBgGeom = new THREE.BoxGeometry(
@@ -366,9 +422,31 @@ export class EffectsLayer {
       barBg,
       barBgMaterial: barBgMat,
       lastPct: -1,
+      lastLayer: layer,
+      tint,
     };
     this.updateDurabilityBar(overlay, target.durabilityPct);
     this.targetingByPlayer.set(target.playerId, overlay);
+  }
+
+  /**
+   * Swap the targeting frame's geometry when the targeted layer flips
+   * (top ↔ ground). The cube outline (`top`) and the flat square
+   * (`ground`) use different geometry + draw modes, so we rebuild the
+   * underlying [`THREE.Line`] in place rather than mutating the existing
+   * one. The material is preserved so the tint stays stable across the
+   * swap.
+   */
+  private rebuildFrame(
+    overlay: TargetingOverlay,
+    nextLayer: "ground" | "top",
+  ): void {
+    overlay.group.remove(overlay.frame);
+    overlay.frame.geometry.dispose();
+    const frame = buildTargetingFrame(nextLayer, overlay.frameMaterial);
+    overlay.group.add(frame);
+    overlay.frame = frame;
+    overlay.lastLayer = nextLayer;
   }
 
   private updateDurabilityBar(

@@ -125,6 +125,59 @@ describe("EffectsLayer", () => {
     expect(countChildren(layer)).toBe(0);
   });
 
+  it("draws a cube outline (LineSegments) when the target is top-layer", () => {
+    const layer = makeLayer();
+    layer.applyTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0, durabilityPct: 100, layer: "top" },
+    ]);
+    const overlay = layer.scene().children[0] as THREE.Group;
+    const frame = overlay.children.find((c) => c instanceof THREE.Line);
+    expect(frame).toBeInstanceOf(THREE.LineSegments);
+  });
+
+  it("draws a flat square (LineLoop) when the target is ground-layer (task 030)", () => {
+    const layer = makeLayer();
+    layer.applyTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0, durabilityPct: 100, layer: "ground" },
+    ]);
+    const overlay = layer.scene().children[0] as THREE.Group;
+    const frame = overlay.children.find((c) => c instanceof THREE.Line) as THREE.Line;
+    expect(frame).toBeInstanceOf(THREE.LineLoop);
+    // 4 corners → 4 vertices for a closed loop.
+    const positions = frame.geometry.getAttribute("position") as THREE.BufferAttribute;
+    expect(positions.count).toBe(4);
+    // Lifted just above the ground floor, not at cube-center height.
+    expect(frame.position.y).toBeLessThan(0.2);
+  });
+
+  it("defaults to the cube outline when `layer` is omitted (back-compat)", () => {
+    const layer = makeLayer();
+    layer.applyTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0, durabilityPct: 100 },
+    ]);
+    const overlay = layer.scene().children[0] as THREE.Group;
+    const frame = overlay.children.find((c) => c instanceof THREE.Line);
+    expect(frame).toBeInstanceOf(THREE.LineSegments);
+  });
+
+  it("rebuilds the frame in place when a re-target flips the layer (no flicker)", () => {
+    const layer = makeLayer();
+    layer.applyTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0, durabilityPct: 100, layer: "top" },
+    ]);
+    expect(countChildren(layer)).toBe(1);
+    const overlayBefore = layer.scene().children[0] as THREE.Group;
+    layer.applyTargets([
+      { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0, durabilityPct: 80, layer: "ground" },
+    ]);
+    // Still one overlay — re-uses the same group, just swaps frame geom.
+    expect(countChildren(layer)).toBe(1);
+    const overlayAfter = layer.scene().children[0] as THREE.Group;
+    expect(overlayAfter).toBe(overlayBefore);
+    const frame = overlayAfter.children.find((c) => c instanceof THREE.Line);
+    expect(frame).toBeInstanceOf(THREE.LineLoop);
+  });
+
   it("uses a smaller, shorter shatter for non-solid top blocks (task 510)", () => {
     // Stone is solid-top → full-cell shatter cube + standard duration.
     const solid = makeLayer();
