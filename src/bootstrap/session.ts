@@ -59,6 +59,7 @@ import {
   mountChestUi,
   mountChatHud,
   mountChatInput,
+  mountConnectionErrorOverlay,
   mountCoordsHud,
   mountCooldownRing,
   mountCraftingUi,
@@ -73,6 +74,7 @@ import {
   mountXpLabel,
   type ChatHudHandle,
   type ChatInputHandle,
+  type ConnectionErrorOverlayHandle,
   type CraftingUiHandle,
   type DeathOverlayState,
   type InventoryUiHandle,
@@ -534,6 +536,14 @@ export function constructSession(deps: SessionDeps): Session {
   // finished and the binding is set.
   let deathOverlay!: ReturnType<typeof mountDeathOverlay>;
 
+  // Task 190 connection-lost overlay. Mounted up front so the
+  // `onTransportDrop` hook on the connection below has something to
+  // dispatch into for the boot-time case where the WebSocket is
+  // refused before any other UI has had a chance to mount.
+  const connectionErrorOverlay: ConnectionErrorOverlayHandle =
+    mountConnectionErrorOverlay();
+  teardowns.push(() => connectionErrorOverlay.unmount());
+
   const conn = connect(
     wsUrl,
     identity,
@@ -637,6 +647,14 @@ export function constructSession(deps: SessionDeps): Session {
         stop();
       },
       onRegisterResult: (status) => registerFlow.onResult(status),
+      onTransportDrop: () => {
+        // Task 190: the WebSocket dropped for a non-lobby-reject, non-
+        // caller-initiated reason (boot-time refusal, mid-session server
+        // close, heartbeat timeout). Show the full-screen "Connection
+        // lost" overlay; the input gate it attaches keeps the canvas
+        // dormant until the player hits Reload.
+        connectionErrorOverlay.show();
+      },
     },
   );
   teardowns.push(() => conn.close());

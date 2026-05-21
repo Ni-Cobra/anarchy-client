@@ -64,6 +64,18 @@ export type RegisterResultStatus = "ok" | "already-registered" | "error";
 export interface ConnectHooks {
   onLobbyReject?: (reason: LobbyRejectReason) => void;
   onRegisterResult?: (status: RegisterResultStatus) => void;
+  /**
+   * Fired when the WebSocket transport drops for a reason that isn't a
+   * lobby reject and isn't a caller-initiated `close()`: a connection
+   * refused on initial open, a server-side close after the session was
+   * live, or the heartbeat-timeout path that closes the socket when no
+   * frame has arrived within `RECV_TIMEOUT_MS`. Lobby rejects route
+   * through `onLobbyReject` and explicit `connection.close()` calls
+   * (the Disconnect button, lobby-loop teardowns) don't trigger this.
+   * Fires at most once per connection. Task 190 — drives the
+   * full-screen "Connection lost" overlay.
+   */
+  onTransportDrop?: () => void;
 }
 
 export function connect(
@@ -80,12 +92,27 @@ export function connect(
 
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let lastRecvAt = 0;
+  // Drop-detection bookkeeping for `onTransportDrop` (task 190). We only
+  // want to fire when the transport went away without us asking it to,
+  // and we want to fire at most once even if both `error` and `close`
+  // event handlers run.
+  let callerClosed = false;
+  let lobbyRejected = false;
+  let transportDropFired = false;
 
   const stopHeartbeat = () => {
     if (pingTimer !== null) {
       clearInterval(pingTimer);
       pingTimer = null;
     }
+  };
+
+  const fireTransportDrop = () => {
+    if (transportDropFired) return;
+    if (callerClosed) return;
+    if (lobbyRejected) return;
+    transportDropFired = true;
+    hooks.onTransportDrop?.();
   };
 
   ws.addEventListener("open", () => {
@@ -116,10 +143,15 @@ export function connect(
   ws.addEventListener("close", (ev) => {
     console.log("[net] close", ev.code, ev.reason);
     stopHeartbeat();
+    fireTransportDrop();
   });
 
   ws.addEventListener("error", (ev) => {
     console.error("[net] error", ev);
+    // Browsers fire `error` then `close` on connection-refused; the close
+    // handler above will dedup via `transportDropFired`. Firing here too
+    // keeps us covered if a future runtime ever fires only `error`.
+    fireTransportDrop();
   });
 
   ws.addEventListener("message", (ev) => {
@@ -131,6 +163,10 @@ export function connect(
       const msg = ServerMessage.decode(new Uint8Array(ev.data));
       lastRecvAt = Date.now();
       if (msg.lobbyReject) {
+        // Mark before dispatching so the close event the server is about
+        // to send (or the caller-initiated stop teardown) doesn't trip
+        // `onTransportDrop` for what is really a structured reject.
+        lobbyRejected = true;
         const reason = lobbyRejectReasonFromWire(msg.lobbyReject.reason);
         if (reason !== null) hooks.onLobbyReject?.(reason);
         return;
@@ -158,6 +194,10 @@ export function connect(
       sendInternal({ ...payload, seq: nextSeq() });
     },
     close() {
+      // Mark before triggering the WebSocket close so the deferred
+      // `close` event the runtime is about to fire doesn't trip
+      // `onTransportDrop` for a caller-initiated teardown.
+      callerClosed = true;
       stopHeartbeat();
       ws.close();
     },

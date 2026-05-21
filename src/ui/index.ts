@@ -69,6 +69,16 @@ export type {
   DeathOverlayHandle,
   DeathOverlayState,
 } from "./death_overlay.js";
+export {
+  mountConnectionErrorOverlay,
+  CONNECTION_ERROR_TITLE,
+  CONNECTION_ERROR_BODY,
+  CONNECTION_ERROR_RELOAD_LABEL,
+} from "./connection_error_overlay.js";
+export type {
+  ConnectionErrorOverlayHandle,
+  ConnectionErrorOverlayOptions,
+} from "./connection_error_overlay.js";
 export { mountXpLabel } from "./xp_label.js";
 export type { XpLabelHandle } from "./xp_label.js";
 export {
