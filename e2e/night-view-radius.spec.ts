@@ -2,7 +2,12 @@ import { test, expect } from "./test-shared";
 import protobuf from "protobufjs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { adminSetTimeOfDay } from "./admin";
+import {
+  adminEquipTool,
+  adminGiveItem,
+  adminSetTimeOfDay,
+  AdminItemId,
+} from "./admin";
 
 // Task 330 — wire-level e2e for the day-cycle-driven view radius. The
 // per-client view window shrinks at night (radius 1, a 3×3 = 9-chunk
@@ -102,10 +107,11 @@ interface DecodedTick {
 
 interface DecodedWelcome {
   viewRadiusChunks: number;
+  playerId: number;
 }
 
 function decode(data: Uint8Array): {
-  welcome?: { viewRadiusChunks?: number };
+  welcome?: { viewRadiusChunks?: number; playerId?: number | string };
   tickUpdate?: {
     fullStateChunks?: Array<{ coord?: { cx?: number; cy?: number } }>;
     unmodifiedChunks?: Array<{ cx?: number; cy?: number }>;
@@ -121,7 +127,10 @@ async function readWelcome(s: Socket): Promise<DecodedWelcome> {
     return decode(f.data).welcome !== undefined;
   })) as Extract<Frame, { kind: "msg" }>;
   const w = decode(frame.data).welcome!;
-  return { viewRadiusChunks: Number(w.viewRadiusChunks ?? 0) };
+  return {
+    viewRadiusChunks: Number(w.viewRadiusChunks ?? 0),
+    playerId: Number(w.playerId ?? 0),
+  };
 }
 
 async function readTick(s: Socket, timeout = 5_000): Promise<DecodedTick> {
@@ -187,6 +196,49 @@ test("midnight welcome ships radius 1 and the first tick covers a 3×3 window", 
 
   // Hand the world back to "day" so any spec running after this one
   // doesn't inherit a forced night.
+  await adminSetTimeOfDay(0);
+});
+
+test("lantern equipped pins the view window to the day radius at midnight", async () => {
+  test.setTimeout(15_000);
+
+  // Start in daylight so the welcome ships radius 2 and the player's
+  // chunk lands at the origin (no spawn-region tombstones piled up
+  // before midnight makes the spawn finder skip ring 0).
+  await adminSetTimeOfDay(DAY_LENGTH_SECONDS * 0.25);
+
+  const s = await openSocket();
+  await sendHello(s, "nrad-lantern");
+  const welcome = await readWelcome(s);
+  expect(welcome.viewRadiusChunks).toBe(2);
+  // Drain the first daytime tick so the next tick after the equip is
+  // the one carrying the lantern-pinned radius decision.
+  const dayTick = await readTick(s);
+  expect(dayTick.fullChunks.length + dayTick.unmodified.length).toBe(25);
+
+  // Plant a Lantern, then equip it into the Utility slot via admin.
+  // `try_add` walks hotbar-first; slot 0 already holds the starter 10
+  // Gold (item 4), so the lantern lands in slot 1 (first empty cell).
+  await adminGiveItem(welcome.playerId, AdminItemId.Lantern, 1);
+  await adminEquipTool(welcome.playerId, "utility", 1);
+
+  // Jump to midnight. Without the lantern this would shrink to 9; with
+  // the lantern it should stay at the daytime 25.
+  await adminSetTimeOfDay(DAY_LENGTH_SECONDS * 0.75);
+
+  const nightFrame = (await s.next((f) => {
+    if (f.kind !== "msg") return false;
+    const msg = decode(f.data);
+    if (!msg.tickUpdate) return false;
+    const t = Number(msg.tickUpdate.timeOfDaySeconds ?? 0);
+    return t >= DAY_LENGTH_SECONDS * 0.7;
+  }, 5_000)) as Extract<Frame, { kind: "msg" }>;
+  const post = decode(nightFrame.data).tickUpdate!;
+  const total =
+    (post.fullStateChunks ?? []).length + (post.unmodifiedChunks ?? []).length;
+  expect(total).toBe(25);
+
+  s.ws.close();
   await adminSetTimeOfDay(0);
 });
 
