@@ -29,3 +29,4 @@ export type {
   WireTargetKind,
   WireTargetingStateEvent,
 } from "./wire.js";
+export type { PingSink } from "./wire_ping.js";

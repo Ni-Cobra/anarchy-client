@@ -519,6 +519,14 @@ export function constructSession(deps: SessionDeps): Session {
   // handle. The renderer captures cooldown / dash state internally; this
   // mirror only exists so e2e specs can pin the wire shape end-to-end.
   let lastAttackEvent: WireAttackEvent | null = null;
+  // Task 200: latest measured round-trip-time. `null` before the first
+  // Pong arrives — the coords HUD renders that as `ping —`. The wire
+  // bridge writes here on every Pong; the per-frame coords loop reads
+  // it. On transport drop the renderer keeps painting whatever sample
+  // landed last (the value naturally freezes since no Pong will arrive
+  // after the socket is gone) — the connection-error overlay covers the
+  // canvas anyway.
+  let lastRttMs: number | null = null;
 
   // Forward-declared like `inventoryUi` above. The connection's
   // `onRegisterResult` hook needs to dispatch into the flow, but the
@@ -614,6 +622,11 @@ export function constructSession(deps: SessionDeps): Session {
         // fire until at least one frame has crossed the socket, by
         // which time `chatHud` has been assigned.
         chatSink: { append: (line) => chatHud.append(line) },
+        pingSink: {
+          setRttMs: (rtt) => {
+            lastRttMs = rtt;
+          },
+        },
         local: {
           setLocalPlayerId: (id) => {
             localPlayerId = id;
@@ -864,6 +877,7 @@ export function constructSession(deps: SessionDeps): Session {
     const id = localPlayerId;
     const me = id === null ? null : world.getPlayer(id);
     coordsHud.update(me ? { x: me.x, y: me.y } : null);
+    coordsHud.updatePing(lastRttMs);
     const currentHp = me ? me.health : null;
     if (currentHp === null) {
       // No admitted local player (yet) — drop the mirror so the first HP

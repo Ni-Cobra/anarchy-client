@@ -33,6 +33,7 @@ import {
   applyFactionsDelta,
   applyFactionsSnapshot,
 } from "./wire_leaderboard.js";
+import { applyPong, type PingSink } from "./wire_ping.js";
 import { applyConnectedPlayersList } from "./wire_roster.js";
 import {
   applyTickUpdate,
@@ -138,6 +139,12 @@ export interface WireDeps {
    * the overlay.
    */
   readonly chatSink?: ChatSink;
+  /**
+   * Task 200 ping sink. Optional — tests that don't exercise the coords
+   * HUD's ping line leave it absent; production bootstrap mounts a
+   * mutable holder so `Pong` frames feed the readout.
+   */
+  readonly pingSink?: PingSink;
   /** Wall-clock for stamping samples. Override in tests. */
   readonly now?: () => number;
 }
@@ -206,6 +213,11 @@ export function applyServerMessage(
 
   if (msg.chatMessage) {
     applyChatMessage(msg.chatMessage, deps.chatSink);
+    return;
+  }
+
+  if (msg.pong) {
+    applyPong(msg.pong, deps.pingSink, now());
     return;
   }
 }

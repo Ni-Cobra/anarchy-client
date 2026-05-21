@@ -1,13 +1,16 @@
 /**
  * Top-left coordinates readout for the local player.
  *
- * Two stacked lines:
+ * Three stacked lines:
  * - integer tile coords `X, Y` (the cell the player stands on)
  * - subtile decimal pair `x.xx, y.yy`, dimmer and one step smaller
+ * - latest ping sample `ping XX ms` (task 200), same dim style as the
+ *   subtile line. Shown as `ping —` until the first Pong arrives.
  *
  * Driven by the bootstrap's per-frame loop: the caller pushes the latest
  * position via `update(x, y)` (or `update(null)` when there is no local
- * player yet, e.g. before admission, which hides the readout).
+ * player yet, e.g. before admission, which hides the readout) and the
+ * latest RTT via `updatePing(ms)` (or `updatePing(null)` for the dash).
  *
  * Network-free; pure DOM. Self-injects its CSS like the other overlays in
  * `src/ui/`. Sits at top-left; the side-panel toggle is at top-right and
@@ -50,11 +53,23 @@ const STYLE = `
     opacity: 0.7;
     margin-top: 2px;
   }
+  #${ROOT_ID} .anarchy-coords-ping {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.7;
+    margin-top: 2px;
+  }
 `;
 
 export interface CoordsHudHandle {
   /** Push the latest local-player position. Pass `null` to hide. */
   update(pos: { readonly x: number; readonly y: number } | null): void;
+  /**
+   * Push the latest measured RTT (task 200). Pass `null` before the first
+   * Pong arrives — the line renders as `ping —`. The bootstrap freezes
+   * the last value on transport drop rather than blanking it.
+   */
+  updatePing(rttMs: number | null): void;
   unmount(): void;
 }
 
@@ -73,6 +88,17 @@ export function formatCoords(
   const tile = `${Math.floor(x)}, ${Math.floor(y)}`;
   const sub = `${x.toFixed(2)}, ${y.toFixed(2)}`;
   return { tile, sub };
+}
+
+/**
+ * Render the ping line. `null` before the first sample renders as the
+ * em-dash placeholder; otherwise the value is rounded to the nearest ms
+ * (RTT below 1 ms is rare on localhost but is still floored to `0 ms`
+ * rather than blank).
+ */
+export function formatPing(rttMs: number | null): string {
+  if (rttMs === null) return "ping —";
+  return `ping ${Math.round(rttMs)} ms`;
 }
 
 function injectStyle(): void {
@@ -99,10 +125,16 @@ export function mountCoordsHud(): CoordsHudHandle {
   subLine.className = "anarchy-coords-sub";
   root.appendChild(subLine);
 
+  const pingLine = document.createElement("div");
+  pingLine.className = "anarchy-coords-ping";
+  pingLine.textContent = formatPing(null);
+  root.appendChild(pingLine);
+
   document.body.appendChild(root);
 
   let lastTile: string | null = null;
   let lastSub: string | null = null;
+  let lastPing: string | null = formatPing(null);
 
   return {
     update: (pos) => {
@@ -120,6 +152,13 @@ export function mountCoordsHud(): CoordsHudHandle {
         lastSub = sub;
       }
       root.classList.remove("hidden");
+    },
+    updatePing: (rttMs) => {
+      const next = formatPing(rttMs);
+      if (next !== lastPing) {
+        pingLine.textContent = next;
+        lastPing = next;
+      }
     },
     unmount: () => {
       root.remove();
