@@ -149,4 +149,28 @@ describe("mountChatInput", () => {
     mount();
     expect(input().maxLength).toBe(CHAT_INPUT_MAX_LEN);
   });
+
+  it("when closed the input root keeps its layout box (no display:none) — task 010 no-shift invariant", () => {
+    mount();
+    const root = document.getElementById("anarchy-chat-input-root");
+    expect(root).not.toBeNull();
+    const style = window.getComputedStyle(root!);
+    // `.hidden` must use visibility (not display) so the slot still
+    // reserves its vertical space — focusing the field must not push
+    // the messages stack up.
+    expect(style.display).not.toBe("none");
+    expect(style.visibility).toBe("hidden");
+  });
+
+  it("mounts into the host element when one is supplied (task 010 — shared chat stack)", () => {
+    const host = document.createElement("div");
+    host.id = "test-chat-host";
+    document.body.appendChild(host);
+    handle = mountChatInput({
+      onSubmit: (body) => submitted.push(body),
+      host,
+    });
+    const root = document.getElementById("anarchy-chat-input-root");
+    expect(root?.parentElement).toBe(host);
+  });
 });

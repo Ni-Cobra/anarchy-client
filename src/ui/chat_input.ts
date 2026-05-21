@@ -1,19 +1,18 @@
 /**
  * Chat input field (task 090).
  *
- * Bottom-left single-line `<input>` mounted alongside the chat HUD. Hidden
- * by default; the bootstrap-level `Enter` keybinding calls `open()`,
- * which reveals the field, attaches an input gate so movement / hotbar /
- * place keys don't fire while typing, and focuses the input. Inside the
- * field, `Enter` ships the trimmed body via `onSubmit` and closes;
- * `Escape` closes without sending.
+ * Single-line `<input>` mounted into the chat HUD's input slot so it
+ * always sits directly below the message list (task 010 — the slot
+ * reserves its own space, so focusing the field never shifts messages).
+ * Hidden by default; the bootstrap-level `Enter` keybinding calls
+ * `open()`, which reveals the field, attaches an input gate so movement
+ * / hotbar / place keys don't fire while typing, and focuses the input.
+ * Inside the field, `Enter` ships the trimmed body via `onSubmit` and
+ * closes; `Escape` closes without sending.
  *
  * Per task 090 the client does NOT render locally — the server is the
  * source of truth and bounces the line back through `ChatMessage`. This
  * module therefore only sends; rendering still flows through `chat_hud`.
- *
- * `onOpenChange` is the seam for shifting the chat HUD up while the
- * input is visible so the lowest chat line lifts above the field.
  */
 
 import { attachInputGate, type InputGateHandle } from "./input_gate.js";
@@ -29,15 +28,15 @@ const INPUT_ID = "anarchy-chat-input-field";
  */
 export const CHAT_INPUT_MAX_LEN = 256;
 
+// `visibility: hidden` keeps the element's box in the layout so the
+// chat HUD reserves the same vertical space whether or not the input
+// is open — that is the task-010 no-shift invariant.
 const STYLE = `
   #${ROOT_ID} {
-    position: fixed;
-    left: 12px;
-    bottom: 12px;
-    z-index: 8500;
+    pointer-events: auto;
     font-family: system-ui, -apple-system, sans-serif;
   }
-  #${ROOT_ID}.hidden { display: none; }
+  #${ROOT_ID}.hidden { visibility: hidden; pointer-events: none; }
   #${ROOT_ID} input {
     width: 360px;
     max-width: 50vw;
@@ -49,6 +48,7 @@ const STYLE = `
     font-size: 13px;
     font-family: inherit;
     outline: none;
+    box-sizing: border-box;
   }
   #${ROOT_ID} input:focus {
     border-color: rgba(255, 255, 255, 0.42);
@@ -59,13 +59,19 @@ export interface ChatInputOptions {
   /** Called when the user submits a non-empty trimmed body. */
   onSubmit: (body: string) => void;
   /**
-   * Fired whenever the input toggles between open and closed. The
-   * bootstrap wires this to `chatHud.setShifted` so the overlay lifts
-   * up while the field is visible.
+   * Fired whenever the input toggles between open and closed. Optional
+   * hook for bootstrap-level effects (e.g. focus tracking); the chat
+   * HUD layout is invariant under open/close so it does not need this.
    */
   onOpenChange?: (open: boolean) => void;
   /** Override the soft length cap (default [`CHAT_INPUT_MAX_LEN`]). */
   maxLength?: number;
+  /**
+   * Parent element to mount into. Defaults to `document.body` (used by
+   * tests). In the live UI the bootstrap passes the chat HUD's input
+   * host so the field shares the HUD's bottom-anchored stack.
+   */
+  host?: HTMLElement;
 }
 
 export interface ChatInputHandle {
@@ -102,7 +108,7 @@ export function mountChatInput(opts: ChatInputOptions): ChatInputHandle {
   input.spellcheck = false;
   root.appendChild(input);
 
-  document.body.appendChild(root);
+  (opts.host ?? document.body).appendChild(root);
 
   let gate: InputGateHandle | null = null;
   let openFlag = false;

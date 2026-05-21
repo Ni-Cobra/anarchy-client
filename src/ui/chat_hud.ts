@@ -8,6 +8,13 @@
  * revisit fade). No scrollback — the overlay caps the visible row count
  * and trims oldest as new ones arrive.
  *
+ * The root is a bottom-anchored flex column with two children: the
+ * message list, then an empty input slot exposed via
+ * [`ChatHudHandle.inputHost`]. `chat_input` mounts into that slot so the
+ * typing field always sits directly below the last message, sharing the
+ * same bottom anchor — focusing it never shifts the message stack
+ * (task 010).
+ *
  * Network-free; pure DOM. The wire bridge calls [`ChatHudHandle.append`]
  * for every `ChatMessage` envelope it sees.
  */
@@ -15,6 +22,7 @@
 const STYLE_ID = "anarchy-chat-hud-style";
 const ROOT_ID = "anarchy-chat-root";
 const LIST_ID = "anarchy-chat-list";
+const INPUT_HOST_ID = "anarchy-chat-input-host";
 
 /** Maximum lines kept in the DOM. Older lines are trimmed off the top. */
 export const CHAT_HUD_MAX_LINES = 50;
@@ -26,17 +34,10 @@ export const CHAT_HUD_MAX_LINES = 50;
 export const CHAT_HUD_ADMIN_COLOR = "#ffb347";
 
 /**
- * Bottom offset (px) added to the chat overlay while the task-090 chat
- * input is open, so the active line lifts above the input field instead
- * of being covered by it.
- */
-export const CHAT_HUD_INPUT_SHIFT_PX = 36;
-
-/**
- * Bottom offset (px) for the chat overlay baseline. Sized so the
- * lowest chat row clears the bottom-center hotbar (anchored at
- * `bottom: 16px`, ~60px tall) with comfortable headroom on a typical
- * 1440×900 viewport.
+ * Bottom offset (px) for the chat overlay baseline. Sized so the input
+ * field (last child of the root column) clears the bottom-center hotbar
+ * (anchored at `bottom: 16px`, ~60px tall) with comfortable headroom on
+ * a typical 1440×900 viewport.
  */
 const CHAT_HUD_BOTTOM_PX = 90;
 
@@ -52,8 +53,11 @@ const STYLE = `
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
     max-width: 45vw;
     user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
-  #${ROOT_ID}.shifted { bottom: ${CHAT_HUD_BOTTOM_PX + CHAT_HUD_INPUT_SHIFT_PX}px; }
   #${ROOT_ID}.hidden { display: none; }
   #${LIST_ID} {
     list-style: none;
@@ -94,11 +98,11 @@ export interface ChatHudHandle {
   /** Test affordance: current line count. */
   size(): number;
   /**
-   * Task 090: bump the overlay's bottom anchor up by
-   * [`CHAT_HUD_INPUT_SHIFT_PX`] while the chat input is open so the
-   * lowest line clears the input field. Idempotent.
+   * Slot directly below the message list where `chat_input` mounts its
+   * field. Stable across the HUD's lifetime — the input always sits
+   * here so focusing it does not displace any messages.
    */
-  setShifted(shifted: boolean): void;
+  inputHost(): HTMLElement;
   unmount(): void;
 }
 
@@ -120,6 +124,10 @@ export function mountChatHud(): ChatHudHandle {
   const list = document.createElement("ul");
   list.id = LIST_ID;
   root.appendChild(list);
+
+  const inputHost = document.createElement("div");
+  inputHost.id = INPUT_HOST_ID;
+  root.appendChild(inputHost);
 
   document.body.appendChild(root);
 
@@ -151,9 +159,7 @@ export function mountChatHud(): ChatHudHandle {
   return {
     append,
     size: () => list.children.length,
-    setShifted: (shifted: boolean): void => {
-      root.classList.toggle("shifted", shifted);
-    },
+    inputHost: () => inputHost,
     unmount: () => {
       root.remove();
     },

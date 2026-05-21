@@ -841,7 +841,7 @@ export function constructSession(deps: SessionDeps): Session {
   chatHud = mountChatHud();
   chatInput = mountChatInput({
     onSubmit: (body) => sendChat(body),
-    onOpenChange: (open) => chatHud.setShifted(open),
+    host: chatHud.inputHost(),
   });
   const leaderboardHud = mountLeaderboardHud({ store: leaderboardStore });
   const coordsHud = mountCoordsHud();

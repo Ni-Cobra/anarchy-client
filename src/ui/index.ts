@@ -84,7 +84,6 @@ export type { XpLabelHandle } from "./xp_label.js";
 export {
   mountChatHud,
   CHAT_HUD_ADMIN_COLOR,
-  CHAT_HUD_INPUT_SHIFT_PX,
   CHAT_HUD_MAX_LINES,
 } from "./chat_hud.js";
 export type { ChatHudHandle, ChatLine } from "./chat_hud.js";

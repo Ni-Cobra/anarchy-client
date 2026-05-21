@@ -97,6 +97,20 @@ describe("mountChatHud", () => {
     // The first 5 lines should have been trimmed; the new first is line-5.
     expect(first.textContent).toContain("line-5");
   });
+
+  it("exposes an input host slot positioned directly below the message list (task 010)", () => {
+    handle = mountChatHud();
+    const root = document.getElementById("anarchy-chat-root");
+    const list = document.getElementById("anarchy-chat-list");
+    const host = handle.inputHost();
+    expect(root).not.toBeNull();
+    expect(host.parentElement).toBe(root);
+    // The list must come first; the input host slot follows it so a
+    // mounted input renders directly below the messages.
+    const children = Array.from(root!.children);
+    expect(children[0]).toBe(list);
+    expect(children[1]).toBe(host);
+  });
 });
 
 function hexToRgb(hex: string): string {
