@@ -97,6 +97,29 @@ describe("showHelpDialog", () => {
     window.removeEventListener("keydown", onWindow);
   });
 
+  it("right-click inside the dialog has its default prevented (task 210)", () => {
+    open();
+    const r = root()!;
+    const ev = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    r.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("contextmenu guard is detached on close (task 210)", () => {
+    const h = open();
+    const r = root()!;
+    h.close();
+    const ev = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    r.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
   it("close() is idempotent — repeated calls don't re-fire onClose", () => {
     const onClose = vi.fn();
     const h = open(onClose);

@@ -17,6 +17,7 @@
  */
 
 import { attachInputGate } from "./input_gate.js";
+import { attachModalContextMenuGuard } from "./modal_contextmenu.js";
 
 const STYLE_ID = "anarchy-register-modal-style";
 
@@ -230,11 +231,13 @@ export function showRegisterModal(
   // (typing WASD / digits / KeyE into the password fields used to drive
   // the game underneath).
   const gate = attachInputGate(root);
+  const ctxGuard = attachModalContextMenuGuard(root);
 
   function close(): void {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onEscape, true);
+    ctxGuard.detach();
     gate.detach();
     root.remove();
   }

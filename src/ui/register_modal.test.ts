@@ -103,6 +103,30 @@ describe("register modal (ADR 0007)", () => {
     expect(document.getElementById("anarchy-register-modal-root")).toBeNull();
   });
 
+  it("right-click inside the modal has its default prevented (task 210)", () => {
+    showRegisterModal({ username: "X", onSubmit: () => {} });
+    const r = root();
+    const ev = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    r.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("contextmenu guard is detached on close (task 210)", () => {
+    showRegisterModal({ username: "X", onSubmit: () => {} });
+    const r = root();
+    const cancel = r.querySelector<HTMLButtonElement>("#anarchy-register-cancel")!;
+    cancel.click();
+    const ev = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    r.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
   it("cancel fires onCancel and removes the modal", () => {
     let cancelled = false;
     showRegisterModal({

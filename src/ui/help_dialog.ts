@@ -23,6 +23,7 @@
  */
 
 import { attachInputGate } from "./input_gate.js";
+import { attachModalContextMenuGuard } from "./modal_contextmenu.js";
 
 const STYLE_ID = "anarchy-help-dialog-style";
 const ROOT_ID = "anarchy-help-dialog-root";
@@ -219,11 +220,13 @@ export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandl
 
   let closed = false;
   const gate = attachInputGate(root);
+  const ctxGuard = attachModalContextMenuGuard(root);
 
   const close = (): void => {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onEscape, true);
+    ctxGuard.detach();
     gate.detach();
     root.remove();
     options.onClose?.();
