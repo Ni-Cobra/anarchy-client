@@ -52,6 +52,13 @@ export class InputController {
   // an idle controller from emitting a redundant first frame.
   private lastSent: { dx: number; dy: number } = { dx: 0, dy: 0 };
   private heartbeatCounter = 0;
+  // True iff the previous flush was suppressed by the move-intent gate. The
+  // first flush after the gate releases force-sends the current intent even
+  // when it equals `lastSent`, because during suppression the server's stored
+  // intent was frozen at whatever it was at charge start — releasing all
+  // movement keys mid-charge would otherwise leave the server with a stale
+  // non-zero intent and the player drifting once Cooldown begins (task 050).
+  private suppressedLastFlush = false;
 
   constructor(
     private readonly sink: InputSink,
@@ -114,15 +121,18 @@ export class InputController {
     if (this.moveGate?.isLocalCharging() ?? false) {
       this.lastSent = { dx: 0, dy: 0 };
       this.heartbeatCounter = 0;
+      this.suppressedLastFlush = true;
       return;
     }
+    const exitingSuppression = this.suppressedLastFlush;
+    this.suppressedLastFlush = false;
     const changed = this.lastSent.dx !== intent.dx || this.lastSent.dy !== intent.dy;
     const moving = intent.dx !== 0 || intent.dy !== 0;
 
     this.heartbeatCounter += 1;
     const heartbeatDue = moving && this.heartbeatCounter >= INPUT_HEARTBEAT_TICKS;
 
-    if (changed || heartbeatDue) {
+    if (changed || heartbeatDue || exitingSuppression) {
       this.sink.sendMoveIntent(intent.dx, intent.dy);
       this.lastSent = intent;
       this.heartbeatCounter = 0;
@@ -161,5 +171,6 @@ export class InputController {
     this.held.clear();
     this.lastSent = { dx: 0, dy: 0 };
     this.heartbeatCounter = 0;
+    this.suppressedLastFlush = false;
   }
 }

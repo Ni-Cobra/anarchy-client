@@ -294,5 +294,48 @@ describe("InputController", () => {
 
       stop();
     });
+
+    it("ships a zero intent on suppression release when keys released mid-charge (task 050)", () => {
+      // Repro for the post-attack drift bug: user holds W, clicks attack
+      // (gate arms), releases W mid-charge, gate disarms. Without the
+      // explicit suppression-release resync the controller would see
+      // computed (0, 0) == lastSent (0, 0) and elide the send — leaving
+      // the server's pre-charge intent (0, 1) intact and drifting the
+      // player northward once Cooldown begins.
+      const { sent, sink } = makeSink();
+      let charging = false;
+      const gate: MoveIntentGate = { isLocalCharging: () => charging };
+      const ctrl = new InputController(sink, 50, gate);
+      const stop = ctrl.start(target);
+
+      dispatchKey(target, "keydown", { code: "KeyW" });
+      vi.advanceTimersByTime(50);
+      expect(sent).toEqual([{ dx: 0, dy: 1 }]);
+
+      // Charge starts — gate suppresses.
+      charging = true;
+      vi.advanceTimersByTime(50 * 5);
+      // Player releases W mid-charge. Suppression still active so no send.
+      dispatchKey(target, "keyup", { code: "KeyW" });
+      vi.advanceTimersByTime(50 * 5);
+      expect(sent).toEqual([{ dx: 0, dy: 1 }]);
+
+      // Lock releases. The first post-suppression flush must ship the
+      // current (zero) intent so the server clears its stale non-zero
+      // intent rather than ramping the player northward in Cooldown.
+      charging = false;
+      vi.advanceTimersByTime(50);
+      expect(sent).toEqual([
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: 0 },
+      ]);
+
+      // Subsequent idle flushes don't keep re-sending zero — the resync
+      // is one-shot at the suppression-release boundary.
+      vi.advanceTimersByTime(50 * 20);
+      expect(sent).toHaveLength(2);
+
+      stop();
+    });
   });
 });
