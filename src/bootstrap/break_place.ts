@@ -33,7 +33,7 @@ import { BlockType, CHUNK_SIZE, type Inventory, ItemId, type World } from "../ga
 import { type Renderer } from "../render/index.js";
 import { BLOCK_REGISTRY } from "../textures.js";
 import { ToolTier, toolTierDisplayName } from "../tool_tier.js";
-import { createMiningHint } from "./mining_hint.js";
+import { createCursorHint } from "./cursor_hint.js";
 
 const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
@@ -210,7 +210,7 @@ export function attachBreakAndPlace(
     | null = null;
   let breakHeartbeat: ReturnType<typeof setInterval> | null = null;
 
-  const miningHint = createMiningHint();
+  const cursorHint = createCursorHint(target);
 
   // Task 200c: bandwidth-saver local cooldown gate. Suppresses repeat
   // `FireBlowgunIntent` sends inside the same ~1 s cooldown window the
@@ -389,20 +389,24 @@ export function attachBreakAndPlace(
     };
   }
 
-  /** Surface the tier-gate hint for `kind`, or hide it when `kind` is null. */
+  /** Surface the tier-gate hint for `kind`, or hide it when `kind` is null.
+   *  Drives the sticky channel of `cursor_hint` — transient messages
+   *  (e.g. task 030's "Attack on cooldown") paint on top and the sticky
+   *  text resumes when they expire. */
   function applyHint(kind: BlockType | null): void {
     if (kind === null) {
-      miningHint.hide();
+      cursorHint.hide("sticky");
       return;
     }
     const meta = BLOCK_REGISTRY[kind];
     const min = meta?.minToolTier ?? null;
     if (min === null) {
-      miningHint.hide();
+      cursorHint.hide("sticky");
       return;
     }
-    miningHint.show(
+    cursorHint.show(
       `${meta.displayName} requires ${toolTierDisplayName(min)}+ Pickaxe`,
+      { channel: "sticky" },
     );
   }
 
@@ -644,6 +648,6 @@ export function attachBreakAndPlace(
     // Task 360: detach during an active hold ships the release so the
     // server doesn't strand a stale interact intent.
     releaseFlagInteract();
-    miningHint.unmount();
+    cursorHint.unmount();
   };
 }
