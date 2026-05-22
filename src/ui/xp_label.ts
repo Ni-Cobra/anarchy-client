@@ -37,9 +37,10 @@ const HOTBAR_WIDTH_PX = 476;
  * Bottom offset of the label above the hotbar. The HP bar sits at
  * `bottom: 86px`; the XP label perches a few px above it so the right
  * edge of the hotbar carries the XP digit cleanly without overlapping
- * the HP bar's numeric overlay.
+ * the HP bar's numeric overlay. Exported because `help_button.ts`
+ * anchors the in-game "How to play" pill relative to this constant.
  */
-const BOTTOM_OFFSET_PX = 104;
+export const BOTTOM_OFFSET_PX = 104;
 
 const STYLE = `
   #${ROOT_ID} {

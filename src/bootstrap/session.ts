@@ -64,6 +64,7 @@ import {
   mountCooldownRing,
   mountCraftingUi,
   mountDeathOverlay,
+  mountHowToPlayButton,
   mountHpBar,
   mountInventoryUi,
   mountLeaderboardHud,
@@ -847,6 +848,10 @@ export function constructSession(deps: SessionDeps): Session {
   const coordsHud = mountCoordsHud();
   const hpBar = mountHpBar();
   const xpLabel = mountXpLabel();
+  // Task 050: replace the corner `?` with a labeled "How to play" pill
+  // centered above the XP bar while in-game. The corner is restored on
+  // session teardown (back to lobby).
+  const howToPlayButton = mountHowToPlayButton();
   deathOverlay = mountDeathOverlay();
   // Task 140 cooldown affordance — driven from the same rAF loop. The
   // renderer captures the latest strike timestamp; the ring reads it and
@@ -916,6 +921,7 @@ export function constructSession(deps: SessionDeps): Session {
     coordsHud.unmount();
     hpBar.unmount();
     xpLabel.unmount();
+    howToPlayButton.unmount();
     swordCooldownRing.unmount();
     blowgunCooldownRing?.unmount();
     deathOverlay.unmount();
