@@ -180,5 +180,7 @@ export function lobbyRejectMessage(reason: LobbyRejectReason): string {
       return "This username is registered. Switch to Returning player and enter the password.";
     case "server-full":
       return "Server is full. Try again in a moment.";
+    case "already-connected-from-ip":
+      return "Another tab from this network is already in the world.";
   }
 }

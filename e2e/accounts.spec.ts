@@ -69,6 +69,11 @@ function spawnServer(): RunningServer {
       WORLD_NAME,
       "--port",
       String(TEST_PORT),
+      // Task 010: disable the one-session-per-peer-IP gate so the spec's
+      // sequence of "admit → disconnect → admit again" from 127.0.0.1
+      // can't be tripped by a slow unregister landing after the next
+      // admission.
+      "--permissive",
     ],
     {
       cwd: SERVER_DIR,

@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { showLobby } from "./lobby.js";
+import { lobbyRejectMessage, showLobby } from "./lobby.js";
 
 describe("lobby form (ADR 0007)", () => {
   afterEach(() => {
@@ -134,5 +134,37 @@ describe("lobby form (ADR 0007)", () => {
     const tabNew = root.querySelector<HTMLButtonElement>("#anarchy-tab-new")!;
     tabNew.click();
     expect(password.value).toBe("");
+  });
+});
+
+describe("lobbyRejectMessage", () => {
+  // Task 010 — multi-login prevention: pin the user-visible message the
+  // lobby renders when the server rejects a second concurrent in-world
+  // session from the same peer IP. The string itself is the contract —
+  // the lobby's `rejectMessage` overlay tests rely on it.
+  it("renders a network-specific message for the multi-login reject", () => {
+    expect(lobbyRejectMessage("already-connected-from-ip")).toBe(
+      "Another tab from this network is already in the world.",
+    );
+  });
+
+  // Switch-coverage guard: every wire reject reason must return a
+  // non-empty string. TypeScript's exhaustiveness checking on `switch`
+  // catches a missing case at compile time, but this test makes the
+  // failure mode legible if the type union and the switch ever drift.
+  it("returns a non-empty string for every wire reject reason", () => {
+    const reasons = [
+      "reconnect-live-session",
+      "reconnect-no-record",
+      "password-required",
+      "password-incorrect",
+      "username-taken-by-registration",
+      "server-full",
+      "already-connected-from-ip",
+    ] as const;
+    for (const r of reasons) {
+      const msg = lobbyRejectMessage(r);
+      expect(msg, `missing message for ${r}`).toBeTruthy();
+    }
   });
 });

@@ -172,6 +172,12 @@ message LobbyReject {
     // surfaces this as a "server full" message in the lobby. Reconnect
     // attempts count against the same cap.
     LOBBY_REJECT_REASON_SERVER_FULL = 6;
+    // Task 010 — another live session is already in the world from the
+    // same source IP. The server enforces a single in-world session per
+    // peer IP unless launched with `--permissive`; this variant is what
+    // the second concurrent connection from a given IP receives. The
+    // pre-existing session is untouched.
+    LOBBY_REJECT_REASON_ALREADY_CONNECTED_FROM_IP = 7;
   }
   Reason reason = 1;
 }

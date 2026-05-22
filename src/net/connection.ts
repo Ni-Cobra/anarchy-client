@@ -45,7 +45,8 @@ export type LobbyRejectReason =
   | "password-required"
   | "password-incorrect"
   | "username-taken-by-registration"
-  | "server-full";
+  | "server-full"
+  | "already-connected-from-ip";
 
 /**
  * Lifecycle hooks for the lobby UI. `onLobbyReject` fires when the server
@@ -236,6 +237,8 @@ function lobbyRejectReasonFromWire(
       return "username-taken-by-registration";
     case anarchy.v1.LobbyReject.Reason.LOBBY_REJECT_REASON_SERVER_FULL:
       return "server-full";
+    case anarchy.v1.LobbyReject.Reason.LOBBY_REJECT_REASON_ALREADY_CONNECTED_FROM_IP:
+      return "already-connected-from-ip";
     default:
       return null;
   }

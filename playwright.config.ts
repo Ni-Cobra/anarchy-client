@@ -31,7 +31,13 @@ export default defineConfig({
       // give-item, set-block) becomes reachable. The `globalSetup` wipe is
       // kept as belt-and-suspenders defense for the case where this flag
       // gets dropped.
-      command: "cargo run --manifest-path ../anarchy-server/Cargo.toml -- --world e2e --testing --test-clear-spawn-region",
+      // `--permissive` disables the task-010 one-session-per-peer-IP gate.
+      // Every Playwright spec opens multiple browser tabs / contexts against
+      // 127.0.0.1, so without this flag the multi-tab specs would start
+      // rejecting the second admission with `AlreadyConnectedFromIp`. The
+      // production default keeps the gate on; operators (and the e2e harness)
+      // opt out explicitly.
+      command: "cargo run --manifest-path ../anarchy-server/Cargo.toml -- --world e2e --testing --test-clear-spawn-region --permissive",
       url: `${SERVER_URL}/hello`,
       reuseExistingServer: false,
       timeout: 120_000,
