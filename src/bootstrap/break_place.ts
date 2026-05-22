@@ -33,7 +33,13 @@ import { BlockType, CHUNK_SIZE, type Inventory, ItemId, type World } from "../ga
 import { type Renderer } from "../render/index.js";
 import { BLOCK_REGISTRY } from "../textures.js";
 import { ToolTier, toolTierDisplayName } from "../tool_tier.js";
+import { ATTACK_COOLDOWN_DURATION_MS } from "../ui/sword_cooldown_ring.js";
 import { createCursorHint } from "./cursor_hint.js";
+
+/** Task 030: how long the "Attack on cooldown" transient chip stays
+ *  visible before fading. Clamped at show-time to the remaining cooldown
+ *  so the chip doesn't outlive the condition it explains. */
+const ATTACK_COOLDOWN_HINT_FADE_MS = 1000;
 
 const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
@@ -107,6 +113,19 @@ export interface BreakPlaceDeps {
     targetKind: "player" | "entity",
     targetId: number,
   ) => { x: number; y: number } | null;
+  /**
+   * Task 030: wall-clock ms at which the local player's most recent
+   * strike fired, or `null` if they haven't struck this session. Sourced
+   * from the same renderer mirror the sword-slot cooldown ring reads.
+   * When present, an attack click on a target inside `ATTACK_RANGE_TILES`
+   * is gated against this — if a cooldown is still ticking, the click
+   * surfaces a transient "Attack on cooldown" hint instead of shipping
+   * the intent. The send still has to happen for legitimate (off-
+   * cooldown) attacks; the server remains authoritative for everything
+   * else. Optional — tests that don't exercise the cooldown UX leave it
+   * absent and every in-range attack click ships unconditionally.
+   */
+  readonly getLocalStrikeStartedMs?: () => number | null;
   /**
    * Task 200c: ship a `FireBlowgunIntent` at `(kind, id)`. Optional —
    * tests that don't exercise the blowgun leave it absent and right-
@@ -516,6 +535,27 @@ export function attachBreakAndPlace(
             const dx = pos.x - me.x;
             const dy = pos.y - me.y;
             if (dx * dx + dy * dy <= ATTACK_RANGE_TILES_SQ) {
+              // Task 030: local cooldown gate. If the sword is still on
+              // cooldown the click never reaches the server (server would
+              // silently reject it, which the user reads as a lag bug).
+              // Surface a transient cursor-anchored chip instead. The
+              // fade caps at `min(1 s, remaining cooldown)` so the chip
+              // hides the moment the player can actually swing again.
+              const strikeMs = deps.getLocalStrikeStartedMs?.() ?? null;
+              if (strikeMs !== null) {
+                const elapsed = nowMs() - strikeMs;
+                if (elapsed >= 0 && elapsed < ATTACK_COOLDOWN_DURATION_MS) {
+                  const remaining = ATTACK_COOLDOWN_DURATION_MS - elapsed;
+                  cursorHint.show("Attack on cooldown", {
+                    channel: "transient",
+                    durationMs: Math.min(
+                      ATTACK_COOLDOWN_HINT_FADE_MS,
+                      remaining,
+                    ),
+                  });
+                  return;
+                }
+              }
               deps.sendAttackIntent(target.kind, target.id);
               return;
             }

@@ -968,3 +968,211 @@ describe("attachBreakAndPlace — task 170 drain-to-destroy fall-through", () =>
     expect(sendPlace).toHaveBeenCalledWith(0, 0, 1, 0);
   });
 });
+
+// Task 030: the local attack-cooldown gate. A left-click on an in-range
+// attack target while the local sword is still cooling down must NOT
+// ship `AttackIntent` (the server would silently reject it). Instead the
+// cursor-anchored hint surfaces "Attack on cooldown" for ~1 s.
+describe("attachBreakAndPlace — task 030 attack cooldown hint", () => {
+  let detach: (() => void) | null = null;
+
+  const HINT_HOST_ID = "anarchy-cursor-hint";
+
+  // Server cooldown window — mirrored from `ui/sword_cooldown_ring.ts`.
+  const ATTACK_COOLDOWN_MS = 5000;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 600, configurable: true });
+  });
+
+  afterEach(() => {
+    if (detach) detach();
+    detach = null;
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  function buildCooldownDeps(opts: {
+    sendAttackIntent: BreakPlaceDeps["sendAttackIntent"];
+    getLocalStrikeStartedMs: () => number | null;
+    nowMs: () => number;
+  }): BreakPlaceDeps {
+    const { renderer } = buildRenderer(null, { kind: "player", id: 99 });
+    return {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => new Inventory(),
+      sendBreakIntent: vi.fn(),
+      sendPlaceBlock: vi.fn(),
+      sendAttackIntent: opts.sendAttackIntent,
+      // In-range player target (2 tiles east, well inside ATTACK_RANGE_TILES = 6).
+      getAttackTargetPosition: () => ({ x: 2.5, y: 0.5 }),
+      getLocalStrikeStartedMs: opts.getLocalStrikeStartedMs,
+      nowMs: opts.nowMs,
+    };
+  }
+
+  it("suppresses AttackIntent and surfaces the transient hint while on cooldown", () => {
+    const sendAttackIntent = vi.fn();
+    // strikeMs = 0, now = 100 → 100 ms into the 5 s window.
+    detach = attachBreakAndPlace(
+      window,
+      buildCooldownDeps({
+        sendAttackIntent,
+        getLocalStrikeStartedMs: () => 0,
+        nowMs: () => 100,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).not.toHaveBeenCalled();
+    const chip = document.getElementById(HINT_HOST_ID);
+    expect(chip).not.toBeNull();
+    expect(chip!.textContent).toBe("Attack on cooldown");
+    expect(chip!.style.display).toBe("block");
+  });
+
+  it("ships AttackIntent once the cooldown has elapsed", () => {
+    const sendAttackIntent = vi.fn();
+    // Cooldown started at 0, now = ATTACK_COOLDOWN_MS → just past the window.
+    detach = attachBreakAndPlace(
+      window,
+      buildCooldownDeps({
+        sendAttackIntent,
+        getLocalStrikeStartedMs: () => 0,
+        nowMs: () => ATTACK_COOLDOWN_MS,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).toHaveBeenCalledTimes(1);
+    expect(sendAttackIntent).toHaveBeenCalledWith("player", 99);
+    // The hint stays absent for an allowed click — no host should have
+    // been created.
+    expect(document.getElementById(HINT_HOST_ID)).toBeNull();
+  });
+
+  it("ships AttackIntent when the local player has never struck (null strike)", () => {
+    const sendAttackIntent = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildCooldownDeps({
+        sendAttackIntent,
+        getLocalStrikeStartedMs: () => null,
+        nowMs: () => 5_000_000,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).toHaveBeenCalledTimes(1);
+    expect(sendAttackIntent).toHaveBeenCalledWith("player", 99);
+    expect(document.getElementById(HINT_HOST_ID)).toBeNull();
+  });
+
+  it("re-showing on a spammed click refreshes the chip (single instance, latest text wins)", () => {
+    const sendAttackIntent = vi.fn();
+    let now = 200;
+    detach = attachBreakAndPlace(
+      window,
+      buildCooldownDeps({
+        sendAttackIntent,
+        getLocalStrikeStartedMs: () => 0,
+        nowMs: () => now,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    expect(document.getElementById(HINT_HOST_ID)?.textContent).toBe(
+      "Attack on cooldown",
+    );
+
+    now = 400;
+    fireMouseDown(0, 400, 300);
+    // Still exactly one host element under the same id; text unchanged.
+    expect(document.querySelectorAll(`#${HINT_HOST_ID}`).length).toBe(1);
+    expect(document.getElementById(HINT_HOST_ID)?.textContent).toBe(
+      "Attack on cooldown",
+    );
+    // No `AttackIntent` shipped across either click — both were inside
+    // the cooldown window.
+    expect(sendAttackIntent).not.toHaveBeenCalled();
+  });
+
+  it("the hint auto-fades after ~1 s and stays hidden once cooldown elapses", () => {
+    vi.useFakeTimers();
+    const sendAttackIntent = vi.fn();
+    // Strike at t=0, now=100 ⇒ 4.9 s of cooldown remaining ⇒ fade caps at 1 s.
+    detach = attachBreakAndPlace(
+      window,
+      buildCooldownDeps({
+        sendAttackIntent,
+        getLocalStrikeStartedMs: () => 0,
+        nowMs: () => 100,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("block");
+
+    vi.advanceTimersByTime(999);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("block");
+    vi.advanceTimersByTime(1);
+    // Fade fires; chip hides.
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("none");
+  });
+
+  it("fade is clamped to remaining cooldown when less than 1 s is left", () => {
+    vi.useFakeTimers();
+    const sendAttackIntent = vi.fn();
+    // Strike at t=0, now = ATTACK_COOLDOWN_MS - 250 ⇒ 250 ms remaining.
+    // Fade should cap at 250 ms, not 1000 ms — the chip must not outlive
+    // the cooldown it explains.
+    detach = attachBreakAndPlace(
+      window,
+      buildCooldownDeps({
+        sendAttackIntent,
+        getLocalStrikeStartedMs: () => 0,
+        nowMs: () => ATTACK_COOLDOWN_MS - 250,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("block");
+
+    vi.advanceTimersByTime(249);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("block");
+    vi.advanceTimersByTime(1);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("none");
+  });
+
+  it("legacy callers (no getLocalStrikeStartedMs dep) ship attacks unchanged", () => {
+    // A previously-wired test surface with no cooldown dep should keep
+    // shipping the intent — the gate is purely additive.
+    const sendAttackIntent = vi.fn();
+    const { renderer } = buildRenderer(null, { kind: "player", id: 99 });
+    detach = attachBreakAndPlace(window, {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => new Inventory(),
+      sendBreakIntent: vi.fn(),
+      sendPlaceBlock: vi.fn(),
+      sendAttackIntent,
+      getAttackTargetPosition: () => ({ x: 2.5, y: 0.5 }),
+      // No `getLocalStrikeStartedMs`.
+    });
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendAttackIntent).toHaveBeenCalledTimes(1);
+    expect(sendAttackIntent).toHaveBeenCalledWith("player", 99);
+  });
+});

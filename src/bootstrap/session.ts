@@ -981,6 +981,13 @@ export function constructSession(deps: SessionDeps): Session {
         }
         return null;
       },
+      // Task 030: feed the same wall-clock strike timestamp the sword-
+      // slot cooldown ring reads. break_place uses it to gate attack
+      // clicks against the local cooldown and surface a transient
+      // "Attack on cooldown" hint when the swing would be silently
+      // dropped server-side.
+      getLocalStrikeStartedMs: () =>
+        localPlayerId === null ? null : renderer.getStrikeStartedMs(localPlayerId),
     }),
   );
 
