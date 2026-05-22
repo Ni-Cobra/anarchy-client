@@ -13,11 +13,15 @@ const BADGE_ID = "anarchy-player-list-badge";
 const DROPDOWN_ID = "anarchy-player-list-dropdown";
 
 function rosterOf(
-  entries: Array<[number, string]>,
+  entries: Array<[number, string] | [number, string, boolean]>,
   maxPlayers = 32,
 ): Roster {
   return {
-    entries: entries.map(([playerId, username]) => ({ playerId, username })),
+    entries: entries.map((row) => ({
+      playerId: row[0],
+      username: row[1],
+      registered: row[2] ?? false,
+    })),
     maxPlayers,
   };
 }
@@ -161,6 +165,27 @@ describe("mountPlayerListHud", () => {
     const badge = document.getElementById(BADGE_ID)!;
     expect(badge.textContent).toContain("0 / 0");
     expect(rows()).toEqual([]);
+    hud.unmount();
+  });
+
+  it("renders unregistered players in italic and registered ones normal-style", () => {
+    const store = new RosterStore();
+    store.apply(
+      rosterOf([
+        [1, "Alice", true],
+        [2, "Guesty", false],
+      ]),
+    );
+    const hud = mountPlayerListHud({ store, getLocalPlayerId: () => null });
+
+    const li = rows();
+    const [alice, guesty] = li;
+    expect(alice.textContent).toBe("Alice");
+    expect(guesty.textContent).toBe("Guesty");
+
+    expect(getComputedStyle(guesty).fontStyle).toBe("italic");
+    expect(getComputedStyle(alice).fontStyle).not.toBe("italic");
+
     hud.unmount();
   });
 

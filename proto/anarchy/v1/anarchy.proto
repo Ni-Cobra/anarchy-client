@@ -218,6 +218,11 @@ message ConnectedPlayersList {
   message Entry {
     uint64 player_id = 1;
     string username = 2;
+    // True when the player's username has a row in the per-world
+    // `AccountStore` (i.e. they finished the `RegisterAccount` flow,
+    // here or in a prior session). Drives italic styling on guest
+    // (unregistered) rows in the player-list HUD.
+    bool registered = 3;
   }
   repeated Entry entries = 1;
   // Server-side hard cap (`config::MAX_PLAYERS`) so the client can

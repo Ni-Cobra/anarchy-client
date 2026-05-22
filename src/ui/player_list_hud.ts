@@ -82,6 +82,9 @@ const STYLE = `
     font-weight: 700;
     color: #ffd56a;
   }
+  #${DROPDOWN_ID} li.anarchy-player-list-guest {
+    font-style: italic;
+  }
 `;
 
 export interface PlayerListHudHandle {
@@ -176,6 +179,7 @@ export function mountPlayerListHud(opts: PlayerListHudOptions): PlayerListHudHan
       } else {
         li.textContent = entry.username;
       }
+      if (!entry.registered) li.classList.add("anarchy-player-list-guest");
       list.appendChild(li);
     }
   };

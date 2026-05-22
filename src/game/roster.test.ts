@@ -4,7 +4,11 @@ import { type Roster, RosterStore } from "./roster.js";
 
 function rosterOf(...entries: Array<[number, string]>): Roster {
   return {
-    entries: entries.map(([playerId, username]) => ({ playerId, username })),
+    entries: entries.map(([playerId, username]) => ({
+      playerId,
+      username,
+      registered: false,
+    })),
     maxPlayers: 32,
   };
 }

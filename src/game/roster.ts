@@ -15,6 +15,11 @@ import type { PlayerId } from "./player.js";
 export interface RosterEntry {
   readonly playerId: PlayerId;
   readonly username: string;
+  /** True iff the server's `AccountStore` holds a password row for this
+   *  username — i.e. the player has finished the in-game `RegisterAccount`
+   *  flow (in this session or any prior one). Drives italic styling for
+   *  guest rows in the player-list HUD. */
+  readonly registered: boolean;
 }
 
 export interface Roster {

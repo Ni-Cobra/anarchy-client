@@ -30,6 +30,7 @@ export function rosterFromWire(
   const entries: RosterEntry[] = wireEntries.map((e) => ({
     playerId: toNumber(e.playerId),
     username: e.username ?? "",
+    registered: e.registered ?? false,
   }));
   return { entries, maxPlayers: wire.maxPlayers ?? 0 };
 }
