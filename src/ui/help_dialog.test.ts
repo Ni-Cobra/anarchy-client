@@ -34,6 +34,21 @@ function panel(): HTMLElement {
   return el;
 }
 
+function tabHeaders(): HTMLButtonElement[] {
+  return Array.from(
+    panel().querySelectorAll<HTMLButtonElement>(".anarchy-help-tab-header"),
+  );
+}
+
+function tabPanes(): HTMLElement[] {
+  return Array.from(panel().querySelectorAll<HTMLElement>(".anarchy-help-tab-pane"));
+}
+
+function activePaneId(): string | null {
+  const active = panel().querySelector<HTMLElement>(".anarchy-help-tab-pane.active");
+  return active?.getAttribute("data-tab-id") ?? null;
+}
+
 function fireKeydown(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
   const ev = new KeyboardEvent("keydown", {
     bubbles: true,
@@ -51,18 +66,66 @@ describe("showHelpDialog", () => {
     expect(panel()).toBeTruthy();
   });
 
-  it("renders all five section headings", () => {
-    open();
-    const headings = Array.from(panel().querySelectorAll("h3")).map(
-      (h) => h.textContent ?? "",
-    );
-    expect(headings).toEqual([
-      "Controls",
-      "Crafting",
-      "Equipment",
+  it("renders the four tabs in order with General active by default", () => {
+    const h = open();
+    expect(tabHeaders().map((b) => b.textContent ?? "")).toEqual([
+      "General",
+      "Inventory",
       "Combat",
       "Factions",
     ]);
+    expect(tabPanes().map((p) => p.getAttribute("data-tab-id"))).toEqual([
+      "general",
+      "inventory",
+      "combat",
+      "factions",
+    ]);
+    expect(activePaneId()).toBe("general");
+    expect(h.activeTabIndex()).toBe(0);
+  });
+
+  it("only the active tab's pane is visible at a time", () => {
+    open();
+    const visible = tabPanes().filter((p) => p.classList.contains("active"));
+    expect(visible).toHaveLength(1);
+    expect(visible[0]?.getAttribute("data-tab-id")).toBe("general");
+  });
+
+  it("clicking a tab header switches the active pane", () => {
+    const h = open();
+    tabHeaders()[2]?.click();
+    expect(h.activeTabIndex()).toBe(2);
+    expect(activePaneId()).toBe("combat");
+    expect(tabHeaders()[0]?.classList.contains("active")).toBe(false);
+    expect(tabHeaders()[2]?.classList.contains("active")).toBe(true);
+  });
+
+  it("ArrowRight cycles forward through tabs and wraps to General", () => {
+    const h = open();
+    for (let i = 1; i <= 3; i++) {
+      fireKeydown(document.body, { key: "ArrowRight", code: "ArrowRight" });
+      expect(h.activeTabIndex()).toBe(i);
+    }
+    fireKeydown(document.body, { key: "ArrowRight", code: "ArrowRight" });
+    expect(h.activeTabIndex()).toBe(0);
+    expect(activePaneId()).toBe("general");
+  });
+
+  it("ArrowLeft from General wraps to Factions", () => {
+    const h = open();
+    fireKeydown(document.body, { key: "ArrowLeft", code: "ArrowLeft" });
+    expect(h.activeTabIndex()).toBe(3);
+    expect(activePaneId()).toBe("factions");
+  });
+
+  it("reopening the dialog starts on General even after switching tabs", () => {
+    const first = open();
+    tabHeaders()[3]?.click();
+    expect(first.activeTabIndex()).toBe(3);
+    first.close();
+    const second = open();
+    expect(second.activeTabIndex()).toBe(0);
+    expect(activePaneId()).toBe("general");
   });
 
   it("Escape closes the dialog and fires onClose", () => {
@@ -126,5 +189,14 @@ describe("showHelpDialog", () => {
     h.close();
     h.close();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("arrow-key cycling stops once the dialog is closed", () => {
+    const h = open();
+    h.close();
+    // After close, document-level capture handler is detached; firing
+    // arrow keys should not throw, and the panel is gone.
+    fireKeydown(document.body, { key: "ArrowRight", code: "ArrowRight" });
+    expect(panel.bind(null)).toThrow(); // panel is gone
   });
 });

@@ -1,8 +1,8 @@
 /**
- * In-game help overlay (task 110). Centered modal listing the controls,
- * crafting / equipment flow, combat basics, and the current faction
- * placeholder. Static content — no network, no save state. Opens from the
- * corner `?` button and the `H` / `F1` keybinding wired in [`help_button.ts`].
+ * In-game help overlay. Centered modal with a 4-tab body (General /
+ * Inventory / Combat / Factions). Static content — no network, no save
+ * state. Opens from the corner `?` button and the `H` / `F1` keybinding
+ * wired in [`help_button.ts`].
  *
  * Self-contained DOM + CSS injection like the rest of `src/ui/`. The modal
  * traps input via `attachInputGate` so gameplay keys (WASD, hotbar digits,
@@ -17,9 +17,12 @@
  *
  * Esc and backdrop click both close. Escape uses document-capture so it
  * fires regardless of where focus sits — the gate's bubble-phase stop would
- * otherwise eat any Escape that targeted the body. `onClose` lets the
+ * otherwise eat any Escape that targeted the body. Left/Right arrow keys
+ * (document-capture, ahead of the gate) cycle tabs with wrap-around so the
+ * user can flip through without reaching for the mouse. `onClose` lets the
  * owning module ([`help_button.ts`]) drop its handle reference so re-opens
- * build a fresh modal.
+ * build a fresh modal — re-opens always start on the General tab, the
+ * active index is not persisted.
  */
 
 import { attachInputGate } from "./input_gate.js";
@@ -28,6 +31,8 @@ import { attachModalContextMenuGuard } from "./modal_contextmenu.js";
 const STYLE_ID = "anarchy-help-dialog-style";
 const ROOT_ID = "anarchy-help-dialog-root";
 const PANEL_ID = "anarchy-help-dialog-panel";
+const TAB_HEADER_CLASS = "anarchy-help-tab-header";
+const TAB_PANE_CLASS = "anarchy-help-tab-pane";
 
 const STYLE = `
   #${ROOT_ID} {
@@ -78,6 +83,29 @@ const STYLE = `
     padding: 0;
   }
   #${PANEL_ID} .close:hover { background: rgba(255, 255, 255, 0.08); }
+  #${PANEL_ID} .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  #${PANEL_ID} .${TAB_HEADER_CLASS} {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: #9aa4b0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 12px;
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  #${PANEL_ID} .${TAB_HEADER_CLASS}:hover { color: #d8dde4; }
+  #${PANEL_ID} .${TAB_HEADER_CLASS}.active {
+    color: #f0f0f0;
+    border-bottom-color: #ffb060;
+  }
   #${PANEL_ID} .body {
     overflow-y: auto;
     padding-right: 6px;
@@ -85,13 +113,14 @@ const STYLE = `
     line-height: 1.5;
     color: #d8dde4;
   }
+  #${PANEL_ID} .${TAB_PANE_CLASS} { display: none; }
+  #${PANEL_ID} .${TAB_PANE_CLASS}.active { display: block; }
   #${PANEL_ID} .body h3 {
-    margin: 14px 0 6px 0;
+    margin: 0 0 6px 0;
     font-size: 14px;
     font-weight: 600;
     color: #f0f0f0;
   }
-  #${PANEL_ID} .body h3:first-child { margin-top: 0; }
   #${PANEL_ID} .body p { margin: 4px 0 6px 0; }
   #${PANEL_ID} .body ul {
     margin: 4px 0 8px 0;
@@ -109,8 +138,8 @@ const STYLE = `
     font-size: 12px;
   }
   #${PANEL_ID} .footnote {
-    margin-top: 14px;
-    padding-top: 10px;
+    margin-top: 10px;
+    padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 12px;
     color: #9aa4b0;
@@ -126,63 +155,83 @@ function injectStyle(): void {
   document.head.appendChild(el);
 }
 
-function bodyHtml(): string {
-  return `
-    <h3>Controls</h3>
-    <ul>
-      <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (or arrow keys) — move.</li>
-      <li><kbd>1</kbd>–<kbd>9</kbd> — pick a hotbar slot. Mouse wheel cycles slots.</li>
-      <li><kbd>E</kbd> — open / close the inventory and crafting panels. <kbd>Esc</kbd> also closes them.</li>
-      <li><kbd>Enter</kbd> — open chat. <kbd>Enter</kbd> sends, <kbd>Esc</kbd> cancels.</li>
-      <li><kbd>M</kbd> — toggle wide-angle zoom. <kbd>+</kbd> / <kbd>-</kbd> (or <kbd>Ctrl</kbd>+wheel) nudge zoom.</li>
-      <li>Left-click — break the block under the cursor (hold to keep breaking) or attack a target in range.</li>
-      <li>Right-click — place the held hotbar block, or open a chest.</li>
-      <li><kbd>H</kbd> or <kbd>F1</kbd> — open this help. <kbd>Esc</kbd> closes it.</li>
-    </ul>
-
-    <h3>Crafting</h3>
-    <p>
-      Open the inventory with <kbd>E</kbd>; the crafting panel slides in
-      next to it. Recipes you can afford show in colour — click one to
-      craft. Inputs are consumed from anywhere in your inventory; the
-      output lands in your inventory (tools auto-equip into their slot
-      if the slot is empty).
-    </p>
-
-    <h3>Equipment</h3>
-    <p>
-      The equipment row holds a pickaxe, axe, shovel, sword, and a
-      utility item (lantern or blowgun). The equipped tool decides what
-      a left-click does on the world — pickaxe on stone, axe on wood,
-      shovel on dirt, sword on enemies. Click a tool in your inventory
-      to swap it into the matching slot; click the equipment slot to
-      send the tool back to your inventory.
-    </p>
-
-    <h3>Combat</h3>
-    <p>
-      Left-click an enemy or another player in range to attack with
-      your equipped sword. There is a short cooldown after each swing —
-      the ring around the sword slot shows it ticking down. The
-      blowgun's darts apply a brief slow effect. When your HP hits
-      zero you die, drop your items in a tombstone at your last
-      position, and respawn shortly after.
-    </p>
-
-    <h3>Factions</h3>
-    <p>
-      Craft and place a Flag to create a faction — you'll be asked to
-      name it on placement, and it'll show up on the leaderboard. The
-      flag's tile becomes your claim. Faction features beyond the
-      leaderboard (territory rules, membership, scoring) are still
-      placeholder in this prototype.
-    </p>
-
-    <div class="footnote">
-      This is a prototype — feedback welcome.
-    </div>
-  `;
+interface Tab {
+  readonly id: string;
+  readonly label: string;
+  readonly html: string;
 }
+
+const TABS: readonly Tab[] = [
+  {
+    id: "general",
+    label: "General",
+    html: `
+      <h3>General</h3>
+      <ul>
+        <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (or arrow keys) — move.</li>
+        <li><kbd>1</kbd>–<kbd>9</kbd> — pick a hotbar slot. Mouse wheel cycles.</li>
+        <li>Left-click — break the block under the cursor (hold to keep breaking) or attack a target in range.</li>
+        <li>Right-click — place the held hotbar block, or open a chest / tombstone.</li>
+        <li><kbd>E</kbd> — open / close the inventory. <kbd>Esc</kbd> also closes it.</li>
+        <li><kbd>M</kbd> — toggle wide-angle zoom. <kbd>+</kbd> / <kbd>−</kbd> (or <kbd>Ctrl</kbd>+wheel) nudge zoom.</li>
+        <li><kbd>Enter</kbd> — open chat. <kbd>Enter</kbd> sends, <kbd>Esc</kbd> cancels.</li>
+        <li><kbd>H</kbd> or <kbd>F1</kbd> — open this help.</li>
+      </ul>
+      <p>
+        The equipment row holds a pickaxe, axe, shovel, sword, and a
+        utility slot (lantern or blowgun). The equipped tool decides
+        what left-click does in the world — pickaxe on stone / ores,
+        axe on wood, shovel on dirt, sword on enemies.
+      </p>
+      <p class="footnote">
+        Progress only survives reconnects if you register an account —
+        click <em>Register</em> in the side panel to lock in your name.
+      </p>
+    `,
+  },
+  {
+    id: "inventory",
+    label: "Inventory",
+    html: `
+      <h3>Inventory shortcuts</h3>
+      <ul>
+        <li><strong>Drag a slot onto another</strong> — swap or merge two stacks, across hotbar, main grid, chests, and equipment.</li>
+        <li><strong>Right-click a stack</strong> to arm it as a split source (sticky border). Then <strong>right-click and hold</strong> on another slot to drip items one-by-one — the rate ramps up the longer you hold.</li>
+        <li><strong>Left-click</strong> a tool in your inventory to move it into its equipment slot; click the equipment slot to send it back.</li>
+        <li>You can open several chests at once — drag between any of them.</li>
+        <li>Crafting consumes ingredients pooled across your inventory and every open chest.</li>
+      </ul>
+    `,
+  },
+  {
+    id: "combat",
+    label: "Combat",
+    html: `
+      <h3>Combat</h3>
+      <ul>
+        <li>Left-click an enemy or player within ~6 tiles to attack with the equipped sword. Bare-handed works but hits weaker.</li>
+        <li>A swing has a short charge phase, then resolves. After a strike the sword is locked for 5 s — the ring around the sword slot shows the cooldown ticking down.</li>
+        <li>Your HP bar sits with the player HUD. At zero HP you die, drop your carried items into a tombstone at the death spot, and respawn shortly after. Open the tombstone with right-click to recover the items.</li>
+        <li>Equip the <strong>blowgun</strong> in the utility slot, load <strong>poison darts</strong>, and right-click an enemy (within ~8 tiles) to fire. Darts deal small damage and apply a brief <em>Slow</em> effect.</li>
+      </ul>
+    `,
+  },
+  {
+    id: "factions",
+    label: "Factions",
+    html: `
+      <h3>Factions</h3>
+      <ul>
+        <li>You earn XP by breaking blocks and from PvP kills (a kill transfers the victim's whole XP pool to you).</li>
+        <li>Craft and place a <strong>Flag</strong> to found a faction — you'll name it on placement. The flag's tile is the faction's claim.</li>
+        <li>Stand within ~4 tiles of a claimed flag and <strong>right-click + hold</strong> on it to <em>deposit</em> XP from your pool into that faction.</li>
+        <li>Stand within ~4 tiles of a rival flag and <strong>left-click + hold</strong> on it to <em>steal</em> XP from that faction into your pool.</li>
+        <li>XP transfers at ~10 per second while held, and stops when either pool runs dry or you walk out of range.</li>
+        <li>Faction XP shows on the leaderboard. A faction's flag is unbreakable while its XP is above zero — drain it first to dismantle.</li>
+      </ul>
+    `,
+  },
+];
 
 export interface HelpDialogOptions {
   /** Fired when the dialog has been removed from the DOM, for any reason
@@ -195,10 +244,21 @@ export interface HelpDialogHandle {
   close(): void;
   /** Test affordance: the panel element, or `null` if already closed. */
   panel(): HTMLElement | null;
+  /** Test affordance: index of the currently visible tab (0..TABS.length-1). */
+  activeTabIndex(): number;
 }
 
 export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandle {
   injectStyle();
+
+  const tabsMarkup = TABS.map(
+    (t, i) =>
+      `<button class="${TAB_HEADER_CLASS}${i === 0 ? " active" : ""}" type="button" data-tab-index="${i}" data-tab-id="${t.id}">${t.label}</button>`,
+  ).join("");
+  const panesMarkup = TABS.map(
+    (t, i) =>
+      `<div class="${TAB_PANE_CLASS}${i === 0 ? " active" : ""}" data-tab-id="${t.id}">${t.html}</div>`,
+  ).join("");
 
   const root = document.createElement("div");
   root.id = ROOT_ID;
@@ -208,15 +268,35 @@ export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandl
         <h2>How to play</h2>
         <button class="close" type="button" aria-label="Close help">×</button>
       </div>
-      <div class="body">
-        ${bodyHtml()}
-      </div>
+      <div class="tabs" role="tablist">${tabsMarkup}</div>
+      <div class="body">${panesMarkup}</div>
     </div>
   `;
   document.body.appendChild(root);
 
   const panel = root.querySelector<HTMLElement>(`#${PANEL_ID}`)!;
   const closeBtn = root.querySelector<HTMLButtonElement>(".close")!;
+  const tabHeaders = Array.from(
+    panel.querySelectorAll<HTMLButtonElement>(`.${TAB_HEADER_CLASS}`),
+  );
+  const tabPanes = Array.from(
+    panel.querySelectorAll<HTMLElement>(`.${TAB_PANE_CLASS}`),
+  );
+
+  let activeIndex = 0;
+  const setActive = (next: number): void => {
+    const clamped = ((next % TABS.length) + TABS.length) % TABS.length;
+    if (clamped === activeIndex) return;
+    tabHeaders[activeIndex]?.classList.remove("active");
+    tabPanes[activeIndex]?.classList.remove("active");
+    activeIndex = clamped;
+    tabHeaders[activeIndex]?.classList.add("active");
+    tabPanes[activeIndex]?.classList.add("active");
+  };
+
+  tabHeaders.forEach((header, i) => {
+    header.addEventListener("click", () => setActive(i));
+  });
 
   let closed = false;
   const gate = attachInputGate(root);
@@ -225,19 +305,36 @@ export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandl
   const close = (): void => {
     if (closed) return;
     closed = true;
-    document.removeEventListener("keydown", onEscape, true);
+    document.removeEventListener("keydown", onKeydown, true);
     ctxGuard.detach();
     gate.detach();
     root.remove();
     options.onClose?.();
   };
 
-  const onEscape = (ev: KeyboardEvent): void => {
-    if (ev.code !== "Escape") return;
-    ev.preventDefault();
-    close();
+  // One document-capture handler for Escape (close) and Left/Right (cycle).
+  // Capture so it runs before the input gate's bubble-phase stop, which
+  // would otherwise swallow keys targeting the body. We don't preventDefault
+  // for arrow keys so other modals stacked on top stay free to use them —
+  // only the help dialog is open at this point in practice.
+  const onKeydown = (ev: KeyboardEvent): void => {
+    if (ev.code === "Escape") {
+      ev.preventDefault();
+      close();
+      return;
+    }
+    if (ev.code === "ArrowLeft") {
+      ev.preventDefault();
+      setActive(activeIndex - 1);
+      return;
+    }
+    if (ev.code === "ArrowRight") {
+      ev.preventDefault();
+      setActive(activeIndex + 1);
+      return;
+    }
   };
-  document.addEventListener("keydown", onEscape, true);
+  document.addEventListener("keydown", onKeydown, true);
 
   closeBtn.addEventListener("click", () => close());
   root.addEventListener("click", (ev) => {
@@ -249,5 +346,6 @@ export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandl
   return {
     close,
     panel: () => (closed ? null : panel),
+    activeTabIndex: () => activeIndex,
   };
 }
