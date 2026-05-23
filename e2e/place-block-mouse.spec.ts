@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "./test-shared";
-import { adminPlaceFlag } from "./admin";
+import { adminPlaceFlag, adminTeleport } from "./admin";
 
 // Task 010 regression e2e: drive a *real* right-click through the browser
 // onto an Air tile in reach and verify the server places the held block.
@@ -82,12 +82,19 @@ test("real right-click on an Air tile places the held block", async ({
 }) => {
   test.setTimeout(30_000);
   const self = await openClient(page, "placemouse");
-  // Solo spawn: `--test-clear-spawn-region` ensures the 5×5 chunk box
-  // around origin has an empty top layer, so the spawn finder lands the
-  // player at the tile-center (0.5, 0.5). The target cell (2, 0) is in
-  // reach (~2.06 tiles from the player), and its top layer is Air.
-  expect(self.x).toBe(0.5);
-  expect(self.y).toBe(0.5);
+  // Task 060: spawn lands randomly inside the 32×32 origin rectangle —
+  // teleport to (0.5, 0.5) so the cursor-offset target cell (2, 0) sits
+  // in reach (~2.06 tiles from the player).
+  await adminTeleport(self.id, 0.5, 0.5);
+  await page.waitForFunction(
+    (id) => {
+      const a = window.__anarchy;
+      if (!a) return false;
+      const me = a.world.getPlayer(id);
+      return me !== undefined && Math.abs(me.x - 0.5) < 0.05 && Math.abs(me.y - 0.5) < 0.05;
+    },
+    self.id,
+  );
 
   // Default starter inventory has 10 Gold in slot 0 — placement ships
   // Gold to the cell once the wire round-trip lands.
@@ -120,7 +127,17 @@ test("real right-click on a non-flag, non-chest tile still places (regression: t
   // still ships — this would have caught a `pickFlagTargetAt` returning
   // a truthy result for a non-flag cell.
   test.setTimeout(30_000);
-  await openClient(page, "placemouse2");
+  const self2 = await openClient(page, "placemouse2");
+  await adminTeleport(self2.id, 0.5, 0.5);
+  await page.waitForFunction(
+    (id) => {
+      const a = window.__anarchy;
+      if (!a) return false;
+      const me = a.world.getPlayer(id);
+      return me !== undefined && Math.abs(me.x - 0.5) < 0.05 && Math.abs(me.y - 0.5) < 0.05;
+    },
+    self2.id,
+  );
   const ALT = { lx: 1, ly: 1 } as const;
   const ALT_CENTER = { x: 1.5, y: 1.5 } as const;
   await waitForTopBlockKind(
@@ -152,6 +169,16 @@ test("real right-click on a non-flag tile within FLAG_INTERACT_RANGE_TILES of an
   // (e.g. a renderer pick returning Flag for the wrong cell).
   test.setTimeout(30_000);
   const self = await openClient(page, "placemouseflag");
+  await adminTeleport(self.id, 0.5, 0.5);
+  await page.waitForFunction(
+    (id) => {
+      const a = window.__anarchy;
+      if (!a) return false;
+      const me = a.world.getPlayer(id);
+      return me !== undefined && Math.abs(me.x - 0.5) < 0.05 && Math.abs(me.y - 0.5) < 0.05;
+    },
+    self.id,
+  );
   // Plant a flag in range of the player (player at (0.5, 0.5)).
   // Flag at chunk (0,0) local (3, 0) → tile centre (3.5, 0.5) →
   // distance 3 tiles, inside FLAG_INTERACT_RANGE_TILES (= 4).
@@ -194,7 +221,17 @@ test("real right-click after pressing E to open the inventory side panel still p
   // path — clicking the world canvas while the side panel is mounted
   // should still bubble to the bootstrap-level mousedown handler.
   test.setTimeout(30_000);
-  await openClient(page, "placemouse3");
+  const self3 = await openClient(page, "placemouse3");
+  await adminTeleport(self3.id, 0.5, 0.5);
+  await page.waitForFunction(
+    (id) => {
+      const a = window.__anarchy;
+      if (!a) return false;
+      const me = a.world.getPlayer(id);
+      return me !== undefined && Math.abs(me.x - 0.5) < 0.05 && Math.abs(me.y - 0.5) < 0.05;
+    },
+    self3.id,
+  );
   await waitForTopBlockKind(
     page,
     FLAG_CHUNK.cx,

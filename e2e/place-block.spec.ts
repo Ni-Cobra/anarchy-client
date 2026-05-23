@@ -1,4 +1,5 @@
 import { test, type Page } from "./test-shared";
+import { adminTeleport } from "./admin";
 
 // Browser-driven e2e for the top-layer block placement flow (builder mode).
 // Builder-mode toggling, the gold ghost preview, and the right-click trigger
@@ -90,13 +91,11 @@ test("place: A toggles builder + sends → both clients see gold", async ({
   const a = await ctxA.newPage();
   const b = await ctxB.newPage();
 
-  // Target chunk (0, 0), local (2, 0) — center (2.5, 0.5). With two clients
-  // spawning at origin the player↔player push (circle-circle, radius
-  // PLAYER_RADIUS = 0.35) shoves the lower-id placer A to (-0.35, 0);
-  // reach to the target is √(2.85² + 0.5²) ≈ 2.89 — comfortably in. (Tile
-  // (3, 0) is also in reach now from this slightly-closer post-push spot:
-  // √(3.85² + 0.5²) ≈ 3.88 < 4.0; the 4.0 reach bound is independent of
-  // the hitbox size.)
+  // Target chunk (0, 0), local (2, 0) — center (2.5, 0.5). Task 060
+  // randomizes spawn across the 32×32 origin rectangle; teleport A near
+  // origin so reach to the target (√(2.5² + 0.5²) ≈ 2.55) stays inside
+  // the REACH_BLOCKS = 4 cap regardless of where the spawn finder
+  // initially landed.
   const cx = 0,
     cy = 0,
     lx = 2,
@@ -104,9 +103,10 @@ test("place: A toggles builder + sends → both clients see gold", async ({
 
   try {
     await openClient(a);
-    await waitForSelfSpawn(a);
+    const selfA = await waitForSelfSpawn(a);
     await openClient(b);
     await waitForSelfSpawn(b);
+    await adminTeleport(selfA.id, 0.5, 0.5);
 
     // Cell is Air to start (placeholder worldgen leaves the top empty).
     await waitForTopBlockKind(a, cx, cy, lx, ly, "Air");
@@ -139,7 +139,8 @@ test("place: server silently drops out-of-reach PlaceBlock", async ({
   const b = await ctxB.newPage();
 
   // Tile (10, 0) center (10.5, 0.5) → distance ≈ 10 from origin — way past
-  // REACH_BLOCKS = 4. Server must silently reject.
+  // REACH_BLOCKS = 4. Server must silently reject. Task 060: teleport to
+  // origin so the random spawn pick can't accidentally land near (10, 0).
   const cx = 0,
     cy = 0,
     lx = 10,
@@ -147,9 +148,10 @@ test("place: server silently drops out-of-reach PlaceBlock", async ({
 
   try {
     await openClient(a);
-    await waitForSelfSpawn(a);
+    const selfA = await waitForSelfSpawn(a);
     await openClient(b);
     await waitForSelfSpawn(b);
+    await adminTeleport(selfA.id, 0.5, 0.5);
 
     await waitForTopBlockKind(a, cx, cy, lx, ly, "Air");
     await waitForTopBlockKind(b, cx, cy, lx, ly, "Air");
@@ -179,15 +181,19 @@ test("ghost: visible over a valid cell when held slot is placeable; gone when sl
   try {
     await openClient(a);
     const self = await waitForSelfSpawn(a);
-    // The e2e server starts with `--test-clear-spawn-region` (see
-    // `playwright.config.ts`), so the 5×5 chunk box around origin has an
-    // empty top layer and the spawn finder picks tile-center `(0.5, 0.5)`.
-    // The cursor offsets below assume that anchor.
-    if (self.x !== 0.5 || self.y !== 0.5) {
-      throw new Error(
-        `expected solo spawn at (0.5, 0.5), got (${self.x}, ${self.y})`,
-      );
-    }
+    // Task 060: spawn randomizes across the 32×32 origin rectangle —
+    // teleport to (0.5, 0.5) so the cursor-NDC offsets below land in the
+    // intended chunk.
+    await adminTeleport(self.id, 0.5, 0.5);
+    await a.waitForFunction(
+      (id) => {
+        const aHandle = window.__anarchy;
+        if (!aHandle) return false;
+        const me = aHandle.world.getPlayer(id);
+        return me !== undefined && Math.abs(me.x - 0.5) < 0.05 && Math.abs(me.y - 0.5) < 0.05;
+      },
+      self.id,
+    );
 
     // No cursor → no ghost. Initial state on a fresh `runMain`.
     const initial = await a.evaluate(() =>
@@ -245,11 +251,11 @@ test("place: server silently drops PlaceBlock on a cell occupied by a player", a
   const a = await ctxA.newPage();
   const b = await ctxB.newPage();
 
-  // Both clients spawn at origin; the circle-circle push shoves the
-  // lower-id (A) to (-0.35, 0) and the higher-id (B) to (+0.35, 0). The
-  // cell at world tile (0, 0) ([0,1]×[0,1]) is overlapped by B's circle
-  // (B's center sits exactly on the cell's south edge, distance 0 < r).
-  // Placing into it must be rejected by the server.
+  // Task 060: randomize spawn means we can't rely on the post-push
+  // geometry to land both players on the (0, 0) cell — pin A to the south
+  // edge and B onto the cell explicitly via admin teleport. B's collision
+  // circle (radius PLAYER_RADIUS = 0.35) centered at (0.5, 0.5) strictly
+  // overlaps the cell, so the place attempt must be rejected.
   const cx = 0,
     cy = 0,
     lx = 0,
@@ -257,9 +263,11 @@ test("place: server silently drops PlaceBlock on a cell occupied by a player", a
 
   try {
     await openClient(a);
-    await waitForSelfSpawn(a);
+    const selfA = await waitForSelfSpawn(a);
     await openClient(b);
-    await waitForSelfSpawn(b);
+    const selfB = await waitForSelfSpawn(b);
+    await adminTeleport(selfA.id, -0.35, 0.5);
+    await adminTeleport(selfB.id, 0.5, 0.5);
 
     await waitForTopBlockKind(a, cx, cy, lx, ly, "Air");
 

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "./test-shared";
+import { adminTeleport } from "./admin";
 
 // Browser-driven e2e: load index.html via the dev server, let `src/main.ts`
 // run the real WebSocket + wire + world stack, and assert against the
@@ -40,12 +41,14 @@ test("a fresh client connects, spawns, and sees itself in the world", async ({ p
   await openClient(page);
   const me = await waitForSelfSpawn(page);
   expect(me.id).toBeGreaterThan(0);
-  // The e2e server starts with `--test-clear-spawn-region` so the spawn
-  // finder picks tile-center `(0.5, 0.5)` at radius zero. Production
-  // admission without that flag lands the player on whatever walkable
-  // tile the spawn finder picks; the test variant pins the result.
-  expect(me.x).toBe(0.5);
-  expect(me.y).toBe(0.5);
+  // Task 060: spawn lands on a random walkable tile inside the 32×32 origin
+  // rectangle (`x ∈ [-16, 16)`, `y ∈ [-16, 16)`). With the e2e server's
+  // `--test-clear-spawn-region` flag every tile in that rectangle is
+  // walkable, so any pick inside the rectangle is valid.
+  expect(me.x).toBeGreaterThanOrEqual(-15.5);
+  expect(me.x).toBeLessThan(16);
+  expect(me.y).toBeGreaterThanOrEqual(-15.5);
+  expect(me.y).toBeLessThan(16);
 });
 
 test("two browser clients each see the other in their world", async ({ browser }) => {
@@ -156,11 +159,14 @@ test("clicking Disconnect in the side panel returns to the lobby and a fresh log
 
 test("the coordinates HUD appears and updates when the player moves east", async ({ page }) => {
   await openClient(page);
-  await waitForSelfSpawn(page);
+  const me = await waitForSelfSpawn(page);
+
+  // Task 060: spawn lands randomly inside the 32×32 origin rectangle. Pin
+  // to (0, 0) so the HUD assertion below has a known anchor.
+  await adminTeleport(me.id, 0.5, 0.5);
 
   // The HUD pumps from rAF, so the element appears as soon as the local
-  // player snapshot lands. The test-clear-spawn-region flag pins the
-  // initial tile to (0, 0).
+  // player snapshot lands.
   const hud = page.locator("#anarchy-coords-hud");
   await expect(hud).toHaveCount(1);
   await expect(hud.locator(".anarchy-coords-tile")).toHaveText("0, 0");

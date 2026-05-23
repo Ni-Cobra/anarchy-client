@@ -2,6 +2,7 @@ import { test, expect } from "./test-shared";
 import protobuf from "protobufjs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { adminTeleport } from "./admin";
 
 // Advanced wire-level e2e for the chunk-centric networking model (ADR 0003).
 // The basic per-tick shape is pinned in `tick-loop.spec.ts` / `terrain.spec.ts`
@@ -384,6 +385,24 @@ test("rapid back-and-forth across a chunk boundary keeps player state consistent
   const a = await openSocket();
   const aId = await readWelcomePlayerId(a);
 
+  // Task 060 randomizes spawn across the 32×32 origin rectangle; pin to a
+  // known origin tile before the walk so the post-walk envelope assertions
+  // below have a deterministic anchor. Wait for a tick that reflects the
+  // teleport then capture the frame index so later iteration ignores pre-
+  // teleport ticks (which would show the random spawn position).
+  await adminTeleport(aId, 0.5, 0.5);
+  await a.next((f) => {
+    if (f.kind !== "msg") return false;
+    const t = decodeTickUpdate(f.data);
+    if (!t) return false;
+    return t.fullStateChunks.some((c) =>
+      c.players.some(
+        (p) => p.id === aId && Math.abs(p.x - 0.5) < 1e-3 && Math.abs(p.y - 0.5) < 1e-3,
+      ),
+    );
+  }, 5_000);
+  const postTeleportFrameStart = a.frames.length;
+
   // Walk east continuously for long enough to cross x=16 (boundary
   // between cx=0 and cx=1). At SPEED=5 a single direction phase of 4 s
   // covers 20 units, comfortably across the boundary.
@@ -403,12 +422,13 @@ test("rapid back-and-forth across a chunk boundary keeps player state consistent
   expect(a.ws.readyState).toBe(WebSocket.OPEN);
   expect(a.frames.some((f) => f.kind === "close")).toBe(false);
 
-  // Across every TickUpdate received: A appears in at most one chunk
-  // per tick, and that chunk's (cx, cy) is consistent with the player
-  // x ∈ [-30, 30], y == 0 envelope (round-trip of ~5*4=20 either way
-  // from origin). We allow cx ∈ [-2, 2] as a generous cushion.
+  // Across every TickUpdate received after the teleport pin: A appears in
+  // at most one chunk per tick, and that chunk's (cx, cy) is consistent
+  // with the player x ∈ [-30, 30], y == 0 envelope (round-trip of ~5*4=20
+  // either way from origin). We allow cx ∈ [-2, 2] as a generous cushion.
   let ticksWithA = 0;
-  for (const f of a.frames) {
+  for (let i = postTeleportFrameStart; i < a.frames.length; i++) {
+    const f = a.frames[i];
     if (f.kind !== "msg") continue;
     const t = decodeTickUpdate(f.data);
     if (!t) continue;
@@ -421,8 +441,7 @@ test("rapid back-and-forth across a chunk boundary keeps player state consistent
       const self = carrier.players.find((p) => p.id === aId)!;
       expect(Math.floor(self.x / CHUNK_SIZE)).toBe(carrier.cx);
       expect(Math.floor(self.y / CHUNK_SIZE)).toBe(carrier.cy);
-      // y never moved (starts at 0.5 — the spawn finder's tile-center pick
-      // under the e2e server's `--test-clear-spawn-region` mode).
+      // y never moved from the post-teleport pin at 0.5.
       expect(self.y).toBeCloseTo(0.5, 5);
       // x stays within the physics envelope.
       expect(self.x).toBeGreaterThan(-(SPEED * phaseMs / 1000) * 1.5);
