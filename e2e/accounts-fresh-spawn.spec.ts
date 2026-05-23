@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 //   1. Spawn a server with a unique world + accounts pair on a non-default
 //      port so the Playwright-managed `:8080` server stays untouched.
 //   2. Sign in anonymously via the `?username=` lobby bypass and register
-//      the account in-game (the side-panel Register flow). The accounts
+//      the account in-game (the corner Register button flow). The accounts
 //      file is persisted synchronously by `register_async`; the world file
 //      is *not* — only `save` / `shutdown` write it.
 //   3. SIGKILL the server (skipping the SIGTERM auto-save) so the world
@@ -158,13 +158,12 @@ test("registered account with no dormant record is admitted as a fresh spawn aft
     const meBefore = await waitForSelfSpawn(page);
     expect(meBefore.username).toBe(TEST_USERNAME);
 
-    // Register the account through the in-game side-panel flow. The
+    // Register the account through the in-game corner-button flow. The
     // server's `register_async` writes the accounts file synchronously
     // (atomic write-then-rename), so the toast lands only after the file
     // is on disk.
-    await page.locator(".anarchy-side-panel-toggle").click();
     await page
-      .locator(".anarchy-side-panel-action", { hasText: "Register account" })
+      .locator(".anarchy-corner-action", { hasText: "Register" })
       .click();
     await page.waitForSelector("#anarchy-register-modal-root");
     await page.fill("#anarchy-register-pw", TEST_PASSWORD);

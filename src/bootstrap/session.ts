@@ -2,7 +2,7 @@
  * Session construction. `constructSession` builds every live object that
  * makes up a single play session — `World`, `SnapshotBuffer`, `Terrain`,
  * `Renderer`, `Connection`, `InputController`, the inventory / crafting /
- * chest / coords-HUD / side-panel overlays, the register flow — wires
+ * chest / coords-HUD / corner-actions overlays, the register flow — wires
  * the callback graph among them, and returns a `Session` carrying the
  * Playwright-facing `AnarchyHandle` plus a `dispose()` for the lifecycle
  * loop in `bootstrap/index.ts`.
@@ -70,17 +70,17 @@ import {
   mountLeaderboardHud,
   mountOnboardingHint,
   mountPlayerListHud,
-  mountSidePanel,
+  mountCornerActions,
   showCreateFactionDialog,
   mountSwordCooldownRing,
   mountXpLabel,
   type ChatHudHandle,
   type ChatInputHandle,
   type ConnectionErrorOverlayHandle,
+  type CornerAction,
   type CraftingUiHandle,
   type DeathOverlayState,
   type InventoryUiHandle,
-  type SidePanelAction,
 } from "../ui/index.js";
 import { BLOWGUN_COOLDOWN_MS } from "../config.js";
 import { createActionSenders } from "./actions.js";
@@ -94,7 +94,7 @@ import { mountToastHost } from "./toast.js";
  * the seams Playwright needs to drive the app without poking internals.
  *
  * `stop()` tears down the whole session — sockets, listeners, timers,
- * Three.js resources, side panel + inventory DOM. `stopped` resolves
+ * Three.js resources, corner actions + inventory DOM. `stopped` resolves
  * once the teardown finishes, so the lifecycle loop in `runApp` can
  * wait for a Disconnect and re-show the lobby.
  */
@@ -533,7 +533,7 @@ export function constructSession(deps: SessionDeps): Session {
   // Forward-declared like `inventoryUi` above. The connection's
   // `onRegisterResult` hook needs to dispatch into the flow, but the
   // flow itself depends on the action senders (which depend on `conn`)
-  // and on the side-panel rebuild closure. The closure-resolves-at-call-
+  // and on the corner-actions rebuild closure. The closure-resolves-at-call-
   // time pattern lets us define everything in dependency order.
   let registerFlow!: RegisterFlow;
 
@@ -1008,33 +1008,32 @@ export function constructSession(deps: SessionDeps): Session {
   const toast = mountToastHost();
   teardowns.push(() => toast.unmount());
 
-  // Side-panel + register flow are mutually referential: `buildSidePanelActions`
-  // reads `registerFlow.isRegistered()` synchronously at mount time, and
-  // `registerFlow` calls `rebuildSidePanel` after a successful registration.
-  // Construct in dependency order — register flow first (with `rebuildSidePanel`
-  // as a closure capturing the still-unset `sidePanel`), then mount the panel.
-  // `rebuildSidePanel` only fires post-registration, by which point `sidePanel`
-  // is bound.
-  let sidePanel!: ReturnType<typeof mountSidePanel>;
+  // Corner actions + register flow are mutually referential: `buildCornerActions`
+  // reads `registerFlow.isRegistered()` synchronously at mount time, and the
+  // register flow calls `rebuildCornerActions` after a successful registration
+  // to drop the Register button. Construct in dependency order — register flow
+  // first (with `rebuildCornerActions` as a closure capturing the still-unset
+  // `cornerActions`), then mount the corner row. `rebuildCornerActions` only
+  // fires post-registration, by which point `cornerActions` is bound.
+  let cornerActions!: ReturnType<typeof mountCornerActions>;
 
-  function buildSidePanelActions(): ReadonlyArray<SidePanelAction> {
-    const actions: SidePanelAction[] = [
-      { label: "Disconnect", onClick: () => stop() },
-    ];
+  // Register sits left of Disconnect so Disconnect stays glued to the
+  // corner across rebuilds — removing Register after registration doesn't
+  // shift Disconnect's position.
+  function buildCornerActions(): ReadonlyArray<CornerAction> {
+    const actions: CornerAction[] = [];
     if (!registerFlow.isRegistered()) {
       actions.push({
-        label: "Register account",
+        label: "Register",
         onClick: () => registerFlow.open(),
       });
     }
+    actions.push({ label: "Disconnect", onClick: () => stop() });
     return actions;
   }
 
-  function rebuildSidePanel(): void {
-    const wasOpen = sidePanel.isOpen();
-    sidePanel.unmount();
-    sidePanel = mountSidePanel({ actions: buildSidePanelActions() });
-    if (wasOpen) sidePanel.setOpen(true);
+  function rebuildCornerActions(): void {
+    cornerActions.rebuild(buildCornerActions());
   }
 
   registerFlow = createRegisterFlow({
@@ -1043,12 +1042,12 @@ export function constructSession(deps: SessionDeps): Session {
     toast,
     getLocalPlayerId: () => localPlayerId,
     sendRegisterAccount,
-    onRegisteredChanged: rebuildSidePanel,
+    onRegisteredChanged: rebuildCornerActions,
   });
   teardowns.push(() => registerFlow.unmount());
 
-  sidePanel = mountSidePanel({ actions: buildSidePanelActions() });
-  teardowns.push(() => sidePanel.unmount());
+  cornerActions = mountCornerActions({ actions: buildCornerActions() });
+  teardowns.push(() => cornerActions.unmount());
 
   const handle: AnarchyHandle = {
     world,

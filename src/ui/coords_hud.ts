@@ -13,8 +13,8 @@
  * latest RTT via `updatePing(ms)` (or `updatePing(null)` for the dash).
  *
  * Network-free; pure DOM. Self-injects its CSS like the other overlays in
- * `src/ui/`. Sits at top-left; the side-panel toggle is at top-right and
- * the inventory hotbar is at bottom-center, so nothing overlaps.
+ * `src/ui/`. Sits at top-left; the corner action buttons are at top-right
+ * and the inventory hotbar is at bottom-center, so nothing overlaps.
  */
 
 const STYLE_ID = "anarchy-coords-hud-style";

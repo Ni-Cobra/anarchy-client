@@ -15,9 +15,9 @@ import { fileURLToPath } from "node:url";
 // Coverage:
 //   1. Lobby renders the two-tab New / Returning state machine and the
 //      pre-ADR-0007 reconnect-checkbox is gone (regression guard).
-//   2. In-game registration round-trip via the side panel's Register
-//      modal; the "Account registered." toast lands and the Register
-//      button disappears from the panel.
+//   2. In-game registration round-trip via the corner Register button
+//      and modal; the "Account registered." toast lands and the Register
+//      button disappears from the corner.
 //   3. Disconnect → reconnect via the Returning form with the correct
 //      password reuses the saved `PlayerId` (server's
 //      `admit_reconnect` path restores from the dormant pool).
@@ -193,7 +193,7 @@ test("registers in-game and reconnects via the Returning form, retaining the sam
   page,
 }) => {
   // Skip the lobby for the *first* session via the bypass — we want to
-  // exercise the side-panel register flow, not the lobby form here.
+  // exercise the corner-action register flow, not the lobby form here.
   await page.goto(
     `/?${QUERY}&username=${encodeURIComponent(TEST_USERNAME)}&color=0`,
   );
@@ -201,10 +201,9 @@ test("registers in-game and reconnects via the Returning form, retaining the sam
   const meBefore = await waitForSelfSpawn(page);
   expect(meBefore.id).toBeGreaterThan(0);
 
-  // Open the side panel and trigger the register modal.
-  await page.locator(".anarchy-side-panel-toggle").click();
-  const registerButton = page.locator(".anarchy-side-panel-action", {
-    hasText: "Register account",
+  // Click the corner Register button to trigger the register modal.
+  const registerButton = page.locator(".anarchy-corner-action", {
+    hasText: "Register",
   });
   await expect(registerButton).toBeVisible();
   await registerButton.click();
@@ -220,22 +219,22 @@ test("registers in-game and reconnects via the Returning form, retaining the sam
   await submit.click();
 
   // Server's RegisterAccountResult arrives, bootstrap shows the toast and
-  // rebuilds the side panel without the Register button.
+  // rebuilds the corner actions without the Register button.
   await expect(
     page.locator("#anarchy-toast-host", { hasText: "Account registered." }),
   ).toBeVisible();
   await expect(page.locator("#anarchy-register-modal-root")).toHaveCount(0);
   await expect(
-    page.locator(".anarchy-side-panel-action", { hasText: "Register account" }),
+    page.locator(".anarchy-corner-action", { hasText: "Register" }),
   ).toHaveCount(0);
   await expect(
-    page.locator(".anarchy-side-panel-action", { hasText: "Disconnect" }),
+    page.locator(".anarchy-corner-action", { hasText: "Disconnect" }),
   ).toBeVisible();
 
   // Disconnect tears the session down; the lobby re-mounts and the
   // `__anarchy` handle clears so the next spawn is unambiguous.
   await page
-    .locator(".anarchy-side-panel-action", { hasText: "Disconnect" })
+    .locator(".anarchy-corner-action", { hasText: "Disconnect" })
     .click();
   await page.waitForFunction(() => window.__anarchy === undefined);
   await page.waitForSelector("#anarchy-lobby");
@@ -294,9 +293,10 @@ test("WASD typed into the register modal does not move the local player", async 
   await page.waitForFunction(() => window.__anarchy !== undefined);
   await waitForSelfSpawn(page);
 
-  // Open the side panel and trigger the register modal.
-  await page.locator(".anarchy-side-panel-toggle").click();
-  await page.locator(".anarchy-side-panel-action", { hasText: "Register account" }).click();
+  // Click the corner Register button to trigger the register modal.
+  await page
+    .locator(".anarchy-corner-action", { hasText: "Register" })
+    .click();
   await page.waitForSelector("#anarchy-register-modal-root");
 
   // Modal mounts focused on the password field; snapshot the local

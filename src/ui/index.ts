@@ -3,12 +3,12 @@
  * contained (own CSS injection + DOM scaffolding) and exposes an `unmount`
  * affordance so `runMain`'s teardown can return the page to a clean state.
  */
-export { mountSidePanel } from "./side_panel.js";
+export { mountCornerActions } from "./corner_actions.js";
 export type {
-  SidePanelAction,
-  SidePanelHandle,
-  SidePanelOptions,
-} from "./side_panel.js";
+  CornerAction,
+  CornerActionsHandle,
+  CornerActionsOptions,
+} from "./corner_actions.js";
 export { mountInventoryUi } from "./inventory/index.js";
 export type {
   InventoryUiHandle,

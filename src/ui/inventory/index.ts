@@ -37,7 +37,7 @@
  * is called and the mirror waits for the next `InventoryUpdate` to
  * reflect the result (no optimistic update — the UI is a pure mirror).
  *
- * Click handling mirrors `side_panel.ts`: pointer events on the panel /
+ * Click handling mirrors `corner_actions.ts`: pointer events on the panel /
  * hotbar root are stopped from propagating to `window` so the bootstrap-
  * level mousedown handlers don't fire destroy / place behind the overlay.
  * The panel does NOT capture clicks outside its DOM bounds — the player

@@ -185,7 +185,7 @@ const TABS: readonly Tab[] = [
       </p>
       <p class="footnote">
         Progress only survives reconnects if you register an account —
-        click <em>Register</em> in the side panel to lock in your name.
+        click <em>Register</em> in the top-right corner to lock in your name.
       </p>
     `,
   },

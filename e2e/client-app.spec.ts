@@ -124,21 +124,22 @@ test("one client moves and the other observes the move", async ({ browser }) => 
   }
 });
 
-test("clicking Disconnect in the side panel returns to the lobby and a fresh login reconnects", async ({ page }) => {
+test("clicking the corner Disconnect button returns to the lobby and a fresh login reconnects", async ({ page }) => {
   await openClient(page, "first");
   const meFirst = await waitForSelfSpawn(page);
   expect(meFirst.id).toBeGreaterThan(0);
 
-  // Open the side panel and click Disconnect.
-  await page.locator(".anarchy-side-panel-toggle").click();
-  await page.getByRole("button", { name: "Disconnect" }).click();
+  // Disconnect is mounted directly in the top-right corner.
+  await page
+    .locator(".anarchy-corner-action", { hasText: "Disconnect" })
+    .click();
 
   // Disconnect tears down the session: handle clears and lobby DOM mounts.
   await page.waitForFunction(() => window.__anarchy === undefined);
   await page.waitForSelector("#anarchy-lobby");
-  // Renderer canvas + side panel root are gone.
+  // Renderer canvas + corner actions root are gone.
   await expect(page.locator("canvas")).toHaveCount(0);
-  await expect(page.locator("#anarchy-side-panel-root")).toHaveCount(0);
+  await expect(page.locator("#anarchy-corner-actions-root")).toHaveCount(0);
 
   // Reconnect under the same name as the prior session. Per ADR 0005 the
   // server admits the new connection unconditionally — if the prior
@@ -148,10 +149,10 @@ test("clicking Disconnect in the side panel returns to the lobby and a fresh log
   await page.fill("#anarchy-username", "first");
   await page.click("#anarchy-submit");
 
-  // A new session spins up: handle reappears, side panel re-mounts, spawn
+  // A new session spins up: handle reappears, corner actions re-mount, spawn
   // arrives. Player id must differ from the first session's.
   await page.waitForFunction(() => window.__anarchy !== undefined);
-  await expect(page.locator("#anarchy-side-panel-root")).toHaveCount(1);
+  await expect(page.locator("#anarchy-corner-actions-root")).toHaveCount(1);
   const meSecond = await waitForSelfSpawn(page);
   expect(meSecond.id).toBeGreaterThan(0);
   expect(meSecond.id).not.toBe(meFirst.id);

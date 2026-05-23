@@ -57,7 +57,7 @@ export type LobbyRejectReason =
  *
  * `onRegisterResult` fires when the server replies to a
  * `register_account` request (ADR 0007); the bootstrap layer surfaces a
- * notification and toggles the side-panel button accordingly. Unlike
+ * notification and toggles the corner Register button accordingly. Unlike
  * `onLobbyReject`, this leaves the connection live.
  */
 export type RegisterResultStatus = "ok" | "already-registered" | "error";

@@ -3,7 +3,7 @@
  * latched state for the register surface — the open modal handle,
  * pending-reply callback, and the `registered` flag — and exposes the
  * narrow seam the bootstrap layer needs to drive it: `open()` from a
- * side-panel button, `onResult(status)` from the connection's
+ * corner-action button, `onResult(status)` from the connection's
  * `RegisterAccountResult` hook, `isRegistered()` for action-list
  * rebuilds, and `unmount()` for session teardown.
  *
@@ -31,7 +31,7 @@ export interface RegisterFlowDeps {
   readonly getLocalPlayerId: () => number | null;
   readonly sendRegisterAccount: (password: string) => void;
   /** Fired whenever `isRegistered()` flips from false → true so the
-   *  caller can rebuild the side-panel action list. */
+   *  caller can rebuild the corner-action button row. */
   readonly onRegisteredChanged: () => void;
 }
 
