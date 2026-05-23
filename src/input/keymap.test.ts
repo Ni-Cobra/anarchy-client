@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { keyToDirection, SCROLL_KEY_CODES } from "./keymap.js";
+import { isMovementKey, keyToDirection, SCROLL_KEY_CODES } from "./keymap.js";
 
 describe("keyToDirection", () => {
   it.each([
@@ -29,5 +29,28 @@ describe("keyToDirection", () => {
       "ArrowRight",
       "ArrowUp",
     ]);
+  });
+});
+
+describe("isMovementKey", () => {
+  it.each([
+    "KeyW",
+    "KeyA",
+    "KeyS",
+    "KeyD",
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+  ])("returns true for %s", (code) => {
+    expect(isMovementKey(code)).toBe(true);
+  });
+
+  it("returns false for non-movement codes", () => {
+    expect(isMovementKey("KeyE")).toBe(false);
+    expect(isMovementKey("KeyQ")).toBe(false);
+    expect(isMovementKey("Enter")).toBe(false);
+    expect(isMovementKey("Space")).toBe(false);
+    expect(isMovementKey("")).toBe(false);
   });
 });

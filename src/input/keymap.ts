@@ -25,6 +25,18 @@ export function keyToDirection(code: string): readonly [number, number] | undefi
   return KEY_TO_DIRECTION[code];
 }
 
+/**
+ * `true` iff `code` belongs to the set of keys the controller treats as
+ * movement (WASD + arrow keys, layout-agnostic at the `KeyboardEvent.code`
+ * level — on AZERTY the visible glyphs are ZQSD but the `code` values are
+ * still `KeyW`/`KeyA`/...). Shared with the onboarding overlay so its
+ * "first movement keypress" dismissal predicate stays in lockstep with
+ * what actually drives the player.
+ */
+export function isMovementKey(code: string): boolean {
+  return KEY_TO_DIRECTION[code] !== undefined;
+}
+
 /** Arrow-key codes whose default action (page scroll) we want to suppress. */
 export const SCROLL_KEY_CODES: ReadonlySet<string> = new Set([
   "ArrowUp",

@@ -82,6 +82,18 @@ export type {
 export { mountXpLabel } from "./xp_label.js";
 export type { XpLabelHandle } from "./xp_label.js";
 export {
+  detectKeyboardLayoutFallback,
+  mountOnboardingHint,
+  DISMISS_DELAY_MS as ONBOARDING_DISMISS_DELAY_MS,
+  FADE_DURATION_MS as ONBOARDING_FADE_DURATION_MS,
+  ONBOARDING_SEEN_STORAGE_KEY,
+} from "./onboarding_hint.js";
+export type {
+  KeyboardLayout,
+  OnboardingHintHandle,
+  OnboardingHintOptions,
+} from "./onboarding_hint.js";
+export {
   mountChatHud,
   CHAT_HUD_ADMIN_COLOR,
   CHAT_HUD_MAX_LINES,

@@ -68,6 +68,7 @@ import {
   mountHpBar,
   mountInventoryUi,
   mountLeaderboardHud,
+  mountOnboardingHint,
   mountPlayerListHud,
   mountSidePanel,
   showCreateFactionDialog,
@@ -852,6 +853,12 @@ export function constructSession(deps: SessionDeps): Session {
   // centered above the XP bar while in-game. The corner is restored on
   // session teardown (back to lobby).
   const howToPlayButton = mountHowToPlayButton();
+  // Task 070: transparent centered tutorial card. Self-gates on a
+  // localStorage flag so it only appears the very first time a given
+  // browser enters the world; auto-fades 3s after the player's first
+  // movement keypress. Strictly session-mount — the lobby has its
+  // own onboarding.
+  const onboardingHint = mountOnboardingHint();
   deathOverlay = mountDeathOverlay();
   // Task 140 cooldown affordance — driven from the same rAF loop. The
   // renderer captures the latest strike timestamp; the ring reads it and
@@ -922,6 +929,7 @@ export function constructSession(deps: SessionDeps): Session {
     hpBar.unmount();
     xpLabel.unmount();
     howToPlayButton.unmount();
+    onboardingHint.unmount();
     swordCooldownRing.unmount();
     blowgunCooldownRing?.unmount();
     deathOverlay.unmount();
