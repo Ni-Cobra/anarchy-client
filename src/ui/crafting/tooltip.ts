@@ -14,7 +14,7 @@
 
 import type { Inventory, ItemId } from "../../game/index.js";
 import { itemDisplayName } from "../../item_names.js";
-import type { Recipe } from "../../recipes.js";
+import type { Ingredient, Recipe } from "../../recipes.js";
 import { textureUrlForItem } from "../../textures.js";
 
 export function makeRecipeTooltip(
@@ -38,16 +38,15 @@ export function makeRecipeTooltip(
 
   const list = document.createElement("div");
   list.className = "anarchy-crafting-tooltip-ingredients";
-  for (const stack of recipe.ingredients) {
-    list.appendChild(makeIngredientRow(stack.item, stack.count, inventory));
+  for (const ing of recipe.ingredients) {
+    list.appendChild(makeIngredientRow(ing, inventory));
   }
   root.appendChild(list);
   return root;
 }
 
 function makeIngredientRow(
-  item: ItemId,
-  required: number,
+  ing: Ingredient,
   inventory: Inventory,
 ): HTMLDivElement {
   const row = document.createElement("div");
@@ -55,22 +54,47 @@ function makeIngredientRow(
 
   const need = document.createElement("span");
   need.className = "anarchy-crafting-tooltip-need";
-  need.textContent = `${required} ×`;
+  need.textContent = `${ing.count} ×`;
   row.appendChild(need);
 
-  row.appendChild(makeIcon(item));
+  if (ing.kind === "one") {
+    row.appendChild(makeIcon(ing.item));
+    const name = document.createElement("span");
+    name.className = "anarchy-crafting-tooltip-name";
+    name.textContent = itemDisplayName(ing.item);
+    row.appendChild(name);
 
-  const name = document.createElement("span");
-  name.className = "anarchy-crafting-tooltip-name";
-  name.textContent = itemDisplayName(item);
-  row.appendChild(name);
+    const have = inventory.countOf(ing.item);
+    const haveEl = document.createElement("span");
+    haveEl.className = "anarchy-crafting-tooltip-have";
+    if (have < ing.count) haveEl.classList.add("short");
+    haveEl.textContent = `(have ${have})`;
+    row.appendChild(haveEl);
+  } else {
+    // AnyOf: render every candidate icon inline, joined by "or" gaps in
+    // the readable name, with the have-count being the pooled sum.
+    ing.items.forEach((item, idx) => {
+      if (idx > 0) {
+        const sep = document.createElement("span");
+        sep.className = "anarchy-crafting-tooltip-any-of-sep";
+        sep.setAttribute("aria-hidden", "true");
+        row.appendChild(sep);
+      }
+      row.appendChild(makeIcon(item));
+    });
+    const name = document.createElement("span");
+    name.className = "anarchy-crafting-tooltip-name";
+    name.textContent = ing.items.map(itemDisplayName).join(" or ");
+    row.appendChild(name);
 
-  const have = inventory.countOf(item);
-  const haveEl = document.createElement("span");
-  haveEl.className = "anarchy-crafting-tooltip-have";
-  if (have < required) haveEl.classList.add("short");
-  haveEl.textContent = `(have ${have})`;
-  row.appendChild(haveEl);
+    let pooled = 0;
+    for (const item of ing.items) pooled += inventory.countOf(item);
+    const haveEl = document.createElement("span");
+    haveEl.className = "anarchy-crafting-tooltip-have";
+    if (pooled < ing.count) haveEl.classList.add("short");
+    haveEl.textContent = `(have ${pooled})`;
+    row.appendChild(haveEl);
+  }
 
   return row;
 }

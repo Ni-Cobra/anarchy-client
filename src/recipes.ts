@@ -17,11 +17,29 @@
 
 import { ItemId } from "./game/index.js";
 
-/** One ingredient or output of a recipe. */
+/** One output stack of a recipe (or, historically, one ingredient). */
 export interface RecipeStack {
   readonly item: ItemId;
   readonly count: number;
 }
+
+/**
+ * One ingredient clause of a recipe (task 175). Mirrors the server's
+ * `Ingredient` enum:
+ *
+ * - `{ kind: "one" }` — exactly `count` of one specific item from the
+ *   pooled inventory + open chests. The original shape.
+ * - `{ kind: "any-of" }` — satisfied when the *pooled* count across every
+ *   listed item meets `count`, in any combination. Deduction walks the
+ *   list in declaration order — earlier entries drain first.
+ */
+export type Ingredient =
+  | { readonly kind: "one"; readonly item: ItemId; readonly count: number }
+  | {
+      readonly kind: "any-of";
+      readonly items: readonly ItemId[];
+      readonly count: number;
+    };
 
 /**
  * One recipe row: a stable string id, the pooled ingredients required, and
@@ -31,7 +49,7 @@ export interface RecipeStack {
  */
 export interface Recipe {
   readonly id: string;
-  readonly ingredients: readonly RecipeStack[];
+  readonly ingredients: readonly Ingredient[];
   readonly output: RecipeStack;
 }
 
@@ -45,19 +63,19 @@ export interface Recipe {
 export const RECIPES: readonly Recipe[] = [
   {
     id: "sticks",
-    ingredients: [{ item: ItemId.Wood, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.Wood, count: 1 }],
     output: { item: ItemId.Stick, count: 4 },
   },
   // Task 390: trees drop `Log` items now. Logs craft into Wood blocks
   // (1:1) and into Sticks (1 Log → 4 Sticks).
   {
     id: "wood-from-log",
-    ingredients: [{ item: ItemId.Log, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.Log, count: 1 }],
     output: { item: ItemId.Wood, count: 1 },
   },
   {
     id: "sticks-from-log",
-    ingredients: [{ item: ItemId.Log, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.Log, count: 1 }],
     output: { item: ItemId.Stick, count: 4 },
   },
   // Task 580: wood-tier pickaxe + shovel now take raw `Log`s rather than
@@ -66,97 +84,97 @@ export const RECIPES: readonly Recipe[] = [
   {
     id: "wood-pickaxe",
     ingredients: [
-      { item: ItemId.Log, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Log, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.WoodPickaxe, count: 1 },
   },
   {
     id: "wood-axe",
     ingredients: [
-      { item: ItemId.Wood, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Wood, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.WoodAxe, count: 1 },
   },
   {
     id: "stone-pickaxe",
     ingredients: [
-      { item: ItemId.Stone, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Stone, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.StonePickaxe, count: 1 },
   },
   {
     id: "stone-axe",
     ingredients: [
-      { item: ItemId.Stone, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Stone, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.StoneAxe, count: 1 },
   },
   // Task 150 smelting recipes — 1 raw → 1 ingot.
   {
     id: "copper-ingot",
-    ingredients: [{ item: ItemId.RawCopper, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.RawCopper, count: 1 }],
     output: { item: ItemId.CopperIngot, count: 1 },
   },
   {
     id: "iron-ingot",
-    ingredients: [{ item: ItemId.RawIron, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.RawIron, count: 1 }],
     output: { item: ItemId.IronIngot, count: 1 },
   },
   {
     id: "tungsten-ingot",
-    ingredients: [{ item: ItemId.RawTungsten, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.RawTungsten, count: 1 }],
     output: { item: ItemId.TungstenIngot, count: 1 },
   },
   // Task 150 tool-tier upgrades.
   {
     id: "copper-pickaxe",
     ingredients: [
-      { item: ItemId.CopperIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.CopperIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.CopperPickaxe, count: 1 },
   },
   {
     id: "copper-axe",
     ingredients: [
-      { item: ItemId.CopperIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.CopperIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.CopperAxe, count: 1 },
   },
   {
     id: "iron-pickaxe",
     ingredients: [
-      { item: ItemId.IronIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.IronIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.IronPickaxe, count: 1 },
   },
   {
     id: "iron-axe",
     ingredients: [
-      { item: ItemId.IronIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.IronIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.IronAxe, count: 1 },
   },
   {
     id: "tungsten-pickaxe",
     ingredients: [
-      { item: ItemId.TungstenIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.TungstenIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.TungstenPickaxe, count: 1 },
   },
   {
     id: "tungsten-axe",
     ingredients: [
-      { item: ItemId.TungstenIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.TungstenIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.TungstenAxe, count: 1 },
   },
@@ -164,8 +182,8 @@ export const RECIPES: readonly Recipe[] = [
   {
     id: "torch",
     ingredients: [
-      { item: ItemId.Stick, count: 1 },
-      { item: ItemId.Coal, count: 1 },
+      { kind: "one", item: ItemId.Stick, count: 1 },
+      { kind: "one", item: ItemId.Coal, count: 1 },
     ],
     output: { item: ItemId.Torch, count: 4 },
   },
@@ -173,15 +191,15 @@ export const RECIPES: readonly Recipe[] = [
   {
     id: "lantern",
     ingredients: [
-      { item: ItemId.Torch, count: 1 },
-      { item: ItemId.IronIngot, count: 1 },
+      { kind: "one", item: ItemId.Torch, count: 1 },
+      { kind: "one", item: ItemId.IronIngot, count: 1 },
     ],
     output: { item: ItemId.Lantern, count: 1 },
   },
   // Task 420 placeable storage: 8 Wood → 1 Chest.
   {
     id: "chest",
-    ingredients: [{ item: ItemId.Wood, count: 8 }],
+    ingredients: [{ kind: "one", item: ItemId.Wood, count: 8 }],
     output: { item: ItemId.Chest, count: 1 },
   },
   // Task 530 shovel ladder — mirrors the axe ladder exactly.
@@ -189,40 +207,40 @@ export const RECIPES: readonly Recipe[] = [
   {
     id: "wood-shovel",
     ingredients: [
-      { item: ItemId.Log, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Log, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.WoodShovel, count: 1 },
   },
   {
     id: "stone-shovel",
     ingredients: [
-      { item: ItemId.Stone, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Stone, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.StoneShovel, count: 1 },
   },
   {
     id: "copper-shovel",
     ingredients: [
-      { item: ItemId.CopperIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.CopperIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.CopperShovel, count: 1 },
   },
   {
     id: "iron-shovel",
     ingredients: [
-      { item: ItemId.IronIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.IronIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.IronShovel, count: 1 },
   },
   {
     id: "tungsten-shovel",
     ingredients: [
-      { item: ItemId.TungstenIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.TungstenIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.TungstenShovel, count: 1 },
   },
@@ -232,40 +250,40 @@ export const RECIPES: readonly Recipe[] = [
   {
     id: "wood-sword",
     ingredients: [
-      { item: ItemId.Log, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Log, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.WoodSword, count: 1 },
   },
   {
     id: "stone-sword",
     ingredients: [
-      { item: ItemId.Stone, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.Stone, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.StoneSword, count: 1 },
   },
   {
     id: "copper-sword",
     ingredients: [
-      { item: ItemId.CopperIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.CopperIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.CopperSword, count: 1 },
   },
   {
     id: "iron-sword",
     ingredients: [
-      { item: ItemId.IronIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.IronIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.IronSword, count: 1 },
   },
   {
     id: "tungsten-sword",
     ingredients: [
-      { item: ItemId.TungstenIngot, count: 3 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.TungstenIngot, count: 3 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.TungstenSword, count: 1 },
   },
@@ -275,14 +293,14 @@ export const RECIPES: readonly Recipe[] = [
   // dart is the ammunition for task 200's shoot mechanic.
   {
     id: "blowgun",
-    ingredients: [{ item: ItemId.Stick, count: 3 }],
+    ingredients: [{ kind: "one", item: ItemId.Stick, count: 3 }],
     output: { item: ItemId.Blowgun, count: 1 },
   },
   {
     id: "poison-dart",
     ingredients: [
-      { item: ItemId.VenomSack, count: 1 },
-      { item: ItemId.Stick, count: 2 },
+      { kind: "one", item: ItemId.VenomSack, count: 1 },
+      { kind: "one", item: ItemId.Stick, count: 2 },
     ],
     output: { item: ItemId.PoisonDart, count: 4 },
   },
@@ -292,14 +310,14 @@ export const RECIPES: readonly Recipe[] = [
   // since this table just describes the recipe shape.
   {
     id: "cloth",
-    ingredients: [{ item: ItemId.String, count: 6 }],
+    ingredients: [{ kind: "one", item: ItemId.String, count: 6 }],
     output: { item: ItemId.Cloth, count: 1 },
   },
   {
     id: "flag",
     ingredients: [
-      { item: ItemId.Cloth, count: 2 },
-      { item: ItemId.Wood, count: 1 },
+      { kind: "one", item: ItemId.Cloth, count: 2 },
+      { kind: "one", item: ItemId.Wood, count: 1 },
     ],
     output: { item: ItemId.Flag, count: 1 },
   },
@@ -308,106 +326,106 @@ export const RECIPES: readonly Recipe[] = [
   // can expand without burning ingredients at 1:1.
   {
     id: "dye-white",
-    ingredients: [{ item: ItemId.FlowerWhite, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.FlowerWhite, count: 1 }],
     output: { item: ItemId.DyeWhite, count: 1 },
   },
   {
     id: "dye-blue",
-    ingredients: [{ item: ItemId.FlowerBlue, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.FlowerBlue, count: 1 }],
     output: { item: ItemId.DyeBlue, count: 1 },
   },
   {
     id: "dye-red",
-    ingredients: [{ item: ItemId.FlowerRed, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.FlowerRed, count: 1 }],
     output: { item: ItemId.DyeRed, count: 1 },
   },
   {
     id: "dye-yellow",
-    ingredients: [{ item: ItemId.FlowerYellow, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.FlowerYellow, count: 1 }],
     output: { item: ItemId.DyeYellow, count: 1 },
   },
   {
     id: "dye-black",
-    ingredients: [{ item: ItemId.Coal, count: 1 }],
+    ingredients: [{ kind: "one", item: ItemId.Coal, count: 1 }],
     output: { item: ItemId.DyeBlack, count: 1 },
   },
   {
     id: "dye-purple",
     ingredients: [
-      { item: ItemId.DyeBlue, count: 1 },
-      { item: ItemId.DyeRed, count: 1 },
+      { kind: "one", item: ItemId.DyeBlue, count: 1 },
+      { kind: "one", item: ItemId.DyeRed, count: 1 },
     ],
     output: { item: ItemId.DyePurple, count: 2 },
   },
   {
     id: "dye-green",
     ingredients: [
-      { item: ItemId.DyeYellow, count: 1 },
-      { item: ItemId.DyeBlue, count: 1 },
+      { kind: "one", item: ItemId.DyeYellow, count: 1 },
+      { kind: "one", item: ItemId.DyeBlue, count: 1 },
     ],
     output: { item: ItemId.DyeGreen, count: 2 },
   },
   {
     id: "dye-orange",
     ingredients: [
-      { item: ItemId.DyeRed, count: 1 },
-      { item: ItemId.DyeYellow, count: 1 },
+      { kind: "one", item: ItemId.DyeRed, count: 1 },
+      { kind: "one", item: ItemId.DyeYellow, count: 1 },
     ],
     output: { item: ItemId.DyeOrange, count: 2 },
   },
   {
     id: "dye-gray",
     ingredients: [
-      { item: ItemId.DyeWhite, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeGray, count: 2 },
   },
   {
     id: "dye-dark-blue",
     ingredients: [
-      { item: ItemId.DyeBlue, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyeBlue, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkBlue, count: 2 },
   },
   {
     id: "dye-dark-red",
     ingredients: [
-      { item: ItemId.DyeRed, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyeRed, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkRed, count: 2 },
   },
   {
     id: "dye-dark-yellow",
     ingredients: [
-      { item: ItemId.DyeYellow, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyeYellow, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkYellow, count: 2 },
   },
   {
     id: "dye-dark-green",
     ingredients: [
-      { item: ItemId.DyeGreen, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyeGreen, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkGreen, count: 2 },
   },
   {
     id: "dye-dark-purple",
     ingredients: [
-      { item: ItemId.DyePurple, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyePurple, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkPurple, count: 2 },
   },
   {
     id: "dye-dark-orange",
     ingredients: [
-      { item: ItemId.DyeOrange, count: 1 },
-      { item: ItemId.DyeBlack, count: 1 },
+      { kind: "one", item: ItemId.DyeOrange, count: 1 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkOrange, count: 2 },
   },

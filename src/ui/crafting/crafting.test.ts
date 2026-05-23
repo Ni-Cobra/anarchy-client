@@ -10,6 +10,7 @@ import {
 } from "../../game/index.js";
 import { _resetTooltipForTests } from "../tooltip.js";
 import { mountCraftingUi } from "./index.js";
+import { makeRecipeRow } from "./row.js";
 import { ROW_PITCH_PX, SCROLL_VIEWPORT_HEIGHT_PX } from "./style.js";
 
 const TOOLTIP_ID = "anarchy-tooltip";
@@ -1032,6 +1033,83 @@ describe("crafting UI", () => {
       expect(windowHits).toBe(1);
 
       window.removeEventListener("wheel", onWindow);
+    });
+  });
+
+  describe("AnyOf ingredient rendering (task 175)", () => {
+    // The craft-pane row painter must handle `Ingredient::AnyOf` without
+    // crashing: the count appears once, followed by every candidate item
+    // icon separated by thin vertical bars. No `RECIPES` entry uses AnyOf
+    // yet (task 180 is the first consumer); exercise the painter directly.
+    it("renders an AnyOf ingredient as count + N candidate icons + (N-1) separators", () => {
+      const synthRecipe = {
+        id: "test-any-of",
+        ingredients: [
+          {
+            kind: "any-of" as const,
+            items: [ItemId.Stone, ItemId.Wood, ItemId.Coal],
+            count: 4,
+          },
+        ],
+        output: { item: ItemId.Stick, count: 1 },
+      };
+      // Render the row via `makeRecipeRow` directly — bypasses the
+      // recipe-id-driven advertise pipeline so we don't need to plant a
+      // synthetic entry in `RECIPES`.
+      const row = makeRecipeRow(synthRecipe, 0, false);
+      document.body.appendChild(row);
+
+      const anyOfCell = row.querySelector(
+        ".anarchy-crafting-side.left > .anarchy-crafting-stack.any-of",
+      );
+      expect(anyOfCell).not.toBeNull();
+      // Count badge "4×" appears once.
+      const countBadge = anyOfCell!.querySelector(
+        ".anarchy-crafting-any-of-count",
+      );
+      expect(countBadge?.textContent).toBe("4×");
+      // Three icons (one per candidate).
+      const icons = anyOfCell!.querySelectorAll(
+        ".anarchy-crafting-stack-icon",
+      );
+      expect(icons).toHaveLength(3);
+      // Two separators (between three icons).
+      const seps = anyOfCell!.querySelectorAll(
+        ".anarchy-crafting-any-of-sep",
+      );
+      expect(seps).toHaveLength(2);
+      // The canonical row chrome is unchanged.
+      expect(row.querySelector(".anarchy-crafting-arrow")?.textContent).toBe(
+        "→",
+      );
+      expect(
+        row.querySelector(".anarchy-crafting-side.right .anarchy-crafting-stack-icon"),
+      ).not.toBeNull();
+    });
+
+    it("renders a single-item AnyOf without a separator", () => {
+      const synthRecipe = {
+        id: "test-any-of-single",
+        ingredients: [
+          {
+            kind: "any-of" as const,
+            items: [ItemId.Stone],
+            count: 2,
+          },
+        ],
+        output: { item: ItemId.Stick, count: 1 },
+      };
+      const row = makeRecipeRow(synthRecipe, 0, false);
+      document.body.appendChild(row);
+      const anyOfCell = row.querySelector(
+        ".anarchy-crafting-stack.any-of",
+      )!;
+      expect(
+        anyOfCell.querySelectorAll(".anarchy-crafting-stack-icon"),
+      ).toHaveLength(1);
+      expect(
+        anyOfCell.querySelectorAll(".anarchy-crafting-any-of-sep"),
+      ).toHaveLength(0);
     });
   });
 

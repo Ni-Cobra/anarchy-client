@@ -16,8 +16,9 @@
  * would be redundant noise).
  */
 
+import type { ItemId } from "../../game/index.js";
 import { itemDisplayName } from "../../item_names.js";
-import type { Recipe, RecipeStack } from "../../recipes.js";
+import type { Ingredient, Recipe, RecipeStack } from "../../recipes.js";
 import { textureUrlForItem } from "../../textures.js";
 
 /**
@@ -53,8 +54,8 @@ export function makeRecipeRow(
 
   const left = document.createElement("div");
   left.className = "anarchy-crafting-side left";
-  for (const stack of recipe.ingredients) {
-    left.appendChild(makeStack(stack));
+  for (const ing of recipe.ingredients) {
+    left.appendChild(makeIngredient(ing));
   }
 
   const arrowCell = document.createElement("div");
@@ -93,18 +94,7 @@ export function makeRecipeRow(
 function makeStack(stack: RecipeStack): HTMLDivElement {
   const cell = document.createElement("div");
   cell.className = "anarchy-crafting-stack";
-  const icon = document.createElement("div");
-  icon.className = "anarchy-crafting-stack-icon";
-  const url = textureUrlForItem(stack.item);
-  if (url) {
-    icon.style.backgroundImage = `url("${url}")`;
-    icon.style.backgroundSize = "100% 100%";
-    icon.style.backgroundRepeat = "no-repeat";
-    icon.style.imageRendering = "pixelated";
-  } else {
-    icon.style.background = "#888";
-  }
-  cell.appendChild(icon);
+  cell.appendChild(makeIconEl(stack.item));
   if (stack.count > 1) {
     const count = document.createElement("span");
     count.className = "anarchy-crafting-stack-count";
@@ -114,10 +104,61 @@ function makeStack(stack: RecipeStack): HTMLDivElement {
   return cell;
 }
 
+/**
+ * Render one ingredient clause. `kind: "one"` reuses [`makeStack`].
+ * `kind: "any-of"` (task 175) paints the count once, then a horizontally-
+ * separated list of candidate item icons divided by thin vertical bars
+ * — `[N× icon(item1) | icon(item2) | icon(item3)]`.
+ */
+function makeIngredient(ing: Ingredient): HTMLDivElement {
+  if (ing.kind === "one") {
+    return makeStack({ item: ing.item, count: ing.count });
+  }
+  const cell = document.createElement("div");
+  cell.className = "anarchy-crafting-stack any-of";
+  if (ing.count > 1) {
+    const count = document.createElement("span");
+    count.className = "anarchy-crafting-any-of-count";
+    count.textContent = `${ing.count}×`;
+    cell.appendChild(count);
+  }
+  ing.items.forEach((item, idx) => {
+    if (idx > 0) {
+      const sep = document.createElement("span");
+      sep.className = "anarchy-crafting-any-of-sep";
+      sep.setAttribute("aria-hidden", "true");
+      cell.appendChild(sep);
+    }
+    cell.appendChild(makeIconEl(item));
+  });
+  return cell;
+}
+
+function makeIconEl(item: ItemId): HTMLDivElement {
+  const icon = document.createElement("div");
+  icon.className = "anarchy-crafting-stack-icon";
+  const url = textureUrlForItem(item);
+  if (url) {
+    icon.style.backgroundImage = `url("${url}")`;
+    icon.style.backgroundSize = "100% 100%";
+    icon.style.backgroundRepeat = "no-repeat";
+    icon.style.imageRendering = "pixelated";
+  } else {
+    icon.style.background = "#888";
+  }
+  return icon;
+}
+
 function recipeAriaLabel(recipe: Recipe): string {
-  const lhs = recipe.ingredients
-    .map((s) => `${s.count} ${itemDisplayName(s.item)}`)
-    .join(", ");
+  const lhs = recipe.ingredients.map(ingredientAriaLabel).join(", ");
   const rhs = `${recipe.output.count} ${itemDisplayName(recipe.output.item)}`;
   return `Craft: ${lhs} to ${rhs}`;
+}
+
+function ingredientAriaLabel(ing: Ingredient): string {
+  if (ing.kind === "one") {
+    return `${ing.count} ${itemDisplayName(ing.item)}`;
+  }
+  const names = ing.items.map(itemDisplayName).join(" or ");
+  return `${ing.count} of (${names})`;
 }

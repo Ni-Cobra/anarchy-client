@@ -8,7 +8,7 @@ import {
   ItemId,
   type Slot,
 } from "../../game/index.js";
-import { recipeById } from "../../recipes.js";
+import { recipeById, type Recipe } from "../../recipes.js";
 import { maxCraftCount } from "./max_craft.js";
 
 function emptySlots(updates: Record<number, Slot> = {}): Slot[] {
@@ -74,5 +74,54 @@ describe("maxCraftCount", () => {
 
   it("returns 0 for a recipe with no pools", () => {
     expect(maxCraftCount(sticks)).toBe(0);
+  });
+
+  describe("AnyOf ingredient (task 175)", () => {
+    const testAnyOf: Recipe = {
+      id: "test-any-of",
+      ingredients: [
+        { kind: "any-of", items: [ItemId.Stone, ItemId.Wood], count: 3 },
+      ],
+      output: { item: ItemId.Stick, count: 1 },
+    };
+
+    it("pools counts across every listed item in the AnyOf clause", () => {
+      // 2 Stone + 1 Wood pooled = 3 → exactly one craft worth.
+      expect(
+        maxCraftCount(
+          testAnyOf,
+          inv({
+            0: { item: ItemId.Stone, count: 2 },
+            1: { item: ItemId.Wood, count: 1 },
+          }),
+        ),
+      ).toBe(1);
+    });
+
+    it("uses floor(pooledHave / count) for the AnyOf craft ceiling", () => {
+      // 5 Stone + 4 Wood = 9 pooled / 3 per craft = 3 crafts.
+      expect(
+        maxCraftCount(
+          testAnyOf,
+          inv({
+            0: { item: ItemId.Stone, count: 5 },
+            1: { item: ItemId.Wood, count: 4 },
+          }),
+        ),
+      ).toBe(3);
+    });
+
+    it("returns 0 when no AnyOf candidate is present", () => {
+      expect(
+        maxCraftCount(testAnyOf, inv({ 0: { item: ItemId.Stick, count: 5 } })),
+      ).toBe(0);
+    });
+
+    it("pools AnyOf counts across multiple Inventory arguments", () => {
+      // Player has 1 Stone; chest has 2 Wood. Pool = 3 → 1 craft.
+      const player = inv({ 0: { item: ItemId.Stone, count: 1 } });
+      const chest = inv({ 0: { item: ItemId.Wood, count: 2 } });
+      expect(maxCraftCount(testAnyOf, player, chest)).toBe(1);
+    });
   });
 });

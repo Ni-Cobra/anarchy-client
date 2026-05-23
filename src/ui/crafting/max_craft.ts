@@ -23,10 +23,18 @@ export function maxCraftCount(
 ): number {
   if (recipe.ingredients.length === 0) return 0;
   let min = Infinity;
-  for (const stack of recipe.ingredients) {
+  for (const ing of recipe.ingredients) {
     let have = 0;
-    for (const pool of pools) have += pool.countOf(stack.item);
-    const possible = Math.floor(have / stack.count);
+    if (ing.kind === "one") {
+      for (const pool of pools) have += pool.countOf(ing.item);
+    } else {
+      // AnyOf (task 175): pool counts across every listed item — any
+      // combination of those items contributes to the same requirement.
+      for (const item of ing.items) {
+        for (const pool of pools) have += pool.countOf(item);
+      }
+    }
+    const possible = Math.floor(have / ing.count);
     if (possible < min) min = possible;
   }
   return min === Infinity ? 0 : min;
