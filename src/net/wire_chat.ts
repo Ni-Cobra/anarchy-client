@@ -35,6 +35,15 @@ export function applyChatHistory(
  * `null` for the proto3 `UNSPECIFIED = 0` sentinel — the server never
  * emits it, but a defensive drop keeps a malformed frame from rendering
  * as an un-styled line.
+ *
+ * Task 110: `sender_color_index` and `sender_registered` travel per-message
+ * (frozen at send time on the server). Wire decode follows proto3 defaults
+ * — a missing `sender_color_index` lands as `0` (palette slot 0) and a
+ * missing `sender_registered` lands as `false`. The current server always
+ * stamps both fields, so the only path that hits the bare defaults is a
+ * malformed / hypothetical older wire frame; the HUD treats the result
+ * the same as an explicit guest with colorIndex 0, which is a safe
+ * downgrade.
  */
 export function chatLineFromWire(
   wire: anarchy.v1.IChatMessage,
@@ -55,5 +64,7 @@ export function chatLineFromWire(
     kind,
     sender: wire.sender ?? "",
     body: wire.body ?? "",
+    colorIndex: wire.senderColorIndex ?? 0,
+    registered: wire.senderRegistered ?? false,
   };
 }

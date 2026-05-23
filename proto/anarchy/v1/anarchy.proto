@@ -286,6 +286,20 @@ message ChatMessage {
   // through whatever the CLI joined together from the rest of its
   // input line.
   string body = 3;
+  // Task 110 — sender's palette index at the moment the line was sent.
+  // Drives sender-label coloring for `Player` lines via the client-side
+  // `paletteColorHex(idx)`. `0` for admin-broadcast / system lines —
+  // admin / system lines render via `kind`-driven styling, not by
+  // color. **Frozen at send time:** a player who later changes color
+  // (today: impossible — color is lobby-set and immutable) does not
+  // retroactively restyle earlier messages.
+  uint32 sender_color_index = 4;
+  // Task 110 — `true` iff the sender has a registered account at send
+  // time. Drives italic styling on `Player` lines whose sender is a
+  // guest (unregistered). Always `true` for admin lines (admin is not
+  // a guest). **Frozen at send time:** a guest who later registers
+  // does not retroactively un-italicize earlier messages.
+  bool sender_registered = 5;
 }
 
 // Task 100 — snapshot of the server's rolling chat buffer. `messages` is

@@ -35,6 +35,8 @@
  * sees.
  */
 
+import { paletteColorHex } from "../game/index.js";
+
 const STYLE_ID = "anarchy-chat-hud-style";
 const ROOT_ID = "anarchy-chat-root";
 const LIST_ID = "anarchy-chat-list";
@@ -110,6 +112,14 @@ const STYLE = `
     opacity: ${CHAT_HUD_TIME_OPACITY};
     font-weight: 400;
   }
+  /* Task 110: italicize the sender label on player-kind lines whose
+     sender was unregistered at send time (a guest). The palette also
+     reuses the same dark chrome the in-world nametags sit on, so the
+     palette colors are already legible without a per-color luminance
+     adjustment — readability follows that precedent. */
+  #${LIST_ID} li .anarchy-chat-sender-guest {
+    font-style: italic;
+  }
 `;
 
 /**
@@ -124,6 +134,18 @@ export interface ChatLine {
   kind: ChatKind;
   sender: string;
   body: string;
+  /**
+   * Task 110: sender's palette index at the time the line was sent
+   * (`0` for admin / system lines, which the HUD styles via `kind`
+   * rather than by palette color). Frozen at send time on the server.
+   */
+  colorIndex: number;
+  /**
+   * Task 110: `true` iff the sender had a registered account at send
+   * time. The HUD italicizes player-kind rows whose sender is a guest
+   * (unregistered). Frozen at send time on the server.
+   */
+  registered: boolean;
 }
 
 export interface ChatHudHandle {
@@ -214,6 +236,19 @@ export function mountChatHud(deps?: {
     timeSpan.textContent = `${ts} `;
     const senderSpan = document.createElement("span");
     senderSpan.className = "anarchy-chat-sender";
+    // Task 110: per-message sender styling. Admin lines keep their
+    // existing class-driven bold + warm-tint styling (`color`
+    // override would clobber the warm tint, italic is reserved for
+    // guest player lines), so we only touch player-kind rows here.
+    if (line.kind === "player") {
+      const hex = paletteColorHex(line.colorIndex);
+      // `paletteColorHex` returns an integer suitable for THREE.Color;
+      // stringify as `#rrggbb` for the inline CSS `color` value.
+      senderSpan.style.color = `#${hex.toString(16).padStart(6, "0")}`;
+      if (!line.registered) {
+        senderSpan.classList.add("anarchy-chat-sender-guest");
+      }
+    }
     senderSpan.textContent = `${line.sender}: `;
     const bodySpan = document.createElement("span");
     bodySpan.className = "anarchy-chat-body";

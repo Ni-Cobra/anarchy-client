@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
 
+import { paletteColorHex } from "../game/index.js";
+
 import {
   CHAT_HUD_ADMIN_COLOR,
   CHAT_HUD_MAX_LINES,
@@ -30,12 +32,28 @@ function rows(): HTMLLIElement[] {
   );
 }
 
-function player(sender: string, body: string): ChatLine {
-  return { kind: "player", sender, body };
+function player(
+  sender: string,
+  body: string,
+  opts: { colorIndex?: number; registered?: boolean } = {},
+): ChatLine {
+  return {
+    kind: "player",
+    sender,
+    body,
+    colorIndex: opts.colorIndex ?? 0,
+    registered: opts.registered ?? true,
+  };
 }
 
 function admin(body: string): ChatLine {
-  return { kind: "admin", sender: "SERVER", body };
+  return {
+    kind: "admin",
+    sender: "SERVER",
+    body,
+    colorIndex: 0,
+    registered: true,
+  };
 }
 
 describe("mountChatHud", () => {
@@ -94,6 +112,8 @@ describe("mountChatHud", () => {
         kind: "player",
         sender: "<b>nope</b>",
         body: "<script>alert(1)</script>",
+        colorIndex: 0,
+        registered: true,
       },
     ]);
     const row = rows()[0];
@@ -220,6 +240,80 @@ describe("mountChatHud", () => {
     const children = Array.from(root!.children);
     expect(children[0]).toBe(list);
     expect(children[1]).toBe(host);
+  });
+
+  // Task 110 — per-message sender styling: palette color on the sender
+  // span for player-kind rows; italic when the player was unregistered
+  // at send time; admin lines stay untouched (bold + warm tint).
+  it("applies the palette color to the sender span on a player-kind row (task 110)", () => {
+    handle = mountChatHud();
+    handle.replaceHistory([player("Alice", "hi", { colorIndex: 5 })]);
+    const sender = rows()[0].querySelector<HTMLSpanElement>(
+      ".anarchy-chat-sender",
+    );
+    expect(sender).not.toBeNull();
+    const expected = paletteColorHex(5);
+    const expectedHex = `#${expected.toString(16).padStart(6, "0")}`;
+    const expectedRgb = hexToRgb(expectedHex);
+    // happy-dom returns the raw inline value (hex) while browsers tend
+    // to normalize to rgb(); accept either form.
+    expect([expectedHex, expectedRgb]).toContain(sender!.style.color);
+  });
+
+  it("italicizes the sender on a guest player-kind row (task 110)", () => {
+    handle = mountChatHud();
+    handle.replaceHistory([
+      player("Guest", "hello", { colorIndex: 3, registered: false }),
+    ]);
+    const sender = rows()[0].querySelector<HTMLSpanElement>(
+      ".anarchy-chat-sender",
+    );
+    expect(sender).not.toBeNull();
+    expect(
+      sender!.classList.contains("anarchy-chat-sender-guest"),
+    ).toBe(true);
+    // Resolves through the injected stylesheet.
+    expect(window.getComputedStyle(sender!).fontStyle).toBe("italic");
+  });
+
+  it("does not italicize the sender on a registered player-kind row (task 110)", () => {
+    handle = mountChatHud();
+    handle.replaceHistory([
+      player("Alice", "hello", { colorIndex: 2, registered: true }),
+    ]);
+    const sender = rows()[0].querySelector<HTMLSpanElement>(
+      ".anarchy-chat-sender",
+    );
+    expect(sender).not.toBeNull();
+    expect(
+      sender!.classList.contains("anarchy-chat-sender-guest"),
+    ).toBe(false);
+  });
+
+  it("ignores colorIndex + registered on admin-kind rows (task 110)", () => {
+    // Admin lines render bold + warm-tint regardless of the per-message
+    // metadata. The HUD must not stamp an inline color override (it
+    // would clobber the warm tint) and must not apply the guest-italic
+    // class even if the wire frame happens to carry `registered: false`.
+    handle = mountChatHud();
+    handle.replaceHistory([
+      {
+        kind: "admin",
+        sender: "SERVER",
+        body: "important",
+        colorIndex: 5,
+        registered: false,
+      },
+    ]);
+    const row = rows()[0];
+    const sender = row.querySelector<HTMLSpanElement>(".anarchy-chat-sender");
+    expect(sender).not.toBeNull();
+    expect(sender!.style.color).toBe("");
+    expect(
+      sender!.classList.contains("anarchy-chat-sender-guest"),
+    ).toBe(false);
+    // The admin class still drives the warm-tint + bold styling.
+    expect(row.classList.contains("anarchy-chat-admin")).toBe(true);
   });
 });
 

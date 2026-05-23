@@ -259,8 +259,20 @@ describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
 
     expect(calls).toEqual([
       [
-        { kind: "admin", sender: "SERVER", body: "hello world" },
-        { kind: "player", sender: "Alice", body: "hi" },
+        {
+          kind: "admin",
+          sender: "SERVER",
+          body: "hello world",
+          colorIndex: 0,
+          registered: false,
+        },
+        {
+          kind: "player",
+          sender: "Alice",
+          body: "hi",
+          colorIndex: 0,
+          registered: false,
+        },
       ],
     ]);
   });
@@ -324,7 +336,15 @@ describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
     });
     applyServerMessage(msg, deps);
     expect(calls).toEqual([
-      [{ kind: "player", sender: "Alice", body: "ok" }],
+      [
+        {
+          kind: "player",
+          sender: "Alice",
+          body: "ok",
+          colorIndex: 0,
+          registered: false,
+        },
+      ],
     ]);
   });
 });
