@@ -410,3 +410,44 @@ export async function adminBroadcast(text: string): Promise<void> {
     );
   }
 }
+
+/**
+ * Silence a player via the admin CLI shim (task 130). The server flips
+ * the per-player mute flag (live and dormant), scrubs the username's
+ * existing chat-history entries from the rolling buffer, and fans out a
+ * `"<username> has been muted"` system event to every connected client.
+ * Returns `true` when the server flipped the flag, `false` when no
+ * matching player was found.
+ */
+export async function adminMute(username: string): Promise<boolean> {
+  const r = await fetch(
+    `${SERVER_URL}/admin/mute/${encodeURIComponent(username)}`,
+    { method: "POST" },
+  );
+  if (r.status === 404) return false;
+  if (!r.ok) {
+    throw new Error(
+      `admin call failed: POST /admin/mute → ${r.status} ${r.statusText}`,
+    );
+  }
+  return true;
+}
+
+/**
+ * Counterpart to {@link adminMute} (task 130). Clears the mute flag and
+ * fans out a `"<username> has been unmuted"` system event; does NOT
+ * restore previously-scrubbed messages.
+ */
+export async function adminUnmute(username: string): Promise<boolean> {
+  const r = await fetch(
+    `${SERVER_URL}/admin/unmute/${encodeURIComponent(username)}`,
+    { method: "POST" },
+  );
+  if (r.status === 404) return false;
+  if (!r.ok) {
+    throw new Error(
+      `admin call failed: POST /admin/unmute → ${r.status} ${r.statusText}`,
+    );
+  }
+  return true;
+}
