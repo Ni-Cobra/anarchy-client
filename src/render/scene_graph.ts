@@ -35,6 +35,7 @@ import { SlashLayer, SLASH_TEXTURE_URL } from "./slash_layer.js";
 import { TorchLights } from "./torch_lights.js";
 import {
   buildChunkMesh,
+  buildMushroomMaterial,
   buildTerrainMesh,
   disposeTerrainMesh,
   mushroomPositionsInChunk,
@@ -119,6 +120,14 @@ export class SceneGraph {
   readonly torchLights: TorchLights;
   readonly mushroomLights: MushroomLights;
   readonly lanternLights: LanternLights;
+  /**
+   * Renderer-owned singleton material for the bioluminescent mushroom
+   * sprite (task 160). Shared by every chunk's mushroom mesh so the
+   * per-frame `emissiveIntensity` write happens once. The colour matches
+   * `MUSHROOM_LIGHT_COLOR` in `mushroom_lights.ts` so the sprite glow
+   * and the surrounding point-light pool read as the same source.
+   */
+  readonly mushroomMaterial: THREE.MeshLambertMaterial;
   readonly sun: THREE.DirectionalLight;
   readonly moon: THREE.DirectionalLight;
   readonly ambient: THREE.AmbientLight;
@@ -216,8 +225,14 @@ export class SceneGraph {
     this.lanternLights = new LanternLights();
     this.scene.add(this.lanternLights.scene());
 
+    this.mushroomMaterial = buildMushroomMaterial(this.blockTextures);
+
     if (initialTerrain !== null) {
-      this.terrainGroupRef = buildTerrainMesh(initialTerrain, this.blockTextures);
+      this.terrainGroupRef = buildTerrainMesh(
+        initialTerrain,
+        this.blockTextures,
+        this.mushroomMaterial,
+      );
       this.scene.add(this.terrainGroupRef);
       // Seed the torch + mushroom light layers from any chunks that came
       // in with the initial terrain — `replaceChunk` is the steady-state
@@ -294,7 +309,16 @@ export class SceneGraph {
     if (!chunk) return;
     const root = this.terrainGroupOrCreate();
     this.disposeChunkSubgroup(cx, cy, root);
-    root.add(buildChunkMesh(cx, cy, chunk, this.blockTextures, terrain));
+    root.add(
+      buildChunkMesh(
+        cx,
+        cy,
+        chunk,
+        this.blockTextures,
+        terrain,
+        this.mushroomMaterial,
+      ),
+    );
     this.torchLights.setChunkTorches(
       cx,
       cy,
@@ -335,9 +359,16 @@ export class SceneGraph {
    */
   dispose(): void {
     if (this.terrainGroupRef) {
-      disposeTerrainMesh(this.terrainGroupRef, this.scene);
+      // Exclude the mushroom singleton from the per-mesh dedupe so it
+      // doesn't double-dispose with the explicit call below.
+      disposeTerrainMesh(
+        this.terrainGroupRef,
+        this.scene,
+        new Set([this.mushroomMaterial]),
+      );
       this.terrainGroupRef = null;
     }
+    this.mushroomMaterial.dispose();
     this.ghost.dispose();
     this.effects.dispose();
     this.beams.dispose();
@@ -387,7 +418,10 @@ export class SceneGraph {
     const name = `chunk:${cx},${cy}`;
     const existing = root.children.find((c) => c.name === name);
     if (!existing) return;
-    disposeTerrainMesh(existing, root);
+    // The mushroom material singleton is shared across every chunk; its
+    // GPU lifetime is owned by `SceneGraph` (disposed in `dispose()`),
+    // so the per-chunk teardown must not free it.
+    disposeTerrainMesh(existing, root, new Set([this.mushroomMaterial]));
   }
 }
 

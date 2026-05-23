@@ -10,8 +10,12 @@ import {
 } from "../game/index.js";
 import {
   buildChunkMesh,
+  buildMushroomMaterial,
   buildTerrainMesh,
   disposeTerrainMesh,
+  MUSHROOM_EMISSIVE_COLOR,
+  MUSHROOM_EMISSIVE_PEAK,
+  mushroomEmissiveAt,
   mushroomPositionsInChunk,
   tileCenterToScene,
   torchPositionsInChunk,
@@ -271,6 +275,76 @@ describe("torchPositionsInChunk", () => {
     const positions = torchPositionsInChunk(2, -1, c);
     expect(positions).toHaveLength(1);
     expect(positions[0]).toEqual(tileCenterToScene(2, -1, 0, 0));
+  });
+});
+
+describe("buildMushroomMaterial (task 160)", () => {
+  it("returns a transparent double-sided emissive material pinned to the mushroom-glow cyan", () => {
+    // Texture-less path (unit-test fallback) — the no-texture branch must
+    // still produce an emissive material so the constant pin is meaningful
+    // even when the renderer is built without a `BlockTextureSet`.
+    const mat = buildMushroomMaterial(null);
+    expect(mat).toBeInstanceOf(THREE.MeshLambertMaterial);
+    expect(mat.side).toBe(THREE.DoubleSide);
+    expect(mat.emissive.getHex()).toBe(MUSHROOM_EMISSIVE_COLOR);
+    // Cyan: blue dominates red so the glow reads distinct from a torch.
+    expect(mat.emissive.b).toBeGreaterThan(mat.emissive.r);
+    // Construction default — the renderer's per-frame update drives this.
+    expect(mat.emissiveIntensity).toBe(0);
+  });
+
+  it("pins the colour to `0x9fd9ff` so a drift to a different cyan is caught", () => {
+    // The constant must stay in lockstep with `MUSHROOM_LIGHT_COLOR` in
+    // mushroom_lights.ts (mirrored, not imported, by design — task 160).
+    expect(MUSHROOM_EMISSIVE_COLOR).toBe(0x9fd9ff);
+  });
+});
+
+describe("mushroomEmissiveAt (task 160)", () => {
+  it("scales linearly with night factor between 0 and the pinned peak", () => {
+    expect(mushroomEmissiveAt(0)).toBe(0);
+    expect(mushroomEmissiveAt(1)).toBe(MUSHROOM_EMISSIVE_PEAK);
+    expect(mushroomEmissiveAt(0.5)).toBeCloseTo(MUSHROOM_EMISSIVE_PEAK * 0.5);
+  });
+
+  it("clamps inputs outside [0, 1] (mirrors MushroomLights.intensityAt)", () => {
+    expect(mushroomEmissiveAt(-1)).toBe(0);
+    expect(mushroomEmissiveAt(1.5)).toBe(MUSHROOM_EMISSIVE_PEAK);
+  });
+
+  it("peak is the pinned 0.8 — washes-out / under-reads are caught by drift", () => {
+    expect(MUSHROOM_EMISSIVE_PEAK).toBe(0.8);
+  });
+});
+
+describe("LightMushroom rendering (task 160)", () => {
+  it("uses the renderer-owned mushroom material singleton when provided so the per-frame update is shared", () => {
+    const c = emptyChunk();
+    setBlock(c.top, 4, 4, { kind: BlockType.LightMushroom });
+    setBlock(c.top, 7, 1, { kind: BlockType.LightMushroom });
+    const singleton = buildMushroomMaterial(null);
+    const g = buildChunkMesh(0, 0, c, null, null, singleton);
+    const meshes = g.children as THREE.Mesh[];
+    expect(meshes).toHaveLength(2);
+    expect(meshes[0]!.material).toBe(singleton);
+    expect(meshes[1]!.material).toBe(singleton);
+    singleton.dispose();
+  });
+
+  it("falls back to a per-chunk emissive material when no singleton is supplied", () => {
+    const c = emptyChunk();
+    setBlock(c.top, 4, 4, { kind: BlockType.LightMushroom });
+    setBlock(c.top, 7, 1, { kind: BlockType.LightMushroom });
+    const g = buildChunkMesh(0, 0, c);
+    const meshes = g.children as THREE.Mesh[];
+    expect(meshes).toHaveLength(2);
+    const mat = meshes[0]!.material as THREE.MeshLambertMaterial;
+    // Each mesh in the chunk shares the same per-chunk material (cache).
+    expect(meshes[1]!.material).toBe(mat);
+    // Still emissive cyan, with the construction-default intensity.
+    expect(mat.emissive.getHex()).toBe(MUSHROOM_EMISSIVE_COLOR);
+    expect(mat.emissiveIntensity).toBe(0);
+    disposeTerrainMesh(g);
   });
 });
 

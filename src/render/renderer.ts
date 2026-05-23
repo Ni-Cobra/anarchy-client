@@ -45,7 +45,7 @@ import {
   pickPlayerUnderCursor,
   type PickResult,
 } from "./picker.js";
-import { tileCenterToScene } from "./terrain.js";
+import { mushroomEmissiveAt, tileCenterToScene } from "./terrain.js";
 import { sampleDaylight } from "./daylight.js";
 import {
   type BlockEditEvent,
@@ -1123,6 +1123,13 @@ export class Renderer {
     // same nearest-N pick around the focus, weaker radius/intensity so
     // they read as atmosphere rather than navigable light.
     this.graph.mushroomLights.update({ x: focus.x, z: focus.z }, sample.nightFactor);
+    // Task 160: drive the mushroom sprite emissive in lockstep with the
+    // light pool. At noon (`nightFactor == 0`) emissive is 0 and the
+    // sprite renders as plain lit decor; at midnight it brightens by the
+    // peak so the mushroom reads as the source of the surrounding glow.
+    this.graph.mushroomMaterial.emissiveIntensity = mushroomEmissiveAt(
+      sample.nightFactor,
+    );
     // Lanterns (task 370): one light per player wearing one. Driven by
     // the same `nightFactor` so the day cycle reads consistent across
     // every warm light source.

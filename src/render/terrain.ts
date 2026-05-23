@@ -45,12 +45,13 @@ const AO_DARKEN = 0.3;
 export function buildTerrainMesh(
   terrain: Terrain,
   textures: BlockTextureSet | null = null,
+  mushroomMaterial: THREE.MeshLambertMaterial | null = null,
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = "terrain";
   for (const [coord, chunk] of terrain.iter()) {
     const [cx, cy] = coord;
-    group.add(buildChunkMesh(cx, cy, chunk, textures, terrain));
+    group.add(buildChunkMesh(cx, cy, chunk, textures, terrain, mushroomMaterial));
   }
   return group;
 }
@@ -64,6 +65,13 @@ export function buildTerrainMesh(
 export function disposeTerrainMesh(
   group: THREE.Object3D,
   parent?: THREE.Object3D,
+  /**
+   * Materials owned by the caller (e.g. the renderer-wide mushroom
+   * emissive singleton, task 160) that must not be disposed when a
+   * chunk sub-group is torn down. Their GPU resources outlive any
+   * single chunk.
+   */
+  excludedMaterials: ReadonlySet<THREE.Material> = new Set(),
 ): void {
   if (parent) parent.remove(group);
   const seenGeoms = new Set<THREE.BufferGeometry>();
@@ -78,6 +86,7 @@ export function disposeTerrainMesh(
     for (const m of mats) {
       if (seenMats.has(m)) continue;
       seenMats.add(m);
+      if (excludedMaterials.has(m)) continue;
       m.dispose();
     }
   });
@@ -196,6 +205,28 @@ const TORCH_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
 const MUSHROOM_WIDTH = 0.7;
 const MUSHROOM_HEIGHT = 0.55;
 const MUSHROOM_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
+// Matches `MUSHROOM_LIGHT_COLOR` in mushroom_lights.ts so the sprite glow
+// and the surrounding light pool read as the same source. Mirrored as a
+// module-local constant instead of imported to avoid a renderer-internal
+// cross-import the moment a sibling renderer module adds something
+// borrow-worthy the other way (task 160).
+export const MUSHROOM_EMISSIVE_COLOR = 0x9fd9ff;
+// Peak emissive scalar at deep night (nightFactor == 1). Blends with the
+// texture's lit colour; 1.0 washes the cap/stem detail out, lower values
+// don't read as a glow against the deep-blue night ambient — 0.8 keeps
+// the silhouette legible while reading clearly as a glowy source (task 160).
+export const MUSHROOM_EMISSIVE_PEAK = 0.8;
+
+/**
+ * Map a `nightFactor ∈ [0, 1]` to the mushroom-sprite emissive intensity.
+ * Out-of-range values clamp like `MushroomLights.intensityAt` — same
+ * input/output curve so the sprite glow and the surrounding point-light
+ * pool stay locked to a single day-cycle scalar (task 160).
+ */
+export function mushroomEmissiveAt(nightFactor: number): number {
+  const clamped = nightFactor < 0 ? 0 : nightFactor > 1 ? 1 : nightFactor;
+  return clamped * MUSHROOM_EMISSIVE_PEAK;
+}
 
 // Flag (task 220) — a thin upright pole topped by a small colored cloth.
 // Solid `is_solid_top` server-side (collision blocks players), but rendered
@@ -236,6 +267,14 @@ export function buildChunkMesh(
   chunk: Chunk,
   textures: BlockTextureSet | null = null,
   terrain: Terrain | null = null,
+  /**
+   * Optional renderer-owned mushroom material singleton (task 160). When
+   * supplied, every `LightMushroom` mesh in this chunk shares it so the
+   * per-frame emissive-intensity update can be written once. Left `null`
+   * by the unit-test path; the chunk then builds its own per-chunk
+   * material the same way it does for flowers / bushes.
+   */
+  mushroomMaterial: THREE.MeshLambertMaterial | null = null,
 ): THREE.Group {
   // Per-chunk shared geometries + materials. Sharing keeps the per-build
   // allocation count proportional to "kinds present" rather than "tiles" —
@@ -321,9 +360,12 @@ export function buildChunkMesh(
   let torchMat: THREE.Material | null = null;
 
   // Mushroom geometry (task 140). One cross-quad BufferGeometry shared across
-  // every mushroom in the chunk; material comes from the decor-mat cache so
-  // it shares the alpha-transparent path with flowers / bushes.
+  // every mushroom in the chunk; material is the renderer-owned singleton
+  // (task 160) when supplied, else a per-chunk emissive material built
+  // lazily so unit-test calls without a `SceneGraph` still get a textured
+  // alpha-transparent mesh.
   let mushroomGeom: THREE.BufferGeometry | null = null;
+  let mushroomMatLocal: THREE.MeshLambertMaterial | null = null;
 
   // Flag geometry (task 220). Pole geometry + material are shared across
   // every flag in the chunk (one neutral wood-brown stick); the cloth
@@ -445,9 +487,13 @@ export function buildChunkMesh(
       } else if (topBlock.kind === BlockType.LightMushroom) {
         if (!mushroomGeom)
           mushroomGeom = buildCrossQuadsGeometry(MUSHROOM_WIDTH, MUSHROOM_HEIGHT);
-        const mat = textures
-          ? decorMaterialFor(BlockType.LightMushroom)
-          : materialFor(BlockType.LightMushroom);
+        let mat: THREE.Material;
+        if (mushroomMaterial !== null) {
+          mat = mushroomMaterial;
+        } else {
+          if (!mushroomMatLocal) mushroomMatLocal = buildMushroomMaterial(textures);
+          mat = mushroomMatLocal;
+        }
         const mesh = new THREE.Mesh(mushroomGeom, mat);
         mesh.position.set(scene.x, MUSHROOM_BOTTOM, scene.z);
         // Alpha-cropped silhouette — same reason as flowers / bush.
@@ -583,6 +629,42 @@ function buildDecorMaterial(
   return new THREE.MeshLambertMaterial({
     color: colorOverride ?? FALLBACK_BLOCK_COLOR[kind] ?? 0xff00ff,
     side: THREE.DoubleSide,
+  });
+}
+
+/**
+ * Mushroom-specific decor material (task 160). Same alpha-transparent
+ * shape as `buildDecorMaterial`, but with an `emissive` cyan colour and
+ * an `emissiveIntensity` field the renderer updates every frame from
+ * the night-cycle sample. At `emissiveIntensity == 0` the material
+ * renders identically to a regular decor material — so the noon path
+ * is fully preserved and only the night-time silhouette brightens.
+ *
+ * Per-fragment emissive is added *after* the texture sample, so the
+ * mushroom cap's coloured pixels stay coloured and the alpha-transparent
+ * backdrop stays discarded by `alphaTest: 0.5`. Production goes through
+ * a renderer-owned singleton constructed in `SceneGraph`; tests can
+ * call this helper directly.
+ */
+export function buildMushroomMaterial(
+  textures: BlockTextureSet | null,
+): THREE.MeshLambertMaterial {
+  const tex = textures?.get(BlockType.LightMushroom) ?? null;
+  if (tex) {
+    return new THREE.MeshLambertMaterial({
+      map: tex,
+      transparent: true,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(MUSHROOM_EMISSIVE_COLOR),
+      emissiveIntensity: 0,
+    });
+  }
+  return new THREE.MeshLambertMaterial({
+    color: FALLBACK_BLOCK_COLOR[BlockType.LightMushroom] ?? 0xff00ff,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(MUSHROOM_EMISSIVE_COLOR),
+    emissiveIntensity: 0,
   });
 }
 
