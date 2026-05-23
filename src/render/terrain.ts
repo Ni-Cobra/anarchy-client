@@ -182,12 +182,12 @@ const BUSH_Y = BUSH_BOTTOM + BUSH_HEIGHT / 2;
 
 // Torch (task 350): a small upright billboard so the painted sprite (haft +
 // flame) reads against whatever is behind it. Non-solid server-side, like
-// Sticks; only the texture's opaque pixels render thanks to `transparent:
-// true` + an alpha-test threshold on the material.
+// Sticks. Rendered as cross-quads (task 150) — two perpendicular planes
+// textured with the alpha-transparent sprite — so the silhouette reads
+// from any horizontal viewing angle.
 const TORCH_WIDTH = 0.4;
 const TORCH_HEIGHT = 0.85;
 const TORCH_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
-const TORCH_Y = TORCH_BOTTOM + TORCH_HEIGHT / 2;
 
 // Bioluminescent mushroom (task 140) — flowery cross-quad billboard at
 // ~flower scale so a patch reads as forest decoration rather than torch-
@@ -315,9 +315,9 @@ export function buildChunkMesh(
     return m;
   };
 
-  // Torch geometry (task 350). One thin upright box per torch in the chunk;
-  // shares a single transparent material instance.
-  let torchGeom: THREE.BoxGeometry | null = null;
+  // Torch geometry (task 150). Cross-quads BufferGeometry shared across every
+  // torch in the chunk; same transparent material is shared too.
+  let torchGeom: THREE.BufferGeometry | null = null;
   let torchMat: THREE.Material | null = null;
 
   // Mushroom geometry (task 140). One cross-quad BufferGeometry shared across
@@ -434,14 +434,12 @@ export function buildChunkMesh(
         group.add(mesh);
       } else if (topBlock.kind === BlockType.Torch) {
         if (!torchGeom)
-          torchGeom = new THREE.BoxGeometry(TORCH_WIDTH, TORCH_HEIGHT, TORCH_WIDTH);
+          torchGeom = buildCrossQuadsGeometry(TORCH_WIDTH, TORCH_HEIGHT);
         if (!torchMat) torchMat = buildTorchMaterial(textures);
         const mesh = new THREE.Mesh(torchGeom, torchMat);
-        mesh.position.set(scene.x, TORCH_Y, scene.z);
-        // Don't cast shadow — the torch is a thin box with a transparent
-        // texture and the standard shadow pass would silhouette the full
-        // box, painting an opaque rectangle on the ground that doesn't
-        // match the painted flame.
+        mesh.position.set(scene.x, TORCH_BOTTOM, scene.z);
+        // Cast shadow off — the cross-quads' transparent texture would
+        // otherwise paint a square-cross shadow on the ground.
         mesh.receiveShadow = true;
         group.add(mesh);
       } else if (topBlock.kind === BlockType.LightMushroom) {
@@ -531,9 +529,11 @@ export function buildChunkMesh(
  * texture is RGBA — opaque flame + haft pixels surrounded by fully
  * transparent backdrop — so the renderer needs `transparent: true` for the
  * alpha to take. `alphaTest` cuts the near-zero pixels at depth-test time so
- * the box doesn't paint a translucent rectangle when viewed against another
- * transparent surface. When no texture set is supplied (unit-test path) the
- * material falls back to the warm flame color from `FALLBACK_BLOCK_COLOR`
+ * the quad doesn't paint a translucent rectangle when viewed against another
+ * transparent surface. `side: DoubleSide` is what lets the cross-quads
+ * geometry (task 150) render from either face of each plane without
+ * duplicating triangles. When no texture set is supplied (unit-test path)
+ * the material falls back to the warm flame color from `FALLBACK_BLOCK_COLOR`
  * so the test renderer still produces a visible mesh.
  */
 function buildTorchMaterial(
@@ -545,10 +545,12 @@ function buildTorchMaterial(
       map: tex,
       transparent: true,
       alphaTest: 0.5,
+      side: THREE.DoubleSide,
     });
   }
   return new THREE.MeshLambertMaterial({
     color: FALLBACK_BLOCK_COLOR[BlockType.Torch] ?? 0xff00ff,
+    side: THREE.DoubleSide,
   });
 }
 

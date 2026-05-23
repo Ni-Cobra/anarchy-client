@@ -222,8 +222,8 @@ describe("Transparent decor rendering (task 400)", () => {
   });
 });
 
-describe("Torch top-layer rendering (task 350)", () => {
-  it("renders a Torch as a thin upright transparent mesh, not a full cell", () => {
+describe("Torch top-layer rendering (task 350 / task 150)", () => {
+  it("renders a Torch as cross-quads (8 verts / 12 indices) so the sprite reads from any horizontal angle", () => {
     const c = emptyChunk();
     setBlock(c.top, 7, 8, { kind: BlockType.Torch });
     const t = new Terrain();
@@ -232,17 +232,21 @@ describe("Torch top-layer rendering (task 350)", () => {
     const meshes = g.children[0]!.children as THREE.Mesh[];
     expect(meshes).toHaveLength(1);
     const torch = meshes[0]!;
-    const params = (torch.geometry as THREE.BoxGeometry).parameters;
-    // A torch is *not* a full unit cell — that's the load-bearing
-    // affordance for "non-solid, walk-through".
-    expect(params.width).toBeLessThan(1);
-    expect(params.depth).toBeLessThan(1);
-    // No-texture test path: material falls back to a plain solid color
-    // (transparent + alphaTest only fire on the textured path), but the
-    // mesh must still be positioned and shaped like a torch.
+    // Cross-quads: 8 vertices (two perpendicular quads, 4 corners each) and
+    // 12 indices (two triangles per quad). Pins task 150's mesh swap.
+    const positions = torch.geometry.getAttribute("position");
+    expect(positions.count).toBe(8);
+    const index = torch.geometry.getIndex()!;
+    expect(index.count).toBe(12);
+    // Mesh is positioned at the tile center and sits on top of the ground
+    // slab (anchored at y=0 by `buildCrossQuadsGeometry`, lifted to
+    // `TORCH_BOTTOM`).
     expect(torch.position.x).toBeCloseTo(7.5);
     expect(torch.position.z).toBeCloseTo(-8.5);
     expect(torch.position.y).toBeGreaterThan(0);
+    // No `castShadow` — alpha-cropped texture would otherwise paint a
+    // square-cross shadow on the ground (mirrors flowers / bush / canopy).
+    expect(torch.castShadow).toBe(false);
     disposeTerrainMesh(g);
   });
 });
