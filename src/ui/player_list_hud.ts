@@ -27,7 +27,12 @@ const STYLE = `
   #${ROOT_ID} {
     position: fixed;
     top: 12px;
-    left: 12px;
+    /* Task 090: the coords/ping HUD sits at left: 12px and renders three
+       short lines (tile, subtile, ping). Its rendered width grows with
+       coord magnitude (~75px at spawn, ~110px at 3-digit coords); offset
+       the badge so the typical-play gap stays around 8–15 px without
+       overlapping the readout. */
+    left: 140px;
     z-index: 8600;
     font-family: system-ui, -apple-system, sans-serif;
     color: #f0f0f0;
