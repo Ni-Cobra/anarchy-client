@@ -57,6 +57,16 @@ export const CHAT_HUD_MAX_LINES = 50;
 export const CHAT_HUD_ADMIN_COLOR = "#ffb347";
 
 /**
+ * Task 120: neutral grey applied to System-kind lines (server lifecycle
+ * events — `Player <name> joined / disconnected / registered / killed`).
+ * Read against the dark UI chrome and deliberately quieter than the
+ * Admin warm tint so a flurry of join/leave events doesn't drown out
+ * actual chat. Combined with `font-style: italic` via the
+ * `anarchy-chat-system` class.
+ */
+export const CHAT_HUD_SYSTEM_COLOR = "#888";
+
+/**
  * Dim gray applied to the `HH:MM:SS` timestamp prefix on each row.
  * Combined with [`CHAT_HUD_TIME_OPACITY`] so the timestamp recedes
  * against the sender + body without dropping below legibility.
@@ -107,6 +117,13 @@ const STYLE = `
     font-weight: 700;
     color: ${CHAT_HUD_ADMIN_COLOR};
   }
+  /* Task 120: System-kind lines (server lifecycle events). Grey
+     italic body, no sender prefix — the entire row reads as a
+     quiet status line distinct from chat. */
+  #${LIST_ID} li.anarchy-chat-system {
+    color: ${CHAT_HUD_SYSTEM_COLOR};
+    font-style: italic;
+  }
   #${LIST_ID} .anarchy-chat-time {
     color: ${CHAT_HUD_TIME_COLOR};
     opacity: ${CHAT_HUD_TIME_OPACITY};
@@ -126,9 +143,11 @@ const STYLE = `
  * Chat-line kind in client-side form. Mirrors
  * `proto.v1.ChatMessage.Kind` minus the proto3 `UNSPECIFIED = 0`
  * sentinel — the wire bridge filters that out before passing lines to
- * the HUD.
+ * the HUD. `system` covers task 120's server-generated lifecycle /
+ * combat lines (`Player <name> joined / disconnected / registered /
+ * killed`).
  */
-export type ChatKind = "player" | "admin";
+export type ChatKind = "player" | "admin" | "system";
 
 export interface ChatLine {
   kind: ChatKind;
@@ -224,16 +243,33 @@ export function mountChatHud(deps?: {
 
   function buildRow(line: ChatLine, ts: string): HTMLLIElement {
     const li = document.createElement("li");
-    if (line.kind === "admin") {
-      li.classList.add("anarchy-chat-admin");
-    } else {
-      li.classList.add("anarchy-chat-player");
+    switch (line.kind) {
+      case "admin":
+        li.classList.add("anarchy-chat-admin");
+        break;
+      case "system":
+        li.classList.add("anarchy-chat-system");
+        break;
+      default:
+        li.classList.add("anarchy-chat-player");
+        break;
     }
     // textContent everywhere so user-supplied content can't smuggle
     // in HTML; styling is class-driven.
     const timeSpan = document.createElement("span");
     timeSpan.className = "anarchy-chat-time";
     timeSpan.textContent = `${ts} `;
+    li.appendChild(timeSpan);
+    // Task 120: System-kind lines render `[hh:mm:ss] <body>` — no
+    // `<sender>:` prefix because the line is server-authored and
+    // the body already names whichever player the event is about.
+    if (line.kind === "system") {
+      const bodySpan = document.createElement("span");
+      bodySpan.className = "anarchy-chat-body";
+      bodySpan.textContent = line.body;
+      li.appendChild(bodySpan);
+      return li;
+    }
     const senderSpan = document.createElement("span");
     senderSpan.className = "anarchy-chat-sender";
     // Task 110: per-message sender styling. Admin lines keep their
@@ -253,7 +289,6 @@ export function mountChatHud(deps?: {
     const bodySpan = document.createElement("span");
     bodySpan.className = "anarchy-chat-body";
     bodySpan.textContent = line.body;
-    li.appendChild(timeSpan);
     li.appendChild(senderSpan);
     li.appendChild(bodySpan);
     return li;

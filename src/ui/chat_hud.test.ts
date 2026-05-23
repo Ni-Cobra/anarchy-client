@@ -6,6 +6,7 @@ import { paletteColorHex } from "../game/index.js";
 import {
   CHAT_HUD_ADMIN_COLOR,
   CHAT_HUD_MAX_LINES,
+  CHAT_HUD_SYSTEM_COLOR,
   CHAT_HUD_TIME_COLOR,
   CHAT_HUD_TIME_OPACITY,
   type ChatHudHandle,
@@ -50,6 +51,16 @@ function admin(body: string): ChatLine {
   return {
     kind: "admin",
     sender: "SERVER",
+    body,
+    colorIndex: 0,
+    registered: true,
+  };
+}
+
+function system(body: string): ChatLine {
+  return {
+    kind: "system",
+    sender: "",
     body,
     colorIndex: 0,
     registered: true,
@@ -288,6 +299,38 @@ describe("mountChatHud", () => {
     expect(
       sender!.classList.contains("anarchy-chat-sender-guest"),
     ).toBe(false);
+  });
+
+  // Task 120 — System-kind rows render grey-italic with no `<sender>:`
+  // prefix. The renderer branches on `kind` in one place so the body is
+  // the sole non-timestamp child of the row.
+  it("renders a system-kind row with the anarchy-chat-system class and no sender prefix (task 120)", () => {
+    handle = mountChatHud();
+    handle.replaceHistory([system("Player Alice joined")]);
+    const row = rows()[0];
+    expect(row.classList.contains("anarchy-chat-system")).toBe(true);
+    expect(row.classList.contains("anarchy-chat-player")).toBe(false);
+    expect(row.classList.contains("anarchy-chat-admin")).toBe(false);
+    // No `<sender>:` prefix — the body is rendered without a sender span.
+    expect(row.querySelector(".anarchy-chat-sender")).toBeNull();
+    const body = row.querySelector<HTMLSpanElement>(".anarchy-chat-body");
+    expect(body).not.toBeNull();
+    expect(body!.textContent).toBe("Player Alice joined");
+    // Timestamp prefix is still applied (system lines share the
+    // `[hh:mm:ss]` lead-in with player / admin rows).
+    const time = row.querySelector(".anarchy-chat-time");
+    expect(time).not.toBeNull();
+    expect(time!.textContent).toMatch(/^\d{2}:\d{2}:\d{2} $/);
+  });
+
+  it("styles a system-kind row with grey italic body via the injected stylesheet (task 120)", () => {
+    handle = mountChatHud();
+    handle.replaceHistory([system("Player Bob disconnected")]);
+    const row = rows()[0];
+    const style = window.getComputedStyle(row);
+    const expectedRgb = hexToRgb(CHAT_HUD_SYSTEM_COLOR);
+    expect([CHAT_HUD_SYSTEM_COLOR, expectedRgb]).toContain(style.color);
+    expect(style.fontStyle).toBe("italic");
   });
 
   it("ignores colorIndex + registered on admin-kind rows (task 110)", () => {

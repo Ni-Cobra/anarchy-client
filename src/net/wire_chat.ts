@@ -57,6 +57,9 @@ export function chatLineFromWire(
     case anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN:
       kind = "admin";
       break;
+    case anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_SYSTEM:
+      kind = "system";
+      break;
     default:
       return null;
   }

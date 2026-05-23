@@ -309,6 +309,40 @@ describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
     expect(() => applyServerMessage(msg, deps)).not.toThrow();
   });
 
+  it("decodes a SYSTEM-kind message as kind \"system\" (task 120)", () => {
+    const { deps: base } = makeFixture();
+    const calls: Array<Array<{ kind: string; sender: string; body: string }>> =
+      [];
+    const deps: WireDeps = {
+      ...base,
+      chatSink: { replaceHistory: (m) => calls.push(m.map((x) => ({ ...x }))) },
+    };
+    const msg = decodeRoundtrip({
+      seq: 1,
+      chatHistory: {
+        messages: [
+          {
+            kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_SYSTEM,
+            sender: "",
+            body: "Player Alice joined",
+          },
+        ],
+      },
+    });
+    applyServerMessage(msg, deps);
+    expect(calls).toEqual([
+      [
+        {
+          kind: "system",
+          sender: "",
+          body: "Player Alice joined",
+          colorIndex: 0,
+          registered: false,
+        },
+      ],
+    ]);
+  });
+
   it("drops UNSPECIFIED kind messages inside the snapshot (defensive)", () => {
     const { deps: base } = makeFixture();
     const calls: Array<Array<{ kind: string; sender: string; body: string }>> =

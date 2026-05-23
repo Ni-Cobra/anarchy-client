@@ -266,13 +266,21 @@ message SendChat {
 
 message ChatMessage {
   // Source kind. Drives styling on the receiving client — `Admin`
-  // lines render bold + warm tint, `Player` lines render plain.
+  // lines render bold + warm tint, `Player` lines render plain,
+  // `System` lines render grey-italic with no `<sender>:` prefix
+  // (task 120 lifecycle events: join / disconnect / register / kill).
   // `CHAT_MESSAGE_KIND_UNSPECIFIED = 0` is the proto3 default
   // sentinel and is never emitted by the server.
   enum Kind {
     CHAT_MESSAGE_KIND_UNSPECIFIED = 0;
     CHAT_MESSAGE_KIND_PLAYER = 1;
     CHAT_MESSAGE_KIND_ADMIN = 2;
+    // Task 120 — server-generated lifecycle / combat events
+    // (Player joined / disconnected / registered / killed). Body
+    // carries the rendered line; `sender` is empty (no `<sender>:`
+    // prefix on the client); `sender_color_index = 0`;
+    // `sender_registered = true` (system is not a guest).
+    CHAT_MESSAGE_KIND_SYSTEM = 3;
   }
   Kind kind = 1;
   // Display name of the sender. `"SERVER"` for admin lines emitted
