@@ -228,70 +228,104 @@ describe("applyServerMessage — ConnectedPlayersList (task 170)", () => {
   });
 });
 
-describe("applyServerMessage — ChatMessage (task 080)", () => {
-  it("routes a top-level chat envelope into the chat sink", () => {
+describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
+  it("routes a top-level chat history envelope into the chat sink as one replace", () => {
     const { deps: base } = makeFixture();
-    const lines: Array<{ kind: string; sender: string; body: string }> = [];
+    const calls: Array<Array<{ kind: string; sender: string; body: string }>> =
+      [];
     const deps: WireDeps = {
       ...base,
-      chatSink: { append: (l) => lines.push(l) },
+      chatSink: { replaceHistory: (m) => calls.push(m.map((x) => ({ ...x }))) },
     };
 
-    const adminMsg = decodeRoundtrip({
+    const msg = decodeRoundtrip({
       seq: 1,
-      chatMessage: {
-        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN,
-        sender: "SERVER",
-        body: "hello world",
+      chatHistory: {
+        messages: [
+          {
+            kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN,
+            sender: "SERVER",
+            body: "hello world",
+          },
+          {
+            kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_PLAYER,
+            sender: "Alice",
+            body: "hi",
+          },
+        ],
       },
     });
-    applyServerMessage(adminMsg, deps);
-    const playerMsg = decodeRoundtrip({
-      seq: 2,
-      chatMessage: {
-        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_PLAYER,
-        sender: "Alice",
-        body: "hi",
-      },
-    });
-    applyServerMessage(playerMsg, deps);
+    applyServerMessage(msg, deps);
 
-    expect(lines).toEqual([
-      { kind: "admin", sender: "SERVER", body: "hello world" },
-      { kind: "player", sender: "Alice", body: "hi" },
+    expect(calls).toEqual([
+      [
+        { kind: "admin", sender: "SERVER", body: "hello world" },
+        { kind: "player", sender: "Alice", body: "hi" },
+      ],
     ]);
+  });
+
+  it("forwards an empty history envelope as an empty replace (clears local view)", () => {
+    const { deps: base } = makeFixture();
+    const calls: Array<Array<unknown>> = [];
+    const deps: WireDeps = {
+      ...base,
+      chatSink: { replaceHistory: (m) => calls.push([...m]) },
+    };
+    const msg = decodeRoundtrip({
+      seq: 1,
+      chatHistory: { messages: [] },
+    });
+    applyServerMessage(msg, deps);
+    expect(calls).toEqual([[]]);
   });
 
   it("is a no-op when no chatSink is wired", () => {
     const { deps } = makeFixture();
     const msg = decodeRoundtrip({
       seq: 1,
-      chatMessage: {
-        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN,
-        sender: "SERVER",
-        body: "hi",
+      chatHistory: {
+        messages: [
+          {
+            kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_ADMIN,
+            sender: "SERVER",
+            body: "hi",
+          },
+        ],
       },
     });
     expect(() => applyServerMessage(msg, deps)).not.toThrow();
   });
 
-  it("drops the UNSPECIFIED kind sentinel (defensive)", () => {
+  it("drops UNSPECIFIED kind messages inside the snapshot (defensive)", () => {
     const { deps: base } = makeFixture();
-    const lines: unknown[] = [];
+    const calls: Array<Array<{ kind: string; sender: string; body: string }>> =
+      [];
     const deps: WireDeps = {
       ...base,
-      chatSink: { append: (l) => lines.push(l) },
+      chatSink: { replaceHistory: (m) => calls.push(m.map((x) => ({ ...x }))) },
     };
     const msg = decodeRoundtrip({
       seq: 1,
-      chatMessage: {
-        kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_UNSPECIFIED,
-        sender: "x",
-        body: "x",
+      chatHistory: {
+        messages: [
+          {
+            kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_UNSPECIFIED,
+            sender: "x",
+            body: "x",
+          },
+          {
+            kind: anarchy.v1.ChatMessage.Kind.CHAT_MESSAGE_KIND_PLAYER,
+            sender: "Alice",
+            body: "ok",
+          },
+        ],
       },
     });
     applyServerMessage(msg, deps);
-    expect(lines).toEqual([]);
+    expect(calls).toEqual([
+      [{ kind: "player", sender: "Alice", body: "ok" }],
+    ]);
   });
 });
 

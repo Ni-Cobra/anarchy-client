@@ -7,6 +7,7 @@ import {
   CHAT_HUD_TIME_COLOR,
   CHAT_HUD_TIME_OPACITY,
   type ChatHudHandle,
+  type ChatLine,
   formatTimestamp,
   mountChatHud,
 } from "./chat_hud.js";
@@ -29,6 +30,14 @@ function rows(): HTMLLIElement[] {
   );
 }
 
+function player(sender: string, body: string): ChatLine {
+  return { kind: "player", sender, body };
+}
+
+function admin(body: string): ChatLine {
+  return { kind: "admin", sender: "SERVER", body };
+}
+
 describe("mountChatHud", () => {
   it("creates the root #anarchy-chat-root container", () => {
     handle = mountChatHud();
@@ -39,7 +48,7 @@ describe("mountChatHud", () => {
 
   it("renders a player-kind message as a plain line with no bold class", () => {
     handle = mountChatHud();
-    handle.append({ kind: "player", sender: "Alice", body: "hi there" });
+    handle.replaceHistory([player("Alice", "hi there")]);
     const row = rows()[0];
     expect(row).toBeDefined();
     expect(row.textContent).toContain("Alice");
@@ -50,7 +59,7 @@ describe("mountChatHud", () => {
 
   it("renders an admin-kind message as bold + warm tint", () => {
     handle = mountChatHud();
-    handle.append({ kind: "admin", sender: "SERVER", body: "maintenance soon" });
+    handle.replaceHistory([admin("maintenance soon")]);
     const row = rows()[0];
     expect(row.classList.contains("anarchy-chat-admin")).toBe(true);
     expect(row.classList.contains("anarchy-chat-player")).toBe(false);
@@ -65,11 +74,13 @@ describe("mountChatHud", () => {
     expect([CHAT_HUD_ADMIN_COLOR, expected]).toContain(style.color);
   });
 
-  it("appends lines in arrival order (newest at the bottom)", () => {
+  it("renders the history in arrival order (newest at the bottom)", () => {
     handle = mountChatHud();
-    handle.append({ kind: "player", sender: "A", body: "first" });
-    handle.append({ kind: "admin", sender: "SERVER", body: "second" });
-    handle.append({ kind: "player", sender: "B", body: "third" });
+    handle.replaceHistory([
+      player("A", "first"),
+      admin("second"),
+      player("B", "third"),
+    ]);
     const bodies = rows().map((r) => r.textContent);
     expect(bodies[0]).toContain("first");
     expect(bodies[1]).toContain("second");
@@ -78,11 +89,13 @@ describe("mountChatHud", () => {
 
   it("escapes HTML in sender + body via textContent (no markup injection)", () => {
     handle = mountChatHud();
-    handle.append({
-      kind: "player",
-      sender: "<b>nope</b>",
-      body: "<script>alert(1)</script>",
-    });
+    handle.replaceHistory([
+      {
+        kind: "player",
+        sender: "<b>nope</b>",
+        body: "<script>alert(1)</script>",
+      },
+    ]);
     const row = rows()[0];
     expect(row.innerHTML).not.toContain("<script>");
     expect(row.innerHTML).not.toContain("<b>nope</b>");
@@ -90,11 +103,79 @@ describe("mountChatHud", () => {
     expect(row.textContent).toContain("<script>alert(1)</script>");
   });
 
-  it("trims oldest rows when CHAT_HUD_MAX_LINES is exceeded", () => {
+  it("replaceHistory([]) clears the rendered rows", () => {
     handle = mountChatHud();
+    handle.replaceHistory([player("A", "hi"), player("B", "yo")]);
+    expect(handle.size()).toBe(2);
+    handle.replaceHistory([]);
+    expect(handle.size()).toBe(0);
+    expect(rows()).toHaveLength(0);
+  });
+
+  it("replaceHistory replaces the rendered rows with the new snapshot", () => {
+    handle = mountChatHud();
+    handle.replaceHistory([player("A", "one"), player("B", "two")]);
+    handle.replaceHistory([player("C", "three")]);
+    const bodies = rows().map((r) => r.textContent);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toContain("C");
+    expect(bodies[0]).toContain("three");
+  });
+
+  it("preserves the timestamp of a line that already appeared in the prior snapshot (task 100)", () => {
+    // Drive `now` from the test so the assertion can pin the exact
+    // displayed timestamp.
+    const clock = new MockClock(["10:00:00", "10:00:30"]);
+    handle = mountChatHud({ now: () => clock.next() });
+
+    // First snapshot at 10:00:00: m1 + m2 are stamped at that time.
+    handle.replaceHistory([player("A", "one"), player("B", "two")]);
+    const beforeTimes = rows().map(timeOf);
+    expect(beforeTimes).toEqual(["10:00:00", "10:00:00"]);
+
+    // Second snapshot at 10:00:30: m1 + m2 carry their original
+    // 10:00:00 stamp; m3 is brand new and stamps at 10:00:30.
+    handle.replaceHistory([
+      player("A", "one"),
+      player("B", "two"),
+      player("C", "three"),
+    ]);
+    const afterTimes = rows().map(timeOf);
+    expect(afterTimes).toEqual(["10:00:00", "10:00:00", "10:00:30"]);
+  });
+
+  it("forgets a line's timestamp when the server evicts it (task 100)", () => {
+    // If the same `kind|sender|body` is re-broadcast LATER after the
+    // server's rolling buffer pushed it out, it should be treated as a
+    // fresh line — stamped at the new arrival time, not the original.
+    const clock = new MockClock(["10:00:00", "10:01:00", "10:02:00"]);
+    handle = mountChatHud({ now: () => clock.next() });
+
+    handle.replaceHistory([player("A", "one")]);
+    expect(rows().map(timeOf)).toEqual(["10:00:00"]);
+
+    // Server evicts "one" (buffer rolled over); we ship a new snapshot
+    // with a different line.
+    handle.replaceHistory([player("B", "two")]);
+    expect(rows().map(timeOf)).toEqual(["10:01:00"]);
+
+    // Now "one" comes back (in real life: a player re-typed it). The
+    // identity table was purged at the eviction step, so this is a
+    // fresh stamp.
+    handle.replaceHistory([player("B", "two"), player("A", "one")]);
+    expect(rows().map(timeOf)).toEqual(["10:01:00", "10:02:00"]);
+  });
+
+  it("trims oldest rows when CHAT_HUD_MAX_LINES is exceeded (defensive cap)", () => {
+    // The server caps at 20 but a future bump could ship more — the
+    // HUD's render-side trim defends against that. We construct a
+    // snapshot larger than the cap and confirm the head is dropped.
+    handle = mountChatHud();
+    const snapshot: ChatLine[] = [];
     for (let i = 0; i < CHAT_HUD_MAX_LINES + 5; i++) {
-      handle.append({ kind: "player", sender: "S", body: `line-${i}` });
+      snapshot.push(player("S", `line-${i}`));
     }
+    handle.replaceHistory(snapshot);
     expect(handle.size()).toBe(CHAT_HUD_MAX_LINES);
     const first = rows()[0];
     // The first 5 lines should have been trimmed; the new first is line-5.
@@ -103,7 +184,7 @@ describe("mountChatHud", () => {
 
   it("prefixes each row with a dim-gray HH:MM:SS timestamp (task 020)", () => {
     handle = mountChatHud();
-    handle.append({ kind: "player", sender: "Alice", body: "hi" });
+    handle.replaceHistory([player("Alice", "hi")]);
     const row = rows()[0];
     const time = row.querySelector<HTMLSpanElement>(".anarchy-chat-time");
     expect(time).not.toBeNull();
@@ -149,4 +230,20 @@ function hexToRgb(hex: string): string {
   const g = (n >> 8) & 0xff;
   const b = n & 0xff;
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+function timeOf(row: HTMLLIElement): string {
+  const t = row.querySelector(".anarchy-chat-time");
+  return (t?.textContent ?? "").trim();
+}
+
+class MockClock {
+  private idx = 0;
+  constructor(private readonly stamps: string[]) {}
+  next(): Date {
+    const s = this.stamps[Math.min(this.idx, this.stamps.length - 1)];
+    this.idx++;
+    const [h, m, sec] = s.split(":").map(Number);
+    return new Date(2026, 0, 1, h, m, sec);
+  }
 }

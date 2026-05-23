@@ -1,14 +1,27 @@
 /**
- * Chat overlay — task 080.
+ * Chat overlay — task 080 / 100.
  *
- * Bottom-left transparent overlay. Each `ChatMessage` envelope appended in
- * arrival order; recent lines drift upward as new ones arrive (newest at
- * the bottom). Admin-kind lines render bold + warm tint; player-kind lines
- * render plain. Every row is prefixed with a dim-gray `HH:MM:SS` local
- * wall-clock time captured at append (arrival) so it can't drift if the
- * row is re-styled later. No open/close gating, no fade in this task
- * (task 090 may revisit fade). No scrollback — the overlay caps the
- * visible row count and trims oldest as new ones arrive.
+ * Bottom-left transparent overlay. The server owns the chat scrollback as
+ * a 20-message rolling buffer (task 100) and re-broadcasts the full
+ * snapshot every time it changes; the HUD replaces its DOM rows from
+ * each snapshot via [`ChatHudHandle.replaceHistory`]. There is no
+ * per-message append wire path — the snapshot is the wire shape.
+ *
+ * The HUD keeps a per-line "first seen" wall-clock so timestamps don't
+ * jump when the server re-ships a snapshot that already contains a line
+ * the HUD has rendered. Identity is `kind|sender|body` (a tuple hash —
+ * collisions are inconsequential because the timestamp is display-only).
+ * Lines new to a snapshot are stamped at receive time; lines that fall
+ * out of the snapshot (the server evicted the oldest entry past
+ * `CHAT_HISTORY_MAX = 20`) drop out of the DOM and out of the identity
+ * map together.
+ *
+ * Admin-kind rows render bold + warm tint; player-kind rows render
+ * plain. Every row is prefixed with a dim-gray `HH:MM:SS` local
+ * wall-clock time captured the first time the line was observed by this
+ * HUD. A late-joining client will stamp every replayed message at its
+ * join time — that's acceptable because timestamps are display-only
+ * (the server does not ship per-message timestamps, per task 100).
  *
  * The root is a bottom-anchored flex column with two children: the
  * message list, then an empty input slot exposed via
@@ -17,8 +30,9 @@
  * same bottom anchor — focusing it never shifts the message stack
  * (task 010).
  *
- * Network-free; pure DOM. The wire bridge calls [`ChatHudHandle.append`]
- * for every `ChatMessage` envelope it sees.
+ * Network-free; pure DOM. The wire bridge calls
+ * [`ChatHudHandle.replaceHistory`] for every `ChatHistory` envelope it
+ * sees.
  */
 
 const STYLE_ID = "anarchy-chat-hud-style";
@@ -26,7 +40,12 @@ const ROOT_ID = "anarchy-chat-root";
 const LIST_ID = "anarchy-chat-list";
 const INPUT_HOST_ID = "anarchy-chat-input-host";
 
-/** Maximum lines kept in the DOM. Older lines are trimmed off the top. */
+/**
+ * Render-side safety belt for the message list. The server caps the
+ * history at 20 (task 100, `CHAT_HISTORY_MAX`), so this trim should
+ * never actually fire — keep it as a defensive cap in case a future
+ * server bump grows the buffer without coordinating with the client.
+ */
 export const CHAT_HUD_MAX_LINES = 50;
 
 /**
@@ -96,8 +115,8 @@ const STYLE = `
 /**
  * Chat-line kind in client-side form. Mirrors
  * `proto.v1.ChatMessage.Kind` minus the proto3 `UNSPECIFIED = 0`
- * sentinel — the wire bridge filters that out before calling
- * [`ChatHudHandle.append`].
+ * sentinel — the wire bridge filters that out before passing lines to
+ * the HUD.
  */
 export type ChatKind = "player" | "admin";
 
@@ -108,8 +127,14 @@ export interface ChatLine {
 }
 
 export interface ChatHudHandle {
-  /** Append one line to the overlay. Newest line sits at the bottom. */
-  append(line: ChatLine): void;
+  /**
+   * Replace the rendered scrollback with `messages`, ordered oldest →
+   * newest. Lines whose identity (`kind|sender|body`) is already in
+   * the rendered set keep their first-seen timestamp; new lines are
+   * stamped at the time of this call; previously-rendered lines that
+   * fell out of the snapshot drop from the DOM.
+   */
+  replaceHistory(messages: readonly ChatLine[]): void;
   /** Test affordance: current line count. */
   size(): number;
   /**
@@ -138,8 +163,23 @@ function injectStyle(): void {
   document.head.appendChild(el);
 }
 
-export function mountChatHud(): ChatHudHandle {
+/**
+ * Identity hash for the timestamp-stability map. Two lines that share
+ * `kind|sender|body` collide deliberately — chat is display-only, the
+ * worst-case is a second identical message inheriting the first one's
+ * timestamp. That's preferable to running a separate monotonic
+ * sequence the server doesn't ship.
+ */
+function lineKey(line: ChatLine): string {
+  return `${line.kind}\x00${line.sender}\x00${line.body}`;
+}
+
+export function mountChatHud(deps?: {
+  now?: () => Date;
+}): ChatHudHandle {
   injectStyle();
+
+  const now = deps?.now ?? (() => new Date());
 
   const root = document.createElement("div");
   root.id = ROOT_ID;
@@ -155,20 +195,23 @@ export function mountChatHud(): ChatHudHandle {
 
   document.body.appendChild(root);
 
-  const append = (line: ChatLine): void => {
+  // Per-line first-seen timestamp, keyed by `lineKey`. A line that
+  // re-appears in a subsequent snapshot keeps its original timestamp;
+  // a line that falls out of the snapshot is purged here too.
+  const stamps = new Map<string, string>();
+
+  function buildRow(line: ChatLine, ts: string): HTMLLIElement {
     const li = document.createElement("li");
     if (line.kind === "admin") {
       li.classList.add("anarchy-chat-admin");
     } else {
       li.classList.add("anarchy-chat-player");
     }
-    // Render as `HH:MM:SS <sender>: <body>`. Timestamp is captured at
-    // append time (arrival, not render) so it doesn't drift if the row
-    // is re-styled later. textContent everywhere so user-supplied
-    // content can't smuggle in HTML; styling is class-driven.
+    // textContent everywhere so user-supplied content can't smuggle
+    // in HTML; styling is class-driven.
     const timeSpan = document.createElement("span");
     timeSpan.className = "anarchy-chat-time";
-    timeSpan.textContent = `${formatTimestamp(new Date())} `;
+    timeSpan.textContent = `${ts} `;
     const senderSpan = document.createElement("span");
     senderSpan.className = "anarchy-chat-sender";
     senderSpan.textContent = `${line.sender}: `;
@@ -178,15 +221,47 @@ export function mountChatHud(): ChatHudHandle {
     li.appendChild(timeSpan);
     li.appendChild(senderSpan);
     li.appendChild(bodySpan);
-    list.appendChild(li);
-    // Trim oldest lines off the top.
-    while (list.children.length > CHAT_HUD_MAX_LINES) {
-      list.removeChild(list.firstChild as ChildNode);
+    return li;
+  }
+
+  function replaceHistory(messages: readonly ChatLine[]): void {
+    // Trim to the render cap; the server caps at 20 so this branch
+    // never fires under normal operation but guards a future bump.
+    const trimmed =
+      messages.length > CHAT_HUD_MAX_LINES
+        ? messages.slice(messages.length - CHAT_HUD_MAX_LINES)
+        : messages;
+
+    // Compute the new identity set; anything in `stamps` not in this
+    // set is being evicted by the server's rolling buffer and should
+    // drop from the map too so the map can't grow unbounded.
+    const nextKeys = new Set<string>();
+    for (const line of trimmed) nextKeys.add(lineKey(line));
+    for (const k of Array.from(stamps.keys())) {
+      if (!nextKeys.has(k)) stamps.delete(k);
     }
-  };
+
+    // Build (or reuse stamps for) every row, then swap the DOM in one
+    // shot. Building first means a render error on row N doesn't leave
+    // the list in a torn state — though textContent-only construction
+    // makes that essentially impossible.
+    const nowStr = formatTimestamp(now());
+    const rows: HTMLLIElement[] = [];
+    for (const line of trimmed) {
+      const k = lineKey(line);
+      let ts = stamps.get(k);
+      if (ts === undefined) {
+        ts = nowStr;
+        stamps.set(k, ts);
+      }
+      rows.push(buildRow(line, ts));
+    }
+
+    list.replaceChildren(...rows);
+  }
 
   return {
-    append,
+    replaceHistory,
     size: () => list.children.length,
     inputHost: () => inputHost,
     unmount: () => {

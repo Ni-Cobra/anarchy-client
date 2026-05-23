@@ -623,7 +623,9 @@ export function constructSession(deps: SessionDeps): Session {
         // synchronous construction phase, but the wire callback can't
         // fire until at least one frame has crossed the socket, by
         // which time `chatHud` has been assigned.
-        chatSink: { append: (line) => chatHud.append(line) },
+        chatSink: {
+          replaceHistory: (messages) => chatHud.replaceHistory(messages),
+        },
         pingSink: {
           setRttMs: (rtt) => {
             lastRttMs = rtt;

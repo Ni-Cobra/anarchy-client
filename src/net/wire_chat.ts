@@ -1,29 +1,33 @@
 /**
- * `ChatMessage` handler (task 080). Decodes the wire payload (kind,
- * sender, body) into a `ChatLine` and pushes it onto the chat HUD via
- * the supplied sink. Server→client only; ephemeral — no ring buffer, no
- * replay on join.
+ * `ChatHistory` handler (task 100). Decodes the wire payload (a list of
+ * `ChatMessage`s in oldest → newest order) into a `ChatLine[]` and hands
+ * it to the chat HUD's `replaceHistory` entry point. Server→client only;
+ * the server owns the rolling buffer (max 20) and re-broadcasts a fresh
+ * snapshot on every change, so the client never appends — it always
+ * replaces from the latest snapshot it sees.
  */
 import { anarchy } from "../gen/anarchy.js";
 
 import type { ChatLine } from "../ui/chat_hud.js";
 
 /**
- * Sink the wire bridge writes received chat lines into. The bootstrap
- * mounts a `ChatHudHandle.append` here; tests can mount anything.
+ * Sink the wire bridge writes received chat history into. The bootstrap
+ * mounts a `ChatHudHandle.replaceHistory`-bound sink here; tests can
+ * mount anything that implements the shape.
  */
 export interface ChatSink {
-  append(line: ChatLine): void;
+  replaceHistory(messages: readonly ChatLine[]): void;
 }
 
-export function applyChatMessage(
-  wire: anarchy.v1.IChatMessage,
+export function applyChatHistory(
+  wire: anarchy.v1.IChatHistory,
   sink: ChatSink | undefined,
 ): void {
   if (!sink) return;
-  const line = chatLineFromWire(wire);
-  if (!line) return;
-  sink.append(line);
+  const messages = (wire.messages ?? [])
+    .map(chatLineFromWire)
+    .filter((line): line is ChatLine => line !== null);
+  sink.replaceHistory(messages);
 }
 
 /**

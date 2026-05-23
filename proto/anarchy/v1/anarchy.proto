@@ -82,12 +82,15 @@ message ServerMessage {
     // tick-rate spam. The initial roster also rides in ServerWelcome so
     // a fresh client paints the list before the first join/leave event.
     ConnectedPlayersList connected_players_list = 32;
-    // Task 080 — single chat line from "somewhere" (today: admin
-    // `broadcast` CLI, future: player typing in task 090). Ephemeral —
-    // no ring buffer, no replay on join, no persistence. Fan-out: the
-    // server walks the connection registry on each send and pushes one
-    // envelope per connected client, mirroring `ConnectedPlayersList`.
-    ChatMessage chat_message = 33;
+    // Task 100 — full chat history snapshot. The server keeps the last
+    // `CHAT_HISTORY_MAX = 20` chat lines in a rolling buffer; every time
+    // a line is added the snapshot is re-broadcast to every connected
+    // client, which overwrites its local view from it. A freshly
+    // admitted client receives one of these (possibly empty) right after
+    // its welcome so scrollback is available before any new line lands.
+    // Per-line `ChatMessage` shape is unchanged; only the envelope
+    // wrapping is new.
+    ChatHistory chat_history = 33;
   }
 }
 
@@ -283,6 +286,17 @@ message ChatMessage {
   // through whatever the CLI joined together from the rest of its
   // input line.
   string body = 3;
+}
+
+// Task 100 — snapshot of the server's rolling chat buffer. `messages` is
+// ordered oldest → newest and is capped at the server-side
+// `CHAT_HISTORY_MAX = 20`. The server broadcasts a fresh snapshot every
+// time the buffer changes (a player chat line, an admin broadcast) and
+// sends one to each freshly admitted client right after the welcome
+// (possibly empty). Clients overwrite their local view from this envelope
+// — there is no "append" wire shape.
+message ChatHistory {
+  repeated ChatMessage messages = 1;
 }
 
 // === Heartbeat ===
