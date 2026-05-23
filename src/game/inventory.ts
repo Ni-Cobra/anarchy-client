@@ -182,6 +182,27 @@ export enum ItemId {
    * Non-stackable so every stack carries exactly one color.
    */
   Flag = 54,
+  /**
+   * Task 170 dye items. Inventory-only (no `places_block`, no tool kind).
+   * Crafted from flowers / coal, combined into secondary colors, then
+   * combined with `DyeBlack` into "dark" variants. `DyeGray` is the name
+   * of `DyeWhite + DyeBlack`; there is no `DyeDarkWhite`.
+   */
+  DyeWhite = 55,
+  DyeBlue = 56,
+  DyeRed = 57,
+  DyeYellow = 58,
+  DyeBlack = 59,
+  DyePurple = 60,
+  DyeGreen = 61,
+  DyeOrange = 62,
+  DyeGray = 63,
+  DyeDarkBlue = 64,
+  DyeDarkRed = 65,
+  DyeDarkYellow = 66,
+  DyeDarkGreen = 67,
+  DyeDarkPurple = 68,
+  DyeDarkOrange = 69,
 }
 
 /**

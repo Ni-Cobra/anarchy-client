@@ -1376,6 +1376,26 @@ enum ItemId {
   // flag's color comes from the placing stack's `extra.flag.color_index`.
   // Non-stackable so every stack carries exactly one color.
   ITEM_ID_FLAG = 54;
+  // Task 170 — dye items. Inventory-only (no BlockType sibling, no
+  // place_block path). Crafted from flowers / coal, combined into
+  // secondary colors, then combined with DyeBlack into "dark" variants.
+  // `DyeGray` is the name of `DyeWhite + DyeBlack`; there is no
+  // `DyeDarkWhite`.
+  ITEM_ID_DYE_WHITE = 55;
+  ITEM_ID_DYE_BLUE = 56;
+  ITEM_ID_DYE_RED = 57;
+  ITEM_ID_DYE_YELLOW = 58;
+  ITEM_ID_DYE_BLACK = 59;
+  ITEM_ID_DYE_PURPLE = 60;
+  ITEM_ID_DYE_GREEN = 61;
+  ITEM_ID_DYE_ORANGE = 62;
+  ITEM_ID_DYE_GRAY = 63;
+  ITEM_ID_DYE_DARK_BLUE = 64;
+  ITEM_ID_DYE_DARK_RED = 65;
+  ITEM_ID_DYE_DARK_YELLOW = 66;
+  ITEM_ID_DYE_DARK_GREEN = 67;
+  ITEM_ID_DYE_DARK_PURPLE = 68;
+  ITEM_ID_DYE_DARK_ORANGE = 69;
 }
 
 // One inventory cell. `count == 0` is the canonical empty slot — the server

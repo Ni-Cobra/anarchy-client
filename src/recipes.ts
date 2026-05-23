@@ -303,6 +303,114 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.Flag, count: 1 },
   },
+  // Task 170 — dyes. Five source recipes, three RGB combos, seven dark
+  // variants. Combos / darks output 2 dyes per 1+1 inputs so the palette
+  // can expand without burning ingredients at 1:1.
+  {
+    id: "dye-white",
+    ingredients: [{ item: ItemId.FlowerWhite, count: 1 }],
+    output: { item: ItemId.DyeWhite, count: 1 },
+  },
+  {
+    id: "dye-blue",
+    ingredients: [{ item: ItemId.FlowerBlue, count: 1 }],
+    output: { item: ItemId.DyeBlue, count: 1 },
+  },
+  {
+    id: "dye-red",
+    ingredients: [{ item: ItemId.FlowerRed, count: 1 }],
+    output: { item: ItemId.DyeRed, count: 1 },
+  },
+  {
+    id: "dye-yellow",
+    ingredients: [{ item: ItemId.FlowerYellow, count: 1 }],
+    output: { item: ItemId.DyeYellow, count: 1 },
+  },
+  {
+    id: "dye-black",
+    ingredients: [{ item: ItemId.Coal, count: 1 }],
+    output: { item: ItemId.DyeBlack, count: 1 },
+  },
+  {
+    id: "dye-purple",
+    ingredients: [
+      { item: ItemId.DyeBlue, count: 1 },
+      { item: ItemId.DyeRed, count: 1 },
+    ],
+    output: { item: ItemId.DyePurple, count: 2 },
+  },
+  {
+    id: "dye-green",
+    ingredients: [
+      { item: ItemId.DyeYellow, count: 1 },
+      { item: ItemId.DyeBlue, count: 1 },
+    ],
+    output: { item: ItemId.DyeGreen, count: 2 },
+  },
+  {
+    id: "dye-orange",
+    ingredients: [
+      { item: ItemId.DyeRed, count: 1 },
+      { item: ItemId.DyeYellow, count: 1 },
+    ],
+    output: { item: ItemId.DyeOrange, count: 2 },
+  },
+  {
+    id: "dye-gray",
+    ingredients: [
+      { item: ItemId.DyeWhite, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeGray, count: 2 },
+  },
+  {
+    id: "dye-dark-blue",
+    ingredients: [
+      { item: ItemId.DyeBlue, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeDarkBlue, count: 2 },
+  },
+  {
+    id: "dye-dark-red",
+    ingredients: [
+      { item: ItemId.DyeRed, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeDarkRed, count: 2 },
+  },
+  {
+    id: "dye-dark-yellow",
+    ingredients: [
+      { item: ItemId.DyeYellow, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeDarkYellow, count: 2 },
+  },
+  {
+    id: "dye-dark-green",
+    ingredients: [
+      { item: ItemId.DyeGreen, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeDarkGreen, count: 2 },
+  },
+  {
+    id: "dye-dark-purple",
+    ingredients: [
+      { item: ItemId.DyePurple, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeDarkPurple, count: 2 },
+  },
+  {
+    id: "dye-dark-orange",
+    ingredients: [
+      { item: ItemId.DyeOrange, count: 1 },
+      { item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.DyeDarkOrange, count: 2 },
+  },
 ];
 
 const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(

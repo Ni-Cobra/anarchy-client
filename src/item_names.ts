@@ -365,6 +365,97 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: BlockType.Flag,
     textureUrl: `${ITEM_TEXTURES_BASE}/flag.png`,
   },
+  // Task 170 dyes — inventory-only ingredients; no `placesBlock`.
+  [ItemId.DyeWhite]: {
+    id: ItemId.DyeWhite,
+    displayName: "White Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-white.png`,
+  },
+  [ItemId.DyeBlue]: {
+    id: ItemId.DyeBlue,
+    displayName: "Blue Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-blue.png`,
+  },
+  [ItemId.DyeRed]: {
+    id: ItemId.DyeRed,
+    displayName: "Red Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-red.png`,
+  },
+  [ItemId.DyeYellow]: {
+    id: ItemId.DyeYellow,
+    displayName: "Yellow Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-yellow.png`,
+  },
+  [ItemId.DyeBlack]: {
+    id: ItemId.DyeBlack,
+    displayName: "Black Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-black.png`,
+  },
+  [ItemId.DyePurple]: {
+    id: ItemId.DyePurple,
+    displayName: "Purple Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-purple.png`,
+  },
+  [ItemId.DyeGreen]: {
+    id: ItemId.DyeGreen,
+    displayName: "Green Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-green.png`,
+  },
+  [ItemId.DyeOrange]: {
+    id: ItemId.DyeOrange,
+    displayName: "Orange Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-orange.png`,
+  },
+  [ItemId.DyeGray]: {
+    id: ItemId.DyeGray,
+    displayName: "Gray Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-gray.png`,
+  },
+  [ItemId.DyeDarkBlue]: {
+    id: ItemId.DyeDarkBlue,
+    displayName: "Dark Blue Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-blue.png`,
+  },
+  [ItemId.DyeDarkRed]: {
+    id: ItemId.DyeDarkRed,
+    displayName: "Dark Red Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-red.png`,
+  },
+  [ItemId.DyeDarkYellow]: {
+    id: ItemId.DyeDarkYellow,
+    displayName: "Dark Yellow Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-yellow.png`,
+  },
+  [ItemId.DyeDarkGreen]: {
+    id: ItemId.DyeDarkGreen,
+    displayName: "Dark Green Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-green.png`,
+  },
+  [ItemId.DyeDarkPurple]: {
+    id: ItemId.DyeDarkPurple,
+    displayName: "Dark Purple Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-purple.png`,
+  },
+  [ItemId.DyeDarkOrange]: {
+    id: ItemId.DyeDarkOrange,
+    displayName: "Dark Orange Dye",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-orange.png`,
+  },
 };
 
 /**
