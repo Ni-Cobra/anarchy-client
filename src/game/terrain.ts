@@ -154,8 +154,40 @@ export interface Block {
   readonly kind: BlockType;
 }
 
+/**
+ * Per-kind frozen `Block` singleton table. The wire decoder and
+ * {@link filledLayer} pull through {@link blockForKind} so every cell of a
+ * given kind shares one frozen reference — collapses the 512-per-chunk
+ * `{ kind }` POJO allocations from `blockFromWire` to zero. Since `Block`
+ * is a single-field POJO today, identity-sharing is safe; future metadata
+ * (per-instance hp, owner, etc.) would have to break this pattern.
+ */
+const BLOCK_BY_KIND: ReadonlyMap<BlockType, Block> = (() => {
+  const m = new Map<BlockType, Block>();
+  for (const v of Object.values(BlockType)) {
+    if (typeof v === "number") {
+      const kind = v as BlockType;
+      m.set(kind, Object.freeze({ kind }));
+    }
+  }
+  return m;
+})();
+
+/**
+ * Return the shared frozen `Block` singleton for `kind`. Hot-path callers
+ * (wire decode, `filledLayer`) should prefer this over `{ kind }` literals
+ * so the per-cell allocation stays at zero.
+ */
+export function blockForKind(kind: BlockType): Block {
+  const b = BLOCK_BY_KIND.get(kind);
+  if (b === undefined) {
+    throw new RangeError(`unknown BlockType: ${kind}`);
+  }
+  return b;
+}
+
 /** Pre-built `{ kind: Air }`. Convenient for default-filling layers. */
-export const AIR_BLOCK: Block = Object.freeze({ kind: BlockType.Air });
+export const AIR_BLOCK: Block = blockForKind(BlockType.Air);
 
 /** Tile-side length of a layer, in blocks. */
 export const LAYER_SIZE = 16;
@@ -202,7 +234,7 @@ export function emptyLayer(): Layer {
 }
 
 export function filledLayer(kind: BlockType): Layer {
-  const block: Block = { kind };
+  const block = blockForKind(kind);
   const blocks = new Array<Block>(LAYER_AREA);
   for (let i = 0; i < LAYER_AREA; i++) blocks[i] = block;
   return { blocks };

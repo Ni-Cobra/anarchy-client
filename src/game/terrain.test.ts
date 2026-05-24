@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR_BLOCK,
   BlockType,
+  blockForKind,
   CHUNK_SIZE,
   LAYER_AREA,
   LAYER_SIZE,
@@ -108,6 +109,46 @@ describe("emptyLayer / filledLayer / get / set", () => {
     expect(getBlock(l, 3, 4).kind).toBe(BlockType.Grass);
     setBlock(l, 3, 4, { kind: BlockType.Stone });
     expect(getBlock(l, 3, 4).kind).toBe(BlockType.Stone);
+  });
+});
+
+describe("blockForKind (frozen Block table)", () => {
+  it("returns the same frozen reference across calls (no per-call alloc)", () => {
+    // Pin the Option-B contract from task 390: the hot-path wire decoder
+    // pulls Block instances through `blockForKind` so every cell of a given
+    // kind shares one reference. Reintroducing a `{ kind }` literal here
+    // would silently re-add ~512 allocations per chunk.
+    for (const kind of [
+      BlockType.Air,
+      BlockType.Grass,
+      BlockType.Stone,
+      BlockType.Flag,
+      BlockType.ConcreteDarkOrange,
+    ]) {
+      expect(blockForKind(kind)).toBe(blockForKind(kind));
+      expect(Object.isFrozen(blockForKind(kind))).toBe(true);
+      expect(blockForKind(kind).kind).toBe(kind);
+    }
+  });
+
+  it("AIR_BLOCK is the same reference as blockForKind(Air)", () => {
+    expect(AIR_BLOCK).toBe(blockForKind(BlockType.Air));
+  });
+
+  it("returns distinct references across kinds", () => {
+    expect(blockForKind(BlockType.Grass)).not.toBe(blockForKind(BlockType.Stone));
+  });
+
+  it("filledLayer reuses one Block reference for every cell", () => {
+    // filledLayer feeds the same singleton into every slot — `getBlock` calls
+    // at distinct cells therefore return identical references. Pinning this
+    // catches a future regression that swaps the singleton for a per-cell
+    // literal.
+    const l = filledLayer(BlockType.Stone);
+    const a = getBlock(l, 0, 0);
+    const b = getBlock(l, 15, 15);
+    expect(a).toBe(b);
+    expect(a).toBe(blockForKind(BlockType.Stone));
   });
 });
 

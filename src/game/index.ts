@@ -20,6 +20,7 @@ export {
   LAYER_AREA,
   LAYER_SIZE,
   Terrain,
+  blockForKind,
   chunkKeyNum,
   emptyChunk,
   flagCellKey,

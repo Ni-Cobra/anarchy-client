@@ -26,6 +26,7 @@
 import { anarchy } from "../gen/anarchy.js";
 import {
   type Block,
+  blockForKind,
   type BlockType,
   type Chunk,
   type ChunkCoord,
@@ -630,6 +631,17 @@ function targetingStateFromWire(
   };
 }
 
+/**
+ * Frozen empty `ReadonlyMap`s shared across every chunk whose corresponding
+ * wire slice is empty. Most chunks in a steady-state view carry zero
+ * players / entities / flag cells, so reusing one reference per slot saves
+ * three `Map` allocations per such chunk — at radius 2 with a sparse
+ * session that's ~70 fewer per fresh-window tick.
+ */
+const EMPTY_PLAYERS_MAP: ReadonlyMap<PlayerId, Player> = new Map();
+const EMPTY_ENTITIES_MAP: ReadonlyMap<EntityId, Entity> = new Map();
+const EMPTY_FLAG_BLOCKS_MAP: ReadonlyMap<number, FlagBlockState> = new Map();
+
 function chunkFromWire(
   wire: anarchy.v1.IChunk,
 ): readonly [ChunkCoord, Chunk] | null {
@@ -641,55 +653,81 @@ function chunkFromWire(
   const ground = layerFromWire(wire.ground);
   const top = layerFromWire(wire.top);
   if (!ground || !top) return null;
-  const players = new Map<PlayerId, Player>();
-  for (const p of wire.players ?? []) {
-    const id = toNumber(p.id);
-    // Proto3 default for unset `uint32` is `0`. The server never ships a
-    // live player at 0 HP (the kill pipeline respawns them at full before
-    // the snapshot ships), so we treat the wire `0` as "missing field —
-    // older server" and fall back to MAX_PLAYER_HEALTH.
-    const wireHealth = p.health ?? 0;
-    players.set(id, {
-      id,
-      x: p.x ?? 0,
-      y: p.y ?? 0,
-      facing: facingFromWire(p.facing),
-      username: p.username ?? "",
-      colorIndex: p.colorIndex ?? 0,
-      equippedUtility: itemIdFromWire(p.equippedUtility),
-      openChests: openChestsFromWire(p.openChests),
-      health: wireHealth === 0 ? MAX_PLAYER_HEALTH : wireHealth,
-      effects: activeEffectsFromWire(p.effects),
-      xp: p.xp ?? 0,
-    });
+  const wirePlayers = wire.players;
+  let players: ReadonlyMap<PlayerId, Player>;
+  if (!wirePlayers || wirePlayers.length === 0) {
+    players = EMPTY_PLAYERS_MAP;
+  } else {
+    const m = new Map<PlayerId, Player>();
+    for (const p of wirePlayers) {
+      const id = toNumber(p.id);
+      // Proto3 default for unset `uint32` is `0`. The server never ships a
+      // live player at 0 HP (the kill pipeline respawns them at full before
+      // the snapshot ships), so we treat the wire `0` as "missing field —
+      // older server" and fall back to MAX_PLAYER_HEALTH.
+      const wireHealth = p.health ?? 0;
+      m.set(id, {
+        id,
+        x: p.x ?? 0,
+        y: p.y ?? 0,
+        facing: facingFromWire(p.facing),
+        username: p.username ?? "",
+        colorIndex: p.colorIndex ?? 0,
+        equippedUtility: itemIdFromWire(p.equippedUtility),
+        openChests: openChestsFromWire(p.openChests),
+        health: wireHealth === 0 ? MAX_PLAYER_HEALTH : wireHealth,
+        effects: activeEffectsFromWire(p.effects),
+        xp: p.xp ?? 0,
+      });
+    }
+    players = m;
   }
-  const entities = new Map<EntityId, Entity>();
-  for (const e of wire.entities ?? []) {
-    const kind = entityKindFromWire(e.kind);
-    if (kind === null) continue;
-    const id = toNumber(e.id);
-    // Same proto3 default treatment as players above — a 0-HP entity is
-    // dropped server-side before its chunk ships, so wire `0` means
-    // "older server, no health field".
-    const entHealth = e.health ?? 0;
-    entities.set(id, {
-      id,
-      kind,
-      tileX: e.tileX ?? 0,
-      tileY: e.tileY ?? 0,
-      health: entHealth === 0 ? maxHealthForKind(kind) : entHealth,
-      effects: activeEffectsFromWire(e.effects),
-    });
+  const wireEntities = wire.entities;
+  let entities: ReadonlyMap<EntityId, Entity>;
+  if (!wireEntities || wireEntities.length === 0) {
+    entities = EMPTY_ENTITIES_MAP;
+  } else {
+    // Lazy: an entity with an unknown `kind` is dropped, so a non-empty
+    // wire list may still produce an empty Map. Allocate on first surviving
+    // entry to keep the empty-case alloc count at zero.
+    let m: Map<EntityId, Entity> | null = null;
+    for (const e of wireEntities) {
+      const kind = entityKindFromWire(e.kind);
+      if (kind === null) continue;
+      const id = toNumber(e.id);
+      // Same proto3 default treatment as players above — a 0-HP entity is
+      // dropped server-side before its chunk ships, so wire `0` means
+      // "older server, no health field".
+      const entHealth = e.health ?? 0;
+      if (m === null) m = new Map<EntityId, Entity>();
+      m.set(id, {
+        id,
+        kind,
+        tileX: e.tileX ?? 0,
+        tileY: e.tileY ?? 0,
+        health: entHealth === 0 ? maxHealthForKind(kind) : entHealth,
+        effects: activeEffectsFromWire(e.effects),
+      });
+    }
+    entities = m ?? EMPTY_ENTITIES_MAP;
   }
   // per-cell flag color for any placed flag blocks in this chunk.
   // Drop entries whose local coords overflow `LAYER_SIZE` defensively
   // (a malformed server frame should not corrupt local state).
-  const flagBlocks = new Map<number, FlagBlockState>();
-  for (const f of wire.flagBlocks ?? []) {
-    const lx = f.localX ?? 0;
-    const ly = f.localY ?? 0;
-    if (lx >= LAYER_SIZE || ly >= LAYER_SIZE) continue;
-    flagBlocks.set(flagCellKey(lx, ly), { colorIndex: f.colorIndex ?? 0 });
+  const wireFlagBlocks = wire.flagBlocks;
+  let flagBlocks: ReadonlyMap<number, FlagBlockState>;
+  if (!wireFlagBlocks || wireFlagBlocks.length === 0) {
+    flagBlocks = EMPTY_FLAG_BLOCKS_MAP;
+  } else {
+    let m: Map<number, FlagBlockState> | null = null;
+    for (const f of wireFlagBlocks) {
+      const lx = f.localX ?? 0;
+      const ly = f.localY ?? 0;
+      if (lx >= LAYER_SIZE || ly >= LAYER_SIZE) continue;
+      if (m === null) m = new Map<number, FlagBlockState>();
+      m.set(flagCellKey(lx, ly), { colorIndex: f.colorIndex ?? 0 });
+    }
+    flagBlocks = m ?? EMPTY_FLAG_BLOCKS_MAP;
   }
   return [[cx, cy] as const, { ground, top, players, entities, flagBlocks }];
 }
@@ -730,5 +768,5 @@ function layerFromWire(wire: anarchy.v1.ILayer): Layer | null {
 }
 
 function blockFromWire(wire: anarchy.v1.IBlock): Block {
-  return { kind: blockTypeFromWire(wire.kind) };
+  return blockForKind(blockTypeFromWire(wire.kind));
 }
