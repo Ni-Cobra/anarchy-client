@@ -203,6 +203,26 @@ export enum ItemId {
   DyeDarkGreen = 67,
   DyeDarkPurple = 68,
   DyeDarkOrange = 69,
+  /**
+   * Task 180 colored concrete items. One per `BlockType.Concrete*` variant;
+   * the item places its matching block via the standard right-click flow.
+   * Stack to 64 like every other block item.
+   */
+  ConcreteGray = 70,
+  ConcreteWhite = 71,
+  ConcreteBlue = 72,
+  ConcreteRed = 73,
+  ConcreteYellow = 74,
+  ConcreteBlack = 75,
+  ConcretePurple = 76,
+  ConcreteGreen = 77,
+  ConcreteOrange = 78,
+  ConcreteDarkBlue = 79,
+  ConcreteDarkRed = 80,
+  ConcreteDarkYellow = 81,
+  ConcreteDarkGreen = 82,
+  ConcreteDarkPurple = 83,
+  ConcreteDarkOrange = 84,
 }
 
 /**

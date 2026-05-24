@@ -93,6 +93,36 @@ export function blockTypeFromWire(
       return BlockType.LightMushroom;
     case anarchy.v1.BlockType.BLOCK_TYPE_FLAG:
       return BlockType.Flag;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_GRAY:
+      return BlockType.ConcreteGray;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_WHITE:
+      return BlockType.ConcreteWhite;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_BLUE:
+      return BlockType.ConcreteBlue;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_RED:
+      return BlockType.ConcreteRed;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_YELLOW:
+      return BlockType.ConcreteYellow;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_BLACK:
+      return BlockType.ConcreteBlack;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_PURPLE:
+      return BlockType.ConcretePurple;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_GREEN:
+      return BlockType.ConcreteGreen;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_ORANGE:
+      return BlockType.ConcreteOrange;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_BLUE:
+      return BlockType.ConcreteDarkBlue;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_RED:
+      return BlockType.ConcreteDarkRed;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_YELLOW:
+      return BlockType.ConcreteDarkYellow;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_GREEN:
+      return BlockType.ConcreteDarkGreen;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_PURPLE:
+      return BlockType.ConcreteDarkPurple;
+    case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_ORANGE:
+      return BlockType.ConcreteDarkOrange;
     case anarchy.v1.BlockType.BLOCK_TYPE_AIR:
     default:
       return BlockType.Air;

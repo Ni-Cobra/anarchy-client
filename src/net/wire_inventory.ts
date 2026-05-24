@@ -239,6 +239,36 @@ export function itemIdFromWire(
       return ItemId.DyeDarkPurple;
     case anarchy.v1.ItemId.ITEM_ID_DYE_DARK_ORANGE:
       return ItemId.DyeDarkOrange;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_GRAY:
+      return ItemId.ConcreteGray;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_WHITE:
+      return ItemId.ConcreteWhite;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_BLUE:
+      return ItemId.ConcreteBlue;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_RED:
+      return ItemId.ConcreteRed;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_YELLOW:
+      return ItemId.ConcreteYellow;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_BLACK:
+      return ItemId.ConcreteBlack;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_PURPLE:
+      return ItemId.ConcretePurple;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_GREEN:
+      return ItemId.ConcreteGreen;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_ORANGE:
+      return ItemId.ConcreteOrange;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_BLUE:
+      return ItemId.ConcreteDarkBlue;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_RED:
+      return ItemId.ConcreteDarkRed;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_YELLOW:
+      return ItemId.ConcreteDarkYellow;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_GREEN:
+      return ItemId.ConcreteDarkGreen;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_PURPLE:
+      return ItemId.ConcreteDarkPurple;
+    case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_ORANGE:
+      return ItemId.ConcreteDarkOrange;
     default:
       return null;
   }

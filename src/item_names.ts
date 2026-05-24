@@ -456,6 +456,99 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: null,
     textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-orange.png`,
   },
+  // Task 180 colored concrete items. Each places its matching
+  // `BlockType.Concrete*` block via the standard right-click flow; the item
+  // icon is the same PNG as the block texture (mirrors the `Stone` pattern).
+  [ItemId.ConcreteGray]: {
+    id: ItemId.ConcreteGray,
+    displayName: "Gray Concrete",
+    placesBlock: BlockType.ConcreteGray,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-gray.png`,
+  },
+  [ItemId.ConcreteWhite]: {
+    id: ItemId.ConcreteWhite,
+    displayName: "White Concrete",
+    placesBlock: BlockType.ConcreteWhite,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-white.png`,
+  },
+  [ItemId.ConcreteBlue]: {
+    id: ItemId.ConcreteBlue,
+    displayName: "Blue Concrete",
+    placesBlock: BlockType.ConcreteBlue,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-blue.png`,
+  },
+  [ItemId.ConcreteRed]: {
+    id: ItemId.ConcreteRed,
+    displayName: "Red Concrete",
+    placesBlock: BlockType.ConcreteRed,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-red.png`,
+  },
+  [ItemId.ConcreteYellow]: {
+    id: ItemId.ConcreteYellow,
+    displayName: "Yellow Concrete",
+    placesBlock: BlockType.ConcreteYellow,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-yellow.png`,
+  },
+  [ItemId.ConcreteBlack]: {
+    id: ItemId.ConcreteBlack,
+    displayName: "Black Concrete",
+    placesBlock: BlockType.ConcreteBlack,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-black.png`,
+  },
+  [ItemId.ConcretePurple]: {
+    id: ItemId.ConcretePurple,
+    displayName: "Purple Concrete",
+    placesBlock: BlockType.ConcretePurple,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-purple.png`,
+  },
+  [ItemId.ConcreteGreen]: {
+    id: ItemId.ConcreteGreen,
+    displayName: "Green Concrete",
+    placesBlock: BlockType.ConcreteGreen,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-green.png`,
+  },
+  [ItemId.ConcreteOrange]: {
+    id: ItemId.ConcreteOrange,
+    displayName: "Orange Concrete",
+    placesBlock: BlockType.ConcreteOrange,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-orange.png`,
+  },
+  [ItemId.ConcreteDarkBlue]: {
+    id: ItemId.ConcreteDarkBlue,
+    displayName: "Dark Blue Concrete",
+    placesBlock: BlockType.ConcreteDarkBlue,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-blue.png`,
+  },
+  [ItemId.ConcreteDarkRed]: {
+    id: ItemId.ConcreteDarkRed,
+    displayName: "Dark Red Concrete",
+    placesBlock: BlockType.ConcreteDarkRed,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-red.png`,
+  },
+  [ItemId.ConcreteDarkYellow]: {
+    id: ItemId.ConcreteDarkYellow,
+    displayName: "Dark Yellow Concrete",
+    placesBlock: BlockType.ConcreteDarkYellow,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-yellow.png`,
+  },
+  [ItemId.ConcreteDarkGreen]: {
+    id: ItemId.ConcreteDarkGreen,
+    displayName: "Dark Green Concrete",
+    placesBlock: BlockType.ConcreteDarkGreen,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-green.png`,
+  },
+  [ItemId.ConcreteDarkPurple]: {
+    id: ItemId.ConcreteDarkPurple,
+    displayName: "Dark Purple Concrete",
+    placesBlock: BlockType.ConcreteDarkPurple,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-purple.png`,
+  },
+  [ItemId.ConcreteDarkOrange]: {
+    id: ItemId.ConcreteDarkOrange,
+    displayName: "Dark Orange Concrete",
+    placesBlock: BlockType.ConcreteDarkOrange,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-orange.png`,
+  },
 };
 
 /**

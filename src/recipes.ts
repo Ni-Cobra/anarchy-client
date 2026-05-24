@@ -54,6 +54,30 @@ export interface Recipe {
 }
 
 /**
+ * Task 180 — pooled input list for every `concrete-<color>` recipe. Mirrors
+ * the server's `CONCRETE_INPUTS` slice (palette order). Declaration order is
+ * load-bearing: the server drains entries in list order, so common variants
+ * (Gray, farmed from stone) drain first and rarer colors stay put.
+ */
+const CONCRETE_INPUTS: readonly ItemId[] = [
+  ItemId.ConcreteGray,
+  ItemId.ConcreteWhite,
+  ItemId.ConcreteBlue,
+  ItemId.ConcreteRed,
+  ItemId.ConcreteYellow,
+  ItemId.ConcreteBlack,
+  ItemId.ConcretePurple,
+  ItemId.ConcreteGreen,
+  ItemId.ConcreteOrange,
+  ItemId.ConcreteDarkBlue,
+  ItemId.ConcreteDarkRed,
+  ItemId.ConcreteDarkYellow,
+  ItemId.ConcreteDarkGreen,
+  ItemId.ConcreteDarkPurple,
+  ItemId.ConcreteDarkOrange,
+];
+
+/**
  * Recipe table. Order matches the server table so a recipe id served by
  * the server resolves cheaply via [`recipeById`]. Keep in lockstep with
  * `crafting.rs::RECIPES` — when a new recipe lands server-side, mirror it
@@ -428,6 +452,144 @@ export const RECIPES: readonly Recipe[] = [
       { kind: "one", item: ItemId.DyeBlack, count: 1 },
     ],
     output: { item: ItemId.DyeDarkOrange, count: 2 },
+  },
+  // Task 180 — colored concrete. One stone-base recipe (gray from any
+  // stone variant via pooled `AnyOf`) and 15 dye-application recipes
+  // (any concrete + 1 matching dye → 4 colored concrete). The dye
+  // recipes' `AnyOf` input list spans every concrete variant — already-
+  // colored concrete can be recolored without a strip-back step.
+  // Declaration order of `CONCRETE_INPUTS` is load-bearing (mirrors the
+  // server's drain order): common variants drain first.
+  {
+    id: "concrete-gray-from-stone",
+    ingredients: [
+      {
+        kind: "any-of",
+        items: [ItemId.Stone, ItemId.StoneLight, ItemId.StoneDark],
+        count: 1,
+      },
+    ],
+    output: { item: ItemId.ConcreteGray, count: 1 },
+  },
+  {
+    id: "concrete-gray",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeGray, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteGray, count: 4 },
+  },
+  {
+    id: "concrete-white",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteWhite, count: 4 },
+  },
+  {
+    id: "concrete-blue",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeBlue, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteBlue, count: 4 },
+  },
+  {
+    id: "concrete-red",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeRed, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteRed, count: 4 },
+  },
+  {
+    id: "concrete-yellow",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeYellow, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteYellow, count: 4 },
+  },
+  {
+    id: "concrete-black",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeBlack, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteBlack, count: 4 },
+  },
+  {
+    id: "concrete-purple",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyePurple, count: 1 },
+    ],
+    output: { item: ItemId.ConcretePurple, count: 4 },
+  },
+  {
+    id: "concrete-green",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeGreen, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteGreen, count: 4 },
+  },
+  {
+    id: "concrete-orange",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeOrange, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteOrange, count: 4 },
+  },
+  {
+    id: "concrete-dark-blue",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeDarkBlue, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteDarkBlue, count: 4 },
+  },
+  {
+    id: "concrete-dark-red",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeDarkRed, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteDarkRed, count: 4 },
+  },
+  {
+    id: "concrete-dark-yellow",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeDarkYellow, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteDarkYellow, count: 4 },
+  },
+  {
+    id: "concrete-dark-green",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeDarkGreen, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteDarkGreen, count: 4 },
+  },
+  {
+    id: "concrete-dark-purple",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeDarkPurple, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteDarkPurple, count: 4 },
+  },
+  {
+    id: "concrete-dark-orange",
+    ingredients: [
+      { kind: "any-of", items: CONCRETE_INPUTS, count: 4 },
+      { kind: "one", item: ItemId.DyeDarkOrange, count: 1 },
+    ],
+    output: { item: ItemId.ConcreteDarkOrange, count: 4 },
   },
 ];
 

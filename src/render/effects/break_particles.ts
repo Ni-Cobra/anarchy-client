@@ -219,6 +219,24 @@ export const DEFAULT_BREAK_PARTICLE_COLORS: Readonly<Record<BlockType, number>> 
   // here loses the color identity — kept generic rather than reaching
   // into the per-cell `flagBlocks` map from inside the particle path.
   [BlockType.Flag]: 0xd6cabb,
+  // Task 180: broken concrete puffs shards tinted to the concrete's color.
+  // Same palette as the block texture (see `dev_utils/anarchy_dev_utils/
+  // textures/painters.py` and `blocks.py`).
+  [BlockType.ConcreteGray]: 0xb0b0b0,
+  [BlockType.ConcreteWhite]: 0xeeeee8,
+  [BlockType.ConcreteBlue]: 0x5588d8,
+  [BlockType.ConcreteRed]: 0xd85050,
+  [BlockType.ConcreteYellow]: 0xe8ce55,
+  [BlockType.ConcreteBlack]: 0x282828,
+  [BlockType.ConcretePurple]: 0x9858b8,
+  [BlockType.ConcreteGreen]: 0x60b860,
+  [BlockType.ConcreteOrange]: 0xe89840,
+  [BlockType.ConcreteDarkBlue]: 0x284888,
+  [BlockType.ConcreteDarkRed]: 0x782020,
+  [BlockType.ConcreteDarkYellow]: 0x988028,
+  [BlockType.ConcreteDarkGreen]: 0x286028,
+  [BlockType.ConcreteDarkPurple]: 0x502868,
+  [BlockType.ConcreteDarkOrange]: 0x905020,
 };
 
 export function defaultBreakParticleColor(kind: BlockType): number {
