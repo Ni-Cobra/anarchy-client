@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PLAYER_RADIUS, REACH_BLOCKS, SPEED } from "./config.js";
+import { MAX_SPEED, PLAYER_RADIUS, REACH_BLOCKS } from "./config.js";
 
 // These constants must stay equal to their `crate::config` /
 // `crate::game::player` counterparts on the server. Pin them here so a
@@ -8,8 +8,8 @@ import { PLAYER_RADIUS, REACH_BLOCKS, SPEED } from "./config.js";
 // divergence (out-of-reach interactions accepted on one side and not the
 // other; visual hitbox not matching authoritative collision).
 describe("client/server mirror constants", () => {
-  it("SPEED equals server crate::config::SPEED", () => {
-    expect(SPEED).toBe(5.0);
+  it("MAX_SPEED equals server crate::config::MAX_SPEED", () => {
+    expect(MAX_SPEED).toBe(5.0);
   });
 
   it("REACH_BLOCKS equals server crate::config::REACH_BLOCKS", () => {

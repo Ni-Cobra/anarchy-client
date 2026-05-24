@@ -12,12 +12,12 @@
 // ---- Game ----
 
 /**
- * World units per second. Mirrors `crate::config::SPEED` on the server — the
- * two must stay equal so the snapshot-buffer interpolation cadence on the
- * client matches the authoritative tick advance. See ADR 0001 (movement-
- * intent amendment).
+ * World units per second. Mirrors `crate::config::MAX_SPEED` on the server
+ * — the two must stay equal so the snapshot-buffer interpolation cadence
+ * on the client matches the authoritative tick advance. See ADR 0001
+ * (movement-intent amendment).
  */
-export const SPEED = 5.0;
+export const MAX_SPEED = 5.0;
 
 /**
  * Maximum Euclidean distance (world units) between the local player's
