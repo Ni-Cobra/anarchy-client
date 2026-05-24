@@ -45,6 +45,11 @@ const LANTERN_PEAK_INTENSITY = 4.5;
  *  proportionally larger pool. */
 const LANTERN_LIGHT_DISTANCE = 16.0;
 
+/** Per-frame scratch for the `tileToScene` projection inside `update`.
+ *  Hoisted to module scope so the per-entity loop never allocates a
+ *  fresh `Vector3` per lantern-bearer per frame. */
+const POSITION_SCRATCH = new THREE.Vector3();
+
 /** One renderable entity with the fields this layer consumes. Subset of
  *  `RenderableEntity` so unit tests can build a minimal struct without
  *  pulling in the full mesh-sync entity shape. */
@@ -101,8 +106,8 @@ export class LanternLights {
         this.lights.set(e.id, light);
         this.group.add(light);
       }
-      const scene = tileToScene(e.x, e.y);
-      light.position.set(scene.x, LANTERN_LIGHT_Y, scene.z);
+      tileToScene(e.x, e.y, POSITION_SCRATCH);
+      light.position.set(POSITION_SCRATCH.x, LANTERN_LIGHT_Y, POSITION_SCRATCH.z);
       light.intensity = intensity;
       light.visible = clamped > 0;
     }

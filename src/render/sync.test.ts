@@ -61,6 +61,17 @@ describe("tileToScene", () => {
     expectVec(tileToScene(3, 4), 3, 0.5, -4);
     expectVec(tileToScene(-2, -5), -2, 0.5, 5);
   });
+
+  it("mutates and returns the supplied target when one is passed", () => {
+    // The hot render-loop callsites pass their own scratch (or
+    // `mesh.position`) so the projection allocates no `Vector3` per
+    // frame. Identity-equality matters here — the contract is
+    // "writes into the same instance you handed us".
+    const target = new THREE.Vector3(99, 99, 99);
+    const result = tileToScene(3, 4, target);
+    expect(result).toBe(target);
+    expectVec(target, 3, 0.5, -4);
+  });
 });
 
 describe("facingToYaw", () => {

@@ -102,6 +102,17 @@ export const DASH_DURATION_MS = 150;
 export const COOLDOWN_DURATION_MS = 5000;
 
 /**
+ * Per-frame scratch for the local-player focus. `updateCamera` and
+ * `updateDaylight` both project the local player's tile position into
+ * scene space the same way; they're called back-to-back in `frame()`
+ * and neither stashes the reference, so a single mutable instance is
+ * safe to share. Hoisted to module scope so the hot loop never
+ * allocates a `Vector3` for this. Never read its previous-frame
+ * value — both writers always set all three components first.
+ */
+const FOCUS_SCRATCH = new THREE.Vector3();
+
+/**
  * Owns the Three.js render loop. Per ADR 0003 every player — local and
  * remote — renders from `SnapshotBuffer` with the same
  * `REMOTE_RENDER_DELAY_MS` interpolation delay; `LocalPredictor` was
@@ -1088,9 +1099,12 @@ export class Renderer {
       this.localPlayerId !== null
         ? entities.find((e) => e.id === this.localPlayerId)
         : undefined;
-    const focus = local
-      ? tileToScene(local.x, local.y)
-      : new THREE.Vector3(0, 0, 0);
+    if (local) {
+      tileToScene(local.x, local.y, FOCUS_SCRATCH);
+    } else {
+      FOCUS_SCRATCH.set(0, 0, 0);
+    }
+    const focus = FOCUS_SCRATCH;
     this.graph.sun.target.position.copy(focus);
     this.graph.sun.target.updateMatrixWorld();
     this.graph.sun.position.set(
@@ -1144,9 +1158,12 @@ export class Renderer {
       this.localPlayerId !== null
         ? entities.find((e) => e.id === this.localPlayerId)
         : undefined;
-    const focus = local
-      ? tileToScene(local.x, local.y)
-      : new THREE.Vector3(0, 0, 0);
+    if (local) {
+      tileToScene(local.x, local.y, FOCUS_SCRATCH);
+    } else {
+      FOCUS_SCRATCH.set(0, 0, 0);
+    }
+    const focus = FOCUS_SCRATCH;
     const height = this.zoom.sample(this.now());
     // Damage-feedback shake. Tile-space `(dx, dy)` from the
     // shake module maps to scene-space `(dx, 0, -dy)` (mirrors `tileToScene`),

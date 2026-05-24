@@ -60,9 +60,18 @@ export interface RenderableEntity {
  * scene's `-z` and the player mesh sits on top of the ground plane
  * (`y = 0.5`). Inputs are continuous floats — interpolated remote positions
  * and predicted local positions both flow through here.
+ *
+ * Pass `target` to write the result in place — the only way to call this
+ * on the per-frame render path without allocating. The no-`target` form
+ * still allocates a fresh `Vector3`; reserve it for tests and other cold
+ * callers.
  */
-export function tileToScene(x: number, y: number): THREE.Vector3 {
-  return new THREE.Vector3(x, 0.5, -y);
+export function tileToScene(
+  x: number,
+  y: number,
+  target: THREE.Vector3 = new THREE.Vector3(),
+): THREE.Vector3 {
+  return target.set(x, 0.5, -y);
 }
 
 /**
@@ -162,7 +171,9 @@ export function syncPlayerMeshes(
     } else {
       mesh.rotation.y = lerpYawTowards(mesh.rotation.y, target, maxStep);
     }
-    mesh.position.copy(tileToScene(entity.x, entity.y));
+    // Write the scene-space position straight into `mesh.position` so the
+    // hot loop doesn't allocate a fresh `Vector3` per entity per frame.
+    tileToScene(entity.x, entity.y, mesh.position);
   }
   for (const id of [...meshes.keys()]) {
     if (seen.has(id)) continue;
