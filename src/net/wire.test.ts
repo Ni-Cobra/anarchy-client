@@ -983,7 +983,8 @@ describe("applyServerMessage — TickUpdate effects feed", () => {
     const deps = {
       ...base.deps,
       effectsSink: {
-        onBlockEdit: (e: import("./wire.js").WireBlockEditEvent) => edits.push(e),
+        onBlockEdit: (es: readonly import("./wire.js").WireBlockEditEvent[]) =>
+          edits.push(...es),
         applyTargets: (
           ts: readonly import("./wire.js").WireTargetingStateEvent[],
         ) => targetCalls.push([...ts]),

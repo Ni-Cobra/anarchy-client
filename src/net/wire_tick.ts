@@ -205,9 +205,17 @@ export interface WireFlagInteractEvent {
   readonly mode: WireFlagInteractMode;
 }
 
+/**
+ * All sinks share the same `(events, tickReceivedMs)` shape so the bridge
+ * can fan out every per-tick event family through one helper. Sinks that
+ * don't need the timestamp ignore it; sinks whose semantics are
+ * "wholesale-replace each tick" (e.g. `applyTargets`, `applyFlagInteracts`)
+ * are still called once per tick with the (possibly empty) array — the
+ * empty call is how the renderer learns "retire whatever was live."
+ */
 export interface EffectsSink {
-  onBlockEdit?(event: WireBlockEditEvent): void;
-  applyTargets?(targets: readonly WireTargetingStateEvent[]): void;
+  onBlockEdit?(events: readonly WireBlockEditEvent[], tickReceivedMs: number): void;
+  applyTargets?(targets: readonly WireTargetingStateEvent[], tickReceivedMs: number): void;
   /**
    * Fan-out for `TickUpdate.attack_events`. Optional — tests / wire-level
    * specs that don't exercise the attack pipeline leave it absent and the
@@ -250,7 +258,10 @@ export interface EffectsSink {
    * Fan-out for `TickUpdate.flag_interacts`. Optional —
    * wholesale-replace each tick (absence means "no beams this tick").
    */
-  applyFlagInteracts?(events: readonly WireFlagInteractEvent[]): void;
+  applyFlagInteracts?(
+    events: readonly WireFlagInteractEvent[],
+    tickReceivedMs: number,
+  ): void;
 }
 
 /**
@@ -358,74 +369,39 @@ export function applyTickUpdate(
     }
   }
 
-  // Per-tick effects feed: block edits one-shot, targeting
-  // states are an authoritative replace. Both are scoped to this client's
-  // view window server-side, so the bridge fans them out as-is.
+  // Per-tick effects feed: each family is decoded then fanned out to its
+  // sink. Both one-shot feeds (e.g. `edits`) and wholesale-replace feeds
+  // (e.g. `targets`, `flagInteracts`) flow through the same helper — the
+  // helper preserves the "call once with the (possibly empty) array"
+  // semantics the replace-style sinks rely on.
   const effects = deps.effectsSink;
   if (effects) {
-    if (effects.onBlockEdit) {
-      for (const wire of tick.edits ?? []) {
-        const event = blockEditFromWire(wire);
-        if (event) effects.onBlockEdit(event);
-      }
-    }
-    if (effects.applyTargets) {
-      const targets: WireTargetingStateEvent[] = [];
-      for (const wire of tick.targets ?? []) {
-        const t = targetingStateFromWire(wire);
-        if (t) targets.push(t);
-      }
-      effects.applyTargets(targets);
-    }
-    if (effects.onAttackEvents) {
-      const events: WireAttackEvent[] = [];
-      for (const wire of tick.attackEvents ?? []) {
-        const ev = attackEventFromWire(wire);
-        if (ev) events.push(ev);
-      }
-      effects.onAttackEvents(events, timeMs);
-    }
-    if (effects.onDamageEvents) {
-      const events: WireDamageEvent[] = [];
-      for (const wire of tick.damageEvents ?? []) {
-        const ev = damageEventFromWire(wire);
-        if (ev) events.push(ev);
-      }
-      effects.onDamageEvents(events, timeMs);
-    }
-    if (effects.onDeathEvents) {
-      const events: WireDeathEvent[] = [];
-      for (const wire of tick.deathEvents ?? []) {
-        const ev = deathEventFromWire(wire);
-        if (ev) events.push(ev);
-      }
-      effects.onDeathEvents(events, timeMs);
-    }
-    if (effects.applyProjectiles) {
-      const snaps: ProjectileSnapshot[] = [];
-      for (const wire of tick.projectiles ?? []) {
-        const snap = projectileSnapshotFromWire(wire);
-        if (snap) snaps.push(snap);
-      }
-      effects.applyProjectiles(snaps, timeMs);
-    }
-    if (effects.onProjectileImpacts) {
-      const events: WireProjectileImpactEvent[] = [];
-      for (const wire of tick.projectileImpacts ?? []) {
-        const ev = projectileImpactFromWire(wire);
-        if (ev) events.push(ev);
-      }
-      effects.onProjectileImpacts(events, timeMs);
-    }
-    if (effects.applyFlagInteracts) {
-      const events: WireFlagInteractEvent[] = [];
-      for (const wire of tick.flagInteracts ?? []) {
-        const ev = flagInteractFromWire(wire);
-        if (ev) events.push(ev);
-      }
-      effects.applyFlagInteracts(events);
-    }
+    decodeAndFanOut(tick.edits, blockEditFromWire, effects.onBlockEdit, timeMs);
+    decodeAndFanOut(tick.targets, targetingStateFromWire, effects.applyTargets, timeMs);
+    decodeAndFanOut(tick.attackEvents, attackEventFromWire, effects.onAttackEvents, timeMs);
+    decodeAndFanOut(tick.damageEvents, damageEventFromWire, effects.onDamageEvents, timeMs);
+    decodeAndFanOut(tick.deathEvents, deathEventFromWire, effects.onDeathEvents, timeMs);
+    decodeAndFanOut(tick.projectiles, projectileSnapshotFromWire, effects.applyProjectiles, timeMs);
+    decodeAndFanOut(tick.projectileImpacts, projectileImpactFromWire, effects.onProjectileImpacts, timeMs);
+    decodeAndFanOut(tick.flagInteracts, flagInteractFromWire, effects.applyFlagInteracts, timeMs);
   }
+}
+
+function decodeAndFanOut<TWire, TEvent>(
+  items: readonly TWire[] | null | undefined,
+  decode: (w: TWire) => TEvent | null,
+  sink:
+    | ((events: readonly TEvent[], tickReceivedMs: number) => void)
+    | undefined,
+  tickReceivedMs: number,
+): void {
+  if (!sink) return;
+  const out: TEvent[] = [];
+  for (const w of items ?? []) {
+    const ev = decode(w);
+    if (ev) out.push(ev);
+  }
+  sink(out, tickReceivedMs);
 }
 
 function flagInteractFromWire(

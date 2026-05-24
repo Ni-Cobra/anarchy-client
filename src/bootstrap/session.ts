@@ -566,9 +566,9 @@ export function constructSession(deps: SessionDeps): Session {
           onChunkUnloaded: (cx, cy) => renderer.applyChunkUnloaded(cx, cy),
         },
         effectsSink: {
-          onBlockEdit: (event: WireBlockEditEvent) => {
-            observedBlockEditCount += 1;
-            renderer.onBlockEdit(event);
+          onBlockEdit: (events: readonly WireBlockEditEvent[]) => {
+            observedBlockEditCount += events.length;
+            for (const event of events) renderer.onBlockEdit(event);
           },
           applyTargets: (targets: readonly WireTargetingStateEvent[]) => {
             activeTargets = targets;
