@@ -139,6 +139,16 @@ export class InputController {
     }
   }
 
+  /**
+   * Sum the held-key direction vectors and hand off to `clampIntent`.
+   *
+   * Mirrors the server's `Intent::clamped` (anarchy-server
+   * `src/game/player/intent.rs`): non-finite components are zeroed, then
+   * magnitude is unit-capped. The server is authoritative — this
+   * client-side defense exists so the wire never carries NaN/∞ if a
+   * future input source (e.g. gamepad analogue stick) feeds a
+   * non-finite direction into `keyToDirection`.
+   */
   private computeIntent(): { dx: number; dy: number } {
     let dx = 0;
     let dy = 0;
@@ -148,14 +158,7 @@ export class InputController {
       dx += dir[0];
       dy += dir[1];
     }
-    // Normalize so opposing keys cancel cleanly and diagonals get unit
-    // magnitude (≈0.7071 each). Cardinal holds already have magnitude 1.
-    const mag = Math.hypot(dx, dy);
-    if (mag > 1) {
-      dx /= mag;
-      dy /= mag;
-    }
-    return { dx, dy };
+    return clampIntent({ dx, dy });
   }
 
   private stop(): void {
@@ -173,4 +176,20 @@ export class InputController {
     this.heartbeatCounter = 0;
     this.suppressedLastFlush = false;
   }
+}
+
+/**
+ * Mirror of the server's `Intent::clamped` (anarchy-server
+ * `src/game/player/intent.rs`): zero any non-finite component, then unit-cap
+ * magnitude. Exported for the unit test that pins the NaN/∞ defense — the
+ * `input/index.ts` barrel deliberately doesn't re-export it.
+ */
+export function clampIntent(raw: { dx: number; dy: number }): { dx: number; dy: number } {
+  const dx = Number.isFinite(raw.dx) ? raw.dx : 0;
+  const dy = Number.isFinite(raw.dy) ? raw.dy : 0;
+  const mag = Math.hypot(dx, dy);
+  if (mag > 1) {
+    return { dx: dx / mag, dy: dy / mag };
+  }
+  return { dx, dy };
 }

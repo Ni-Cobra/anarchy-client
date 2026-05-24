@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { InputController, type InputSink, type MoveIntentGate } from "./controller.js";
+import { clampIntent, InputController, type InputSink, type MoveIntentGate } from "./controller.js";
 
 interface KeyEventInit {
   code: string;
@@ -261,6 +261,41 @@ describe("InputController", () => {
     const stop = ctrl.start(target);
     expect(() => ctrl.start(target)).toThrow(/already started/);
     stop();
+  });
+
+  describe("clampIntent (mirror of server Intent::clamped)", () => {
+    it("returns (0, 0) for an all-zero input", () => {
+      expect(clampIntent({ dx: 0, dy: 0 })).toEqual({ dx: 0, dy: 0 });
+    });
+
+    it("leaves a unit cardinal vector unchanged", () => {
+      expect(clampIntent({ dx: 1, dy: 0 })).toEqual({ dx: 1, dy: 0 });
+      expect(clampIntent({ dx: 0, dy: -1 })).toEqual({ dx: 0, dy: -1 });
+    });
+
+    it("unit-caps an over-magnitude vector", () => {
+      const out = clampIntent({ dx: 3, dy: 4 });
+      expect(near(out.dx, 3 / 5)).toBe(true);
+      expect(near(out.dy, 4 / 5)).toBe(true);
+      expect(near(Math.hypot(out.dx, out.dy), 1)).toBe(true);
+    });
+
+    it("zeros NaN components before clamping", () => {
+      expect(clampIntent({ dx: Number.NaN, dy: 0 })).toEqual({ dx: 0, dy: 0 });
+      expect(clampIntent({ dx: 0, dy: Number.NaN })).toEqual({ dx: 0, dy: 0 });
+      expect(clampIntent({ dx: Number.NaN, dy: Number.NaN })).toEqual({ dx: 0, dy: 0 });
+    });
+
+    it("zeros infinite components before clamping", () => {
+      expect(clampIntent({ dx: Number.POSITIVE_INFINITY, dy: 0 })).toEqual({ dx: 0, dy: 0 });
+      expect(clampIntent({ dx: 0, dy: Number.NEGATIVE_INFINITY })).toEqual({ dx: 0, dy: 0 });
+    });
+
+    it("zeros a NaN component but keeps a finite partner (then clamps)", () => {
+      // NaN on one axis must not poison the other — the surviving finite
+      // axis still passes through the magnitude clamp.
+      expect(clampIntent({ dx: Number.NaN, dy: 2 })).toEqual({ dx: 0, dy: 1 });
+    });
   });
 
   describe("move-intent gate", () => {
