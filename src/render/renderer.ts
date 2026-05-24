@@ -24,6 +24,7 @@ import {
 import {
   BlockType,
   getBlock,
+  type ActiveEffect,
   type Inventory,
   type ItemId,
   type PlayerId,
@@ -38,6 +39,7 @@ import {
   syncPlayerMeshes,
   tileToScene,
   type PlayerMeshFactory,
+  type RenderableEntity,
 } from "./sync.js";
 import {
   pickBlockUnderCursor,
@@ -50,7 +52,6 @@ import { sampleDaylight } from "./daylight.js";
 import {
   type BlockEditEvent,
   type ChestBeamTarget,
-  type EffectTarget,
   type TargetingStateEvent,
 } from "./effects/index.js";
 import { MS_PER_TICK, reconstructChargeStartMs } from "./attack_beam_layer.js";
@@ -113,6 +114,28 @@ export const COOLDOWN_DURATION_MS = 5000;
 const FOCUS_SCRATCH = new THREE.Vector3();
 
 /**
+ * Mutable backing record for the slow-particles effect-target pool.
+ * Structurally compatible with the public-readonly `EffectTarget`, so the
+ * pool can be handed to `slowParticles.applyTargets` as
+ * `readonly EffectTarget[]` without a copy. Lives at module scope only so
+ * the type isn't conflated with the public one.
+ */
+interface MutableEffectTarget {
+  kind: "player" | "entity";
+  id: number;
+  x: number;
+  y: number;
+  effects: readonly ActiveEffect[];
+}
+
+/**
+ * Shared sentinel for newly-acquired pool entries so a fresh slot doesn't
+ * allocate a throwaway empty array. The caller always overwrites
+ * `effects` with the player/entity's own array before the entry is read.
+ */
+const EMPTY_EFFECTS: readonly ActiveEffect[] = [];
+
+/**
  * Owns the Three.js render loop. Per ADR 0003 every player — local and
  * remote — renders from `SnapshotBuffer` with the same
  * `REMOTE_RENDER_DELAY_MS` interpolation delay; `LocalPredictor` was
@@ -151,11 +174,30 @@ export class Renderer {
   // Re-evaluated every frame against current mesh positions so a player
   // walking under a stationary cursor still triggers the hover-billboard.
   private cursorNdc: { x: number; y: number } | null = null;
-  // Last rendered position per player. Captured at the end
-  // of each frame so the dash-on-strike animation can lerp from
-  // wherever the attacker was actually drawn, not wherever the snapshot
-  // buffer happened to be looking. Cleared on local-player reassign.
-  private readonly lastRenderedPos = new Map<PlayerId, { x: number; y: number }>();
+  // Last rendered position per player. Updated once per frame (after the
+  // dash override resolves `entities`) so any consumer reads the
+  // most-recently-drawn pos: lookups inside the same frame act as
+  // `positionByPlayer`, and wire callbacks (`onAttackEvents`) firing
+  // between frames see the previous frame's snapshot — which is the
+  // anchor the dash-on-strike animation lerps from.
+  //
+  // Entries are pooled across frames and tagged with `frame` so stale
+  // players can be evicted without a per-frame allocation set: any entry
+  // whose tag doesn't match the current frame counter is deleted. Cleared
+  // on local-player reassign.
+  private renderedPosFrame = 0;
+  private readonly lastRenderedPos = new Map<
+    PlayerId,
+    { x: number; y: number; frame: number }
+  >();
+  // Pool + per-frame view for the slow-particles effect targets. The pool
+  // owns the mutable `MutableEffectTarget` records and grows monotonically;
+  // the view is reset (length=0) then refilled with references back into
+  // the pool each frame, so after warmup neither array allocates. Passed
+  // to `slowParticles.applyTargets` as `readonly EffectTarget[]` — the
+  // layer iterates once and never stores entries past the call.
+  private readonly effectTargetsPool: MutableEffectTarget[] = [];
+  private readonly effectTargetsView: MutableEffectTarget[] = [];
   // Per-attacker dash override. On a strike resolution we
   // capture the attacker's last rendered position, the wall-clock at
   // which the strike landed, and lerp the rendered position toward the
@@ -193,6 +235,24 @@ export class Renderer {
    * without rotating the view.
    */
   private readonly screenShake = new ScreenShake();
+
+  // Hoisted lookup closures handed to per-frame layer updates. Bound to
+  // `this.lastRenderedPos` and the entity-position helpers so the layer
+  // sees the same data that was just drawn this frame. Stored as
+  // instance arrows so the per-frame `frame()` body doesn't allocate a
+  // fresh closure per layer per frame.
+  private readonly lookupPlayerPosition = (
+    id: number,
+  ): { readonly x: number; readonly y: number } | null => {
+    return this.lastRenderedPos.get(id) ?? null;
+  };
+  private readonly lookupAttackBeamTarget = (
+    kind: "player" | "entity",
+    id: number,
+  ): { readonly x: number; readonly y: number } | null => {
+    if (kind === "player") return this.lastRenderedPos.get(id) ?? null;
+    return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
+  };
 
   constructor(
     private readonly world: World,
@@ -862,25 +922,37 @@ export class Renderer {
     // with a fast lerp from their pre-strike rendered position to the
     // authoritative world position. After `DASH_DURATION_MS` the
     // entry retires and the standard compose path resumes — by then
-    // the snapshot-buffer interpolation has caught up.
-    const entities = composed.map((e) => {
-      const dash = this.activeDashes.get(e.id);
-      if (dash === undefined) return e;
-      const elapsed = nowMs - dash.startMs;
-      if (elapsed >= DASH_DURATION_MS) {
-        this.activeDashes.delete(e.id);
-        return e;
+    // the snapshot-buffer interpolation has caught up. `composed` is a
+    // fresh array each frame, so mutating its entries in place (when
+    // dashes are active) is safe and avoids spread-copies; when no dash
+    // is active we reuse `composed` directly to skip the `.map` alloc.
+    if (this.activeDashes.size > 0) {
+      for (let i = 0; i < composed.length; i++) {
+        const e = composed[i];
+        const dash = this.activeDashes.get(e.id);
+        if (dash === undefined) continue;
+        const elapsed = nowMs - dash.startMs;
+        if (elapsed >= DASH_DURATION_MS) {
+          this.activeDashes.delete(e.id);
+          continue;
+        }
+        const t = elapsed <= 0 ? 0 : elapsed / DASH_DURATION_MS;
+        const authoritative = this.world.getPlayer(e.id);
+        const targetX = authoritative ? authoritative.x : e.x;
+        const targetY = authoritative ? authoritative.y : e.y;
+        const mut = e as { x: number; y: number };
+        mut.x = dash.fromX + (targetX - dash.fromX) * t;
+        mut.y = dash.fromY + (targetY - dash.fromY) * t;
       }
-      const t = elapsed <= 0 ? 0 : elapsed / DASH_DURATION_MS;
-      const authoritative = this.world.getPlayer(e.id);
-      const targetX = authoritative ? authoritative.x : e.x;
-      const targetY = authoritative ? authoritative.y : e.y;
-      return {
-        ...e,
-        x: dash.fromX + (targetX - dash.fromX) * t,
-        y: dash.fromY + (targetY - dash.fromY) * t,
-      };
-    });
+    }
+    const entities: readonly RenderableEntity[] = composed;
+    // Refresh the rendered-position pool now (after dash override) so
+    // every downstream read this frame — beams, attack beams, flag beams,
+    // projectiles — and every wire callback firing between this frame
+    // and the next sees the actually-drawn positions. Also resolves the
+    // local-player entity in the same single pass so `updateCamera` /
+    // `updateDaylight` don't each do an O(N) `.find`.
+    const localEntity = this.refreshRenderedPositions(entities);
     syncPlayerMeshes(
       entities,
       this.localPlayerId,
@@ -889,8 +961,8 @@ export class Renderer {
       this.factory,
       dtMs,
     );
-    this.updateCamera(entities);
-    this.updateDaylight(entities);
+    this.updateCamera(localEntity);
+    this.updateDaylight(entities, localEntity);
     applyLanternBodyUnlit(this.meshes, entities);
     this.refreshHoverBillboards();
     this.refreshGhostPreview();
@@ -909,9 +981,7 @@ export class Renderer {
     // Beams aim at the same interpolated player positions that
     // `syncPlayerMeshes` just consumed so a beam stays glued to its
     // actor's body across remote-render delay.
-    const positionByPlayer = new Map<PlayerId, { x: number; y: number }>();
-    for (const e of entities) positionByPlayer.set(e.id, { x: e.x, y: e.y });
-    this.graph.beams.update((id) => positionByPlayer.get(id) ?? null, nowMs);
+    this.graph.beams.update(this.lookupPlayerPosition, nowMs);
     // the charge beam connects the attacker's body to the
     // target's body (player or entity), and aims at whichever position
     // is rendered this frame so a moving target keeps the beam glued
@@ -920,57 +990,23 @@ export class Renderer {
     // rendered world position rather than snapping to tile centre.
     // Fallback to tile centre covers the first-frame-appearance case
     // (no mesh yet).
-    this.graph.attackBeams.update((kind, id) => {
-      if (kind === "player") {
-        return positionByPlayer.get(id) ?? null;
-      }
-      return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
-    }, nowMs);
+    this.graph.attackBeams.update(this.lookupAttackBeamTarget, nowMs);
     // re-aim every active flag-interact beam against the
     // latest player position. Beams whose interactor walked out of
     // view this frame are hidden (not retired) — the next tick may
     // bring the player back in via the chunk window.
-    this.graph.flagBeams.update((id) => positionByPlayer.get(id) ?? null);
+    this.graph.flagBeams.update(this.lookupPlayerPosition);
     // status-effect indicators above each effected target,
     // then projectile-layer reconcile against the per-tick store.
-    const effectTargets: EffectTarget[] = [];
-    for (const p of this.world.players()) {
-      if (p.effects.length === 0) continue;
-      effectTargets.push({
-        kind: "player",
-        id: p.id,
-        x: p.x,
-        y: p.y,
-        effects: p.effects,
-      });
-    }
-    if (this.terrain !== null) {
-      for (const [, chunk] of this.terrain.iter()) {
-        for (const e of chunk.entities.values()) {
-          if (e.effects.length === 0) continue;
-          const pos = this.resolveEntityRenderedWorldPos(e.id) ?? {
-            x: e.tileX + 0.5,
-            y: e.tileY + 0.5,
-          };
-          effectTargets.push({
-            kind: "entity",
-            id: e.id,
-            x: pos.x,
-            y: pos.y,
-            effects: e.effects,
-          });
-        }
-      }
-    }
-    this.graph.slowParticles.applyTargets(effectTargets, nowMs);
+    this.rebuildEffectTargets();
+    this.graph.slowParticles.applyTargets(this.effectTargetsView, nowMs);
     this.graph.slowParticles.update(nowMs);
     if (this.projectiles !== null) {
-      this.graph.projectiles.update(this.projectiles, nowMs, (kind, id) => {
-        if (kind === "player") {
-          return positionByPlayer.get(id) ?? null;
-        }
-        return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
-      });
+      this.graph.projectiles.update(
+        this.projectiles,
+        nowMs,
+        this.lookupAttackBeamTarget,
+      );
     }
     // advance slash lifetimes (fade + expand) and retire
     // expired sprites. Position / rotation are fixed at spawn — the
@@ -981,15 +1017,84 @@ export class Renderer {
     // advances each floating sprite's float + fade and retires expired ones.
     tickMeshFlashes(nowMs);
     this.graph.damageNumbers.tick(nowMs);
-    // Capture this frame's rendered player positions so a strike
-    // resolution next frame can lerp from where the attacker is
-    // actually drawn.
-    this.lastRenderedPos.clear();
-    for (const e of entities) {
-      this.lastRenderedPos.set(e.id, { x: e.x, y: e.y });
-    }
     this.graph.webgl.render(this.graph.scene, this.graph.camera);
   };
+
+  /**
+   * Update `lastRenderedPos` in place for `entities`, evicting any pooled
+   * entry that didn't get a fresh write this frame. Returns the local-
+   * player's entity (or `undefined`) found in the same pass so the
+   * camera / daylight passes don't each re-walk `entities`.
+   */
+  private refreshRenderedPositions(
+    entities: readonly RenderableEntity[],
+  ): RenderableEntity | undefined {
+    this.renderedPosFrame++;
+    const frame = this.renderedPosFrame;
+    const localId = this.localPlayerId;
+    let local: RenderableEntity | undefined = undefined;
+    for (const e of entities) {
+      if (localId !== null && e.id === localId) local = e;
+      const entry = this.lastRenderedPos.get(e.id);
+      if (entry === undefined) {
+        this.lastRenderedPos.set(e.id, { x: e.x, y: e.y, frame });
+      } else {
+        entry.x = e.x;
+        entry.y = e.y;
+        entry.frame = frame;
+      }
+    }
+    for (const [id, entry] of this.lastRenderedPos) {
+      if (entry.frame !== frame) this.lastRenderedPos.delete(id);
+    }
+    return local;
+  }
+
+  /**
+   * Refill `effectTargetsView` from the world's players + loaded-chunk
+   * entities. Pool entries are mutated in place so neither the pool nor
+   * the view allocates after warmup; the view's `length` is reset to `0`
+   * and re-grown each frame, which V8 keeps backing-buffer-stable.
+   */
+  private rebuildEffectTargets(): void {
+    this.effectTargetsView.length = 0;
+    for (const p of this.world.players()) {
+      if (p.effects.length === 0) continue;
+      const entry = this.acquireEffectTarget();
+      entry.kind = "player";
+      entry.id = p.id;
+      entry.x = p.x;
+      entry.y = p.y;
+      entry.effects = p.effects;
+    }
+    if (this.terrain !== null) {
+      for (const [, chunk] of this.terrain.iter()) {
+        for (const e of chunk.entities.values()) {
+          if (e.effects.length === 0) continue;
+          const pos = this.resolveEntityRenderedWorldPos(e.id);
+          const entry = this.acquireEffectTarget();
+          entry.kind = "entity";
+          entry.id = e.id;
+          entry.x = pos !== null ? pos.x : e.tileX + 0.5;
+          entry.y = pos !== null ? pos.y : e.tileY + 0.5;
+          entry.effects = e.effects;
+        }
+      }
+    }
+  }
+
+  private acquireEffectTarget(): MutableEffectTarget {
+    const i = this.effectTargetsView.length;
+    let entry: MutableEffectTarget;
+    if (i < this.effectTargetsPool.length) {
+      entry = this.effectTargetsPool[i];
+    } else {
+      entry = { kind: "player", id: 0, x: 0, y: 0, effects: EMPTY_EFFECTS };
+      this.effectTargetsPool.push(entry);
+    }
+    this.effectTargetsView.push(entry);
+    return entry;
+  }
 
   private refreshGhostPreview(): void {
     if (this.inventory === null || this.terrain === null) {
@@ -1085,6 +1190,7 @@ export class Renderer {
       y: number;
       equippedUtility: ItemId | null;
     }[],
+    local: RenderableEntity | undefined,
   ): void {
     const sample = sampleDaylight(this.timeOfDaySeconds);
     this.graph.ambient.color.setHex(sample.ambientColor);
@@ -1095,10 +1201,6 @@ export class Renderer {
     this.graph.moon.intensity = sample.moonIntensity;
     (this.graph.scene.background as THREE.Color).setHex(sample.skyColor);
 
-    const local =
-      this.localPlayerId !== null
-        ? entities.find((e) => e.id === this.localPlayerId)
-        : undefined;
     if (local) {
       tileToScene(local.x, local.y, FOCUS_SCRATCH);
     } else {
@@ -1150,14 +1252,10 @@ export class Renderer {
     this.graph.lanternLights.update(entities, sample.nightFactor);
   }
 
-  private updateCamera(entities: readonly { id: PlayerId; x: number; y: number }[]) {
+  private updateCamera(local: RenderableEntity | undefined) {
     // Follow the local player's interpolated position. With prediction
     // removed (ADR 0003 §7) this advances at the snapshot cadence — local
     // input feels the server tick.
-    const local =
-      this.localPlayerId !== null
-        ? entities.find((e) => e.id === this.localPlayerId)
-        : undefined;
     if (local) {
       tileToScene(local.x, local.y, FOCUS_SCRATCH);
     } else {
