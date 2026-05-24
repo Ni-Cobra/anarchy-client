@@ -36,7 +36,7 @@ export type CellEquipmentMark = ToolKind | null;
  * pixel-perfect visual identity. Items without a texture (future tools /
  * consumables) get a neutral gray fallback.
  *
- * Per-stack tinting (task 220 / 300): `Flag` stacks ship with a grayscale
+ * Per-stack tinting (): `Flag` stacks ship with a grayscale
  * base PNG and a `flag` extra carrying the player's `color_index`. The
  * tint is applied as a `background-color` multiplied with the image —
  * white-cloth pixels pick up the full tint, dark-pole pixels stay dark
@@ -65,7 +65,7 @@ export function applyItemIconStyle(icon: HTMLElement, slot: ItemStack): void {
 /**
  * CSS color string to multiply against the item's base texture, or `null`
  * when the stack carries no per-stack tint. Today only `Flag` populates
- * `extra.kind === "flag"` (task 220); the tint mirrors the per-flag
+ * `extra.kind === "flag"`; the tint mirrors the per-flag
  * cloth color used by `render/terrain.ts` so the icon and the placed
  * block read as the same color at a glance.
  */

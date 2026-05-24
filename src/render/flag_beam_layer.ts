@@ -1,8 +1,8 @@
 /**
- * Flag-interact beam render layer (task 360).
+ * Flag-interact beam render layer.
  *
  * The server emits a per-tick `FlagInteractSnapshot` for every admitted
- * `FlagInteractIntent` (task 250). The wire layer fans the list into
+ * `FlagInteractIntent`. The wire layer fans the list into
  * `applyFlagInteracts`, which reconciles a Three.js mesh pool against
  * it: one cylinder beam per active interact, anchored at the player's
  * body and the flag tile centre. Per the brief the gradient flows
@@ -38,7 +38,7 @@ export const FLAG_BEAM_DEPOSIT_COLOR = 0x66dd66;
 export const FLAG_BEAM_STEAL_COLOR = 0xff9933;
 
 /**
- * Mode wire enum mirrored from the server's `FlagInteractMode` (task 250).
+ * Mode wire enum mirrored from the server's `FlagInteractMode`.
  * Stored as a string here so the layer stays free of protobuf-numeric
  * leaks and unit tests can read the value at a glance.
  */

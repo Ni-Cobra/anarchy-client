@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ItemId } from "./game/index.js";
 import { recipeById, RECIPES } from "./recipes.js";
 
-// Task 180 — shared input list for the 15 dye-driven `concrete-<color>`
+// shared input list for the 15 dye-driven `concrete-<color>`
 // recipes. Declaration order mirrors the server's `CONCRETE_INPUTS` slice
 // (palette order — common variants first); the engine's deduction drains
 // in this order, so the wire-mirror test pins it byte-for-byte.

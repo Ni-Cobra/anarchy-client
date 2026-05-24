@@ -416,7 +416,7 @@ describe("crafting UI", () => {
     expect(row.parentElement).toBe(wrapper);
   });
 
-  it("nests the row list inside a .anarchy-crafting-scroll viewport (task 565)", () => {
+  it("nests the row list inside a .anarchy-crafting-scroll viewport", () => {
     inventory.replaceFromWire(
       emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
       null,
@@ -440,7 +440,7 @@ describe("crafting UI", () => {
     expect(list).not.toBeNull();
   });
 
-  it("re-rendering the row list when craftability flips does not re-mount the panel chrome (task 565)", () => {
+  it("re-rendering the row list when craftability flips does not re-mount the panel chrome", () => {
     inventory.replaceFromWire(
       emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
       null,
@@ -513,9 +513,9 @@ describe("crafting UI", () => {
     window.removeEventListener("contextmenu", onWindow);
   });
 
-  describe("max-craft-count badge (task 490)", () => {
+  describe("max-craft-count badge", () => {
     it("renders the badge under the arrow with floor(have/need) min across ingredients", () => {
-      // Task 580: wood-pickaxe = 3 Log + 2 Stick → 1 WoodPickaxe.
+      // wood-pickaxe = 3 Log + 2 Stick → 1 WoodPickaxe.
       // 9 Log ⇒ 3 crafts on the Log side; 7 Stick ⇒ 3 crafts on the
       // Stick side. min = 3.
       inventory.replaceFromWire(
@@ -634,7 +634,7 @@ describe("crafting UI", () => {
     }
 
     it("surfaces the output name and each ingredient with required counts after the hover delay", () => {
-      // Task 580: wood-pickaxe = 3 Log + 2 Stick → 1 WoodPickaxe.
+      // wood-pickaxe = 3 Log + 2 Stick → 1 WoodPickaxe.
       inventory.replaceFromWire(
         emptySlots({
           0: { item: ItemId.Log, count: 3 },
@@ -820,7 +820,7 @@ describe("crafting UI", () => {
     });
   });
 
-  describe("fixed-size scroll viewport (task 110)", () => {
+  describe("fixed-size scroll viewport", () => {
     function viewportHeight(): string {
       const scroll = document.querySelector<HTMLElement>(
         ".anarchy-crafting-scroll",
@@ -999,7 +999,7 @@ describe("crafting UI", () => {
     });
   });
 
-  describe("wheel capture (task 110)", () => {
+  describe("wheel capture", () => {
     it("stops wheel events inside the panel from reaching window", () => {
       inventory.replaceFromWire(
         emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
@@ -1036,11 +1036,11 @@ describe("crafting UI", () => {
     });
   });
 
-  describe("AnyOf ingredient rendering (task 175)", () => {
+  describe("AnyOf ingredient rendering", () => {
     // The craft-pane row painter must handle `Ingredient::AnyOf` without
     // crashing: the count appears once, followed by every candidate item
     // icon separated by thin vertical bars. No `RECIPES` entry uses AnyOf
-    // yet (task 180 is the first consumer); exercise the painter directly.
+    // yet; exercise the painter directly.
     it("renders an AnyOf ingredient as count + N candidate icons + (N-1) separators", () => {
       const synthRecipe = {
         id: "test-any-of",
@@ -1113,7 +1113,7 @@ describe("crafting UI", () => {
     });
   });
 
-  describe("partial-hint rows (task 100)", () => {
+  describe("partial-hint rows", () => {
     it("renders affordable rows above partial-hint rows, lexically within tier", () => {
       inventory.replaceFromWire(
         emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),

@@ -42,7 +42,7 @@ export const PLAYER_RADIUS = 0.35;
  * Maximum Euclidean distance (world units) between the local player and an
  * attack target at click time. Mirrors `combat/config.rs::ATTACK_RANGE_TILES`
  * on the server — must stay equal so the client's left-click target-pick
- * agrees with the server's admission gate. Bumped 4 → 6 in task 110
+ * agrees with the server's admission gate. Bumped 4 → 6
  * alongside the charge-immobility lock so attackers can't close the gap
  * during the locked charge window.
  */
@@ -51,7 +51,7 @@ export const ATTACK_RANGE_TILES = 6;
 /**
  * Charge window for a swung attack, in seconds. Mirrors
  * `combat/config.rs::CHARGE_DURATION_SECS` on the server. The local
- * predictor reads this to drive the charge-lock failsafe (task 110): if a
+ * predictor reads this to drive the charge-lock failsafe: if a
  * `CHARGE_STARTED` event never receives its matching resolution within
  * `CHARGE_DURATION_SECS + 1.0 s` the lock is forcibly released so a
  * dropped resolution packet can't strand the local player frozen.
@@ -63,7 +63,7 @@ export const CHARGE_DURATION_SECS = 0.7;
  * blowgun-fire target at click time. Mirrors the server's
  * `combat/config.rs::BLOWGUN_RANGE_TILES` — must stay equal so the
  * client's right-click target-pick agrees with the server's admission
- * gate. Task 200b/200c.
+ * gate. .
  */
 export const BLOWGUN_RANGE_TILES = 8;
 
@@ -73,7 +73,7 @@ export const BLOWGUN_RANGE_TILES = 8;
  * 20 Hz tick rate (1 s). The server is authoritative; this gate is a
  * bandwidth saver — it suppresses repeat sends inside the same cooldown
  * window so a rapidly clicking player doesn't pile no-op intents on the
- * wire. Task 200c.
+ * wire.
  */
 export const BLOWGUN_COOLDOWN_MS = 1000;
 
@@ -81,7 +81,7 @@ export const BLOWGUN_COOLDOWN_MS = 1000;
  * Maximum Euclidean distance (world units) between the local player and a
  * flag block they may transfer XP to/from. Mirrors the server's
  * `combat/config.rs::FLAG_INTERACT_RANGE_TILES` — must stay equal so the
- * client's click router and the server's admission gate agree. Task 360.
+ * client's click router and the server's admission gate agree.
  */
 export const FLAG_INTERACT_RANGE_TILES = 4;
 
@@ -139,7 +139,7 @@ export const ZOOM_TWEEN_MS = 180;
 /**
  * How long the entity-step animation takes — the renderer lerps from the
  * previous tile to the current one over this window each time the
- * server-mirrored tile changes (task 010-entities, client half 020).
+ * server-mirrored tile changes.
  *
  * Pinned well under the server's mean step interval — a spider has a 10%
  * chance per 50 ms tick to step, so the mean gap is 500 ms — so a stepped
@@ -150,7 +150,7 @@ export const ZOOM_TWEEN_MS = 180;
 export const ENTITY_STEP_TRANSITION_MS = 150;
 
 /**
- * Length of a full day-cycle in seconds (task 310). Mirrors the server's
+ * Length of a full day-cycle in seconds. Mirrors the server's
  * `DAY_LENGTH_SECONDS` — must stay equal so the client's renderer phases
  * the directional sun the same way the operator's tuning intends. The
  * server ships only the raw monotonic `time_of_day_seconds` scalar; the

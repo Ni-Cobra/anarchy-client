@@ -98,7 +98,7 @@ export function pickBlockUnderCursor(
 }
 
 /**
- * Cursor-driven entity picker (task 070b). The server's only entities
+ * Cursor-driven entity picker. The server's only entities
  * today are tile-bound spiders, so we resolve the cursor's tile via the
  * same ground-plane raycast `pickBlockUnderCursor` uses, then look up
  * the entity (if any) hosted by the matching chunk on that tile. When

@@ -365,7 +365,7 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: BlockType.Flag,
     textureUrl: `${ITEM_TEXTURES_BASE}/flag.png`,
   },
-  // Task 170 dyes — inventory-only ingredients; no `placesBlock`.
+  // dyes — inventory-only ingredients; no `placesBlock`.
   [ItemId.DyeWhite]: {
     id: ItemId.DyeWhite,
     displayName: "White Dye",
@@ -456,7 +456,7 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: null,
     textureUrl: `${ITEM_TEXTURES_BASE}/dye-dark-orange.png`,
   },
-  // Task 180 colored concrete items. Each places its matching
+  // colored concrete items. Each places its matching
   // `BlockType.Concrete*` block via the standard right-click flow; the item
   // icon is the same PNG as the block texture (mirrors the `Stone` pattern).
   [ItemId.ConcreteGray]: {

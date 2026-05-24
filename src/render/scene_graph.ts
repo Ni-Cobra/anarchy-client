@@ -52,12 +52,12 @@ const AXIS_Y_OFFSET = 0.01;
 const AXIS_X_COLOR = 0xff5050;
 const AXIS_Y_COLOR = 0x60a0ff;
 
-// Day-cycle directional sun (task 310). The sun sits on a sphere of this
+// Day-cycle directional sun. The sun sits on a sphere of this
 // radius around the camera focus so its world-space angle reads correctly
 // from any viewpoint while keeping the shadow camera frustum bounded. The
 // shadow camera is a square orthographic frustum sized to the camera's
 // reach — bigger than the visible window so blocks just past the edge can
-// still cast into it. The moon (task 070) shares the same orbital radius so
+// still cast into it. The moon shares the same orbital radius so
 // it stays anchored to the same focus point; it does not cast shadows to
 // avoid the cost of a second shadow pass for a secondary light source.
 const SUN_DISTANCE = 60;
@@ -122,7 +122,7 @@ export class SceneGraph {
   readonly lanternLights: LanternLights;
   /**
    * Renderer-owned singleton material for the bioluminescent mushroom
-   * sprite (task 160). Shared by every chunk's mushroom mesh so the
+   * sprite. Shared by every chunk's mushroom mesh so the
    * per-frame `emissiveIntensity` write happens once. The colour matches
    * `MUSHROOM_LIGHT_COLOR` in `mushroom_lights.ts` so the sprite glow
    * and the surrounding point-light pool read as the same source.
@@ -162,7 +162,7 @@ export class SceneGraph {
     this.webgl.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.webgl.domElement);
 
-    // Day-cycle lights (task 310). Plain values set here are placeholders;
+    // Day-cycle lights. Plain values set here are placeholders;
     // the per-frame `updateDaylight` resamples colour + intensity + sun
     // position every frame from the synced `time_of_day_seconds`.
     this.ambient = new THREE.AmbientLight(0xffffff, 0.55);
@@ -181,7 +181,7 @@ export class SceneGraph {
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
 
-    // Moon directional (task 070). Placeholder values — renderer's
+    // Moon directional. Placeholder values — renderer's
     // per-frame `updateDaylight` drives colour / intensity / position from
     // the daylight sample. Intentionally not a shadow caster: shadow
     // mapping is the dominant cost in the lighting pass, and at night the
@@ -277,7 +277,7 @@ export class SceneGraph {
     this.slowParticles = new SlowParticles();
     this.scene.add(this.slowParticles.group);
 
-    // Slash layer (task 130) — shared white-on-transparent sprite tinted
+    // Slash layer — shared white-on-transparent sprite tinted
     // per-mesh by the attacker's palette colour. Loaded once at scene
     // construction so the GPU upload happens before the first slash spawns.
     const slashTexture = new THREE.TextureLoader().load(SLASH_TEXTURE_URL);

@@ -10,7 +10,7 @@
  * side, never spilling past the centered arrow.
  *
  * The arrow lives inside a `.anarchy-crafting-arrow-cell` column wrapper
- * so a max-craft-count badge (task 490) can sit directly under the arrow
+ * so a max-craft-count badge can sit directly under the arrow
  * without disturbing the row's centered layout. The badge is omitted when
  * `maxCount` is `0` (the row is already styled as uncraftable, so `0`
  * would be redundant noise).
@@ -29,7 +29,7 @@ import { textureUrlForItem } from "../../textures.js";
  * given the inventory pools the caller chose to consider; pass `0` to
  * suppress the badge entirely.
  *
- * `partialHint` (task 100) toggles the grayed-bottom treatment used for
+ * `partialHint` toggles the grayed-bottom treatment used for
  * recipes the player has *some* of an ingredient toward but cannot yet
  * craft. Callers also gate the click handler — the styling alone is not
  * load-bearing for the no-op behavior.
@@ -106,7 +106,7 @@ function makeStack(stack: RecipeStack): HTMLDivElement {
 
 /**
  * Render one ingredient clause. `kind: "one"` reuses [`makeStack`].
- * `kind: "any-of"` (task 175) paints the count once, then a horizontally-
+ * `kind: "any-of"` paints the count once, then a horizontally-
  * separated list of candidate item icons divided by thin vertical bars
  * — `[N× icon(item1) | icon(item2) | icon(item3)]`.
  */

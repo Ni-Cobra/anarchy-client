@@ -1,5 +1,5 @@
 /**
- * Mouse-driven held-break and place-block wiring (ADR 0006 + task 040).
+ * Mouse-driven held-break and place-block wiring (ADR 0006).
  *
  * Owns:
  * - cursor-NDC mirror (every `mousemove` flows through
@@ -36,7 +36,7 @@ import { ToolTier, toolTierDisplayName } from "../tool_tier.js";
 import { ATTACK_COOLDOWN_DURATION_MS } from "../ui/sword_cooldown_ring.js";
 import { createCursorHint } from "./cursor_hint.js";
 
-/** Task 030: how long the "Attack on cooldown" transient chip stays
+/** how long the "Attack on cooldown" transient chip stays
  *  visible before fading. Clamped at show-time to the remaining cooldown
  *  so the chip doesn't outlive the condition it explains. */
 const ATTACK_COOLDOWN_HINT_FADE_MS = 1000;
@@ -72,7 +72,7 @@ export interface BreakPlaceDeps {
     ly: number,
   ) => void;
   /**
-   * Task 240: notify the session that a place was just dispatched at
+   * notify the session that a place was just dispatched at
    * `(cx, cy, lx, ly)`. The session uses this to open the create-
    * faction dialog when the placed item was a Flag — break_place
    * doesn't know about factions, but it owns the place gate so the
@@ -85,7 +85,7 @@ export interface BreakPlaceDeps {
     ly: number,
   ) => void;
   /**
-   * Task 420: right-click on a chest in range opens it. Optional — tests
+   * right-click on a chest in range opens it. Optional — tests
    * that don't exercise the chest path leave it absent.
    */
   readonly sendOpenChest?: (
@@ -95,7 +95,7 @@ export interface BreakPlaceDeps {
     ly: number,
   ) => void;
   /**
-   * Task 070b: ship an `AttackIntent` at `(kind, id)`. Optional — when
+   * ship an `AttackIntent` at `(kind, id)`. Optional — when
    * absent left-click falls through to the existing held-break path
    * unconditionally (used by tests that don't exercise attacks).
    */
@@ -104,7 +104,7 @@ export interface BreakPlaceDeps {
     targetId: number,
   ) => void;
   /**
-   * Task 070b: resolve the world-space `(x, y)` of an attack target so
+   * resolve the world-space `(x, y)` of an attack target so
    * the client can gate on `ATTACK_RANGE_TILES` before shipping the
    * intent. Returns `null` when the target no longer exists (e.g. a
    * player walked out of view between mousedown and pick).
@@ -114,7 +114,7 @@ export interface BreakPlaceDeps {
     targetId: number,
   ) => { x: number; y: number } | null;
   /**
-   * Task 030: wall-clock ms at which the local player's most recent
+   * wall-clock ms at which the local player's most recent
    * strike fired, or `null` if they haven't struck this session. Sourced
    * from the same renderer mirror the sword-slot cooldown ring reads.
    * When present, an attack click on a target inside `ATTACK_RANGE_TILES`
@@ -127,7 +127,7 @@ export interface BreakPlaceDeps {
    */
   readonly getLocalStrikeStartedMs?: () => number | null;
   /**
-   * Task 200c: ship a `FireBlowgunIntent` at `(kind, id)`. Optional —
+   * ship a `FireBlowgunIntent` at `(kind, id)`. Optional —
    * tests that don't exercise the blowgun leave it absent and right-
    * click falls through to the existing place-block / open-chest path
    * unconditionally.
@@ -137,19 +137,19 @@ export interface BreakPlaceDeps {
     targetId: number,
   ) => void;
   /**
-   * Task 200c: notify the session that a `FireBlowgunIntent` was
+   * notify the session that a `FireBlowgunIntent` was
    * dispatched at `nowMs` (post-gate). The session uses this to drive
    * the blowgun cooldown ring on the hotbar; break_place owns the gate.
    */
   readonly onBlowgunFireDispatched?: (nowMs: number) => void;
   /**
-   * Task 200c: wall-clock-now read for the local cooldown gate. Optional
+   * wall-clock-now read for the local cooldown gate. Optional
    * — tests can stub this to drive the gate's logic deterministically;
    * production passes `Date.now`.
    */
   readonly nowMs?: () => number;
   /**
-   * Task 360: ship a held `FlagInteractIntent` against the flag at
+   * ship a held `FlagInteractIntent` against the flag at
    * `(cx, cy, lx, ly)` in `mode` (`deposit` / `steal`). The router
    * sends `active=true` on press and `active=false` on release.
    * Optional — tests / wire-only paths that don't exercise the flag
@@ -165,7 +165,7 @@ export interface BreakPlaceDeps {
     active: boolean,
   ) => void;
   /**
-   * Task 170: bound-faction XP for the flag at `(cx, cy, lx, ly)`, or
+   * bound-faction XP for the flag at `(cx, cy, lx, ly)`, or
    * `null` when the cell holds no claimed flag. The flag-interact
    * intercept only fires when the bound faction still has `xp > 0`;
    * unclaimed or drained-to-zero flags fall through to the regular
@@ -177,7 +177,7 @@ export interface BreakPlaceDeps {
    *
    * Optional — tests that don't exercise the leaderboard leave it absent,
    * in which case every flag click within `FLAG_INTERACT_RANGE_TILES`
-   * intercepts (legacy task 360 behavior). Production wires this from
+   * intercepts (legacy behavior). Production wires this from
    * the `LeaderboardStore`.
    */
   readonly getFactionXpAt?: (
@@ -231,14 +231,14 @@ export function attachBreakAndPlace(
 
   const cursorHint = createCursorHint(target);
 
-  // Task 200c: bandwidth-saver local cooldown gate. Suppresses repeat
+  // bandwidth-saver local cooldown gate. Suppresses repeat
   // `FireBlowgunIntent` sends inside the same ~1 s cooldown window the
   // server uses. The server is authoritative; this just avoids piling
   // no-op intents on the wire when the player mashes right-click.
   let lastBlowgunFireMs: number | null = null;
   const nowMs = deps.nowMs ?? (() => Date.now());
 
-  // Task 360: active flag-interact hold. Pressed on a flag cell within
+  // active flag-interact hold. Pressed on a flag cell within
   // `FLAG_INTERACT_RANGE_TILES`, released on `mouseup`. The state lives
   // here so the matching `active=false` ships against the same flag /
   // mode that was pressed even if the cursor has wandered off the cell.
@@ -256,7 +256,7 @@ export function attachBreakAndPlace(
    *  plus the bound faction's XP (or `null` if unclaimed) iff it holds a
    *  Flag block within `FLAG_INTERACT_RANGE_TILES` of the local player.
    *  Returns `null` otherwise. The caller applies the per-button intercept
-   *  rule (task 170 / 250) — left-click on drained → fall through to break,
+   *  rule () — left-click on drained → fall through to break,
    *  right-click on drained still deposits (a fresh faction is xp=0 by
    *  construction so deposit-into-empty is normal).
    *
@@ -318,7 +318,7 @@ export function attachBreakAndPlace(
    * `gated` flag: `true` means the cell is an ore whose `min_tool_tier`
    * exceeds the player's currently equipped pickaxe tier — the hint
    * surfaces the requirement so the player knows the swing is throttled,
-   * but the held-break still ships (task 520: every block is breakable,
+   * but the held-break still ships (every block is breakable,
    * below-gate breakers tank the multiplier rate with no drop on
    * completion). `null` when no cell is in reach / loaded / non-Hidden.
    */
@@ -347,14 +347,14 @@ export function attachBreakAndPlace(
     };
     const pick = deps.renderer.pickAtCursor(ndc);
     if (!pick) return null;
-    // Hidden cells (task 060): the server masks the underlying kind and
+    // Hidden cells: the server masks the underlying kind and
     // rejects break / place attempts on them. Reject client-side too so
     // the held-break visuals don't paint a fake target on a cell that
     // will never actually take damage.
     if (pick.block.kind === BlockType.Hidden) return null;
     // Both top and ground picks are valid break / place targets — the
     // server resolves which authoritative path runs (top-break vs
-    // ground-break-via-replace, task 030) per held-item, so the client
+    // ground-break-via-replace) per held-item, so the client
     // doesn't need to gate on layer here.
     const [cx, cy] = pick.chunkCoord;
     const [lx, ly] = pick.localXY;
@@ -410,7 +410,7 @@ export function attachBreakAndPlace(
 
   /** Surface the tier-gate hint for `kind`, or hide it when `kind` is null.
    *  Drives the sticky channel of `cursor_hint` — transient messages
-   *  (e.g. task 030's "Attack on cooldown") paint on top and the sticky
+   *  (e.g. "Attack on cooldown") paint on top and the sticky
    *  text resumes when they expire. */
   function applyHint(kind: BlockType | null): void {
     if (kind === null) {
@@ -473,14 +473,14 @@ export function attachBreakAndPlace(
     const localPlayerId = deps.getLocalPlayerId();
     if (localPlayerId === null) return;
     if (ev.button !== 0 && ev.button !== 2) return;
-    // Task 360: a click on a Flag block within `FLAG_INTERACT_RANGE_TILES`
+    // a click on a Flag block within `FLAG_INTERACT_RANGE_TILES`
     // routes to `sendFlagInteractIntent` — left = Steal, right = Deposit.
     // Suppress the normal break / place / attack / blowgun-fire paths for
     // that click so the flag never doubles as a swing target or place
     // surface while the player is transferring XP. Out-of-range clicks
     // on a flag drop silently (the server would reject anyway).
     //
-    // Task 170: the intercept is gated per-button by the bound faction's
+    // the intercept is gated per-button by the bound faction's
     // state so a drained / unclaimed flag is actually breakable
     // (drain-to-destroy, 250 spec). The router falls through to the
     // break/place path when:
@@ -519,7 +519,7 @@ export function attachBreakAndPlace(
       }
     }
     if (ev.button === 0) {
-      // Task 070b: a left-click that lands on a player or entity in
+      // a left-click that lands on a player or entity in
       // range is an attack — ship `AttackIntent` and fall through. The
       // pick is mesh-precise for players and tile-precise for entities;
       // out-of-range targets are silently dropped (server validates
@@ -535,7 +535,7 @@ export function attachBreakAndPlace(
             const dx = pos.x - me.x;
             const dy = pos.y - me.y;
             if (dx * dx + dy * dy <= ATTACK_RANGE_TILES_SQ) {
-              // Task 030: local cooldown gate. If the sword is still on
+              // local cooldown gate. If the sword is still on
               // cooldown the click never reaches the server (server would
               // silently reject it, which the user reads as a lag bug).
               // Surface a transient cursor-anchored chip instead. The
@@ -573,7 +573,7 @@ export function attachBreakAndPlace(
       // starts — mousemove updates the target as the cursor scans
       // across the world; mouseup releases regardless.
       //
-      // Task 520: even a `gated` pick (ore the player's tool can't
+      // even a `gated` pick (ore the player's tool can't
       // efficiently mine) ships the intent — the server applies the
       // throttled below-gate damage rate and suppresses the drop. The
       // hint surfaces the tool requirement; the held-break still makes
@@ -587,13 +587,13 @@ export function attachBreakAndPlace(
       startBreakHeartbeat();
       return;
     }
-    // Task 200c / task 010-blowgun-place: a right-click with the
+    // a right-click with the
     // blowgun equipped that lands on an entity or player in range is a
     // fire-shoot. Right-clicks on blocks (or empty space) fall through
     // to the regular place / open-chest path — the blowgun adds the
     // shoot affordance, it doesn't take place-block away.
     //
-    // Task 310: the blowgun shares the utility slot with the lantern.
+    // the blowgun shares the utility slot with the lantern.
     // The fire path is only armed when the utility slot specifically
     // holds the blowgun (a lantern there leaves right-click as place).
     if (
@@ -629,8 +629,7 @@ export function attachBreakAndPlace(
       // No entity / player under the cursor — fall through to the
       // regular right-click handling (place-block / open-chest).
     }
-    // Right-click on a chest or tombstone in range → open it (task 420 /
-    // task 010-tombstone). The pick path resolves the cursor's current
+    // Right-click on a chest or tombstone in range → open it. The pick path resolves the cursor's current
     // cell; if its top block is a storage block we ship `OpenChest`
     // instead of `PlaceBlock`. Server validates reach + cell-is-storage.
     const place = pickBreakTargetAt(ev.clientX, ev.clientY);
@@ -648,7 +647,7 @@ export function attachBreakAndPlace(
   target.addEventListener("mousedown", onMousedown);
 
   const onMouseup = (ev: MouseEvent): void => {
-    // Task 360: any mouse release ends an active flag-interact hold,
+    // any mouse release ends an active flag-interact hold,
     // regardless of which button it was. Press is button-discriminating
     // (left = Steal / right = Deposit); release is mode-agnostic — the
     // server stops the transfer the next tick after `active=false` lands.
@@ -685,7 +684,7 @@ export function attachBreakAndPlace(
     target.removeEventListener("mousemove", onMouseMoveBreakRetarget);
     target.removeEventListener("contextmenu", onContextMenu);
     stopBreakHeartbeat();
-    // Task 360: detach during an active hold ships the release so the
+    // detach during an active hold ships the release so the
     // server doesn't strand a stale interact intent.
     releaseFlagInteract();
     cursorHint.unmount();

@@ -1,5 +1,5 @@
 /**
- * Faction-leaderboard HUD — task 240, ADR 0008.
+ * Faction-leaderboard HUD — ADR 0008.
  *
  * Top-of-screen badge: "Current leading faction: [name]" (or "No
  * factions yet"). Hover expands a dropdown listing every faction by

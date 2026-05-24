@@ -1,5 +1,5 @@
 /**
- * Per-torch point-light pool (task 350). Each placed `BlockType.Torch` cell
+ * Per-torch point-light pool. Each placed `BlockType.Torch` cell
  * contributes a small warm point light in the world; intensity scales with
  * the night factor sampled from `daylight.ts` so torches barely glow at
  * noon and shine at midnight.
@@ -9,7 +9,7 @@
  * enough away from the player you can't see them anyway, and capping the
  * active-light count keeps the WebGL renderer happy.
  *
- * `createTorchLight()` is shared with the lantern (task 370) so both
+ * `createTorchLight()` is shared with the lantern so both
  * placed-light and player-attached light sources have the same warm
  * appearance.
  */
@@ -27,13 +27,13 @@ function chunkKey(cx: number, cy: number): string {
  *  starts dropping the dimmest. */
 export const MAX_TORCH_LIGHTS = 32;
 
-/** Warm flame tint shared with the lantern (task 370). */
+/** Warm flame tint shared with the lantern. */
 const TORCH_LIGHT_COLOR = 0xffaa55;
 
 /** Falloff radius. A torch lights ~5-6 tiles around it at midnight, fading
  *  past that — far enough to navigate by, close enough that 32 of them in
  *  view don't paint everything orange. Bumped to 13.0 alongside the peak
- *  intensity lift (task 190) so the brighter, elevated source spreads to a
+ *  intensity lift so the brighter, elevated source spreads to a
  *  pool that actually reaches several tiles out instead of pooling at the
  *  emitter. */
 const TORCH_LIGHT_DISTANCE = 13.0;
@@ -44,13 +44,13 @@ const TORCH_LIGHT_DISTANCE = 13.0;
 const TORCH_LIGHT_DECAY = 1.4;
 
 /** Peak intensity (at midnight, where `nightFactor == 1`). Lifted to 4.5
- *  (task 190) so a single torch reads obviously bright against the
+ * so a single torch reads obviously bright against the
  *  night ambient floor even after the source is lifted above the top-layer
  *  block plane (see `TORCH_LIGHT_Y`); paired with a slightly larger
  *  `TORCH_LIGHT_DISTANCE` to spread the extra energy. */
 const TORCH_LIGHT_PEAK_INTENSITY = 4.5;
 
-/** Y offset where the per-torch light sits. Lifted to 1.8 (task 190) so the
+/** Y offset where the per-torch light sits. Lifted to 1.8 so the
  *  emitter sits clearly above the tallest top-layer geometry (tree canopy
  *  top is ~1.1 scene units) — that way the cone illuminates the tops of
  *  trees, stone walls, and mountain edges instead of being shadowed by
@@ -61,8 +61,8 @@ const TORCH_LIGHT_Y = 1.8;
 
 /**
  * Build a torch-flavoured `THREE.PointLight`. Same warm tint + decay used
- * by both the placed torch (task 350) and the player-attached lantern
- * (task 370). Callers pin the `position` and `intensity` per use site.
+ * by both the placed torch and the player-attached lantern
+ *. Callers pin the `position` and `intensity` per use site.
  */
 export function createTorchLight(): THREE.PointLight {
   return new THREE.PointLight(

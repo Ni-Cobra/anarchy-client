@@ -93,7 +93,7 @@ describe("applyPong", () => {
   });
 });
 
-describe("applyServerMessage — Pong (task 200)", () => {
+describe("applyServerMessage — Pong", () => {
   it("routes a top-level pong envelope into the ping sink", () => {
     const { deps, samples } = makeDeps(() => 5_000);
     applyServerMessage(encodePong(4_970), deps);

@@ -27,7 +27,7 @@ const SLOT_PLACEHOLDER_BASE = "/textures/slots";
  * down to ~30%, so the glyph reads as an affordance rather than a
  * populated item.
  *
- * Exported so vitest can pin the per-kind URL choice (task 050).
+ * Exported so vitest can pin the per-kind URL choice.
  */
 export const EMPTY_SLOT_PLACEHOLDER_URLS: Record<ToolKind, string> = {
   pickaxe: `${SLOT_PLACEHOLDER_BASE}/pickaxe.svg`,
@@ -38,14 +38,14 @@ export const EMPTY_SLOT_PLACEHOLDER_URLS: Record<ToolKind, string> = {
 };
 
 /**
- * Paint one equipment-slot cell (task 100). Empty slots get a bespoke
- * outline glyph hinting at the slot's purpose (task 050) — pickaxe head,
+ * Paint one equipment-slot cell. Empty slots get a bespoke
+ * outline glyph hinting at the slot's purpose — pickaxe head,
  * axe head, shovel head, sword, cog — instead of the old wood-tier
  * silhouette. Populated slots paint the equipped tool's full icon.
  *
  * Manages just the `.anarchy-inventory-icon` child in place — other
- * children (notably the sword-slot cooldown ring added by task 140)
- * are preserved across renders so external overlays don't get wiped
+ * children (notably the sword-slot cooldown ring) are preserved across
+ * renders so external overlays don't get wiped
  * on every `InventoryUpdate`.
  */
 export function paintEquipmentSlot(

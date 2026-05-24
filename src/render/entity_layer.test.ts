@@ -81,15 +81,15 @@ describe("entityLerpPosition", () => {
 });
 
 describe("spider mesh dimensions", () => {
-  it("is a quarter-tile cube (task 040)", () => {
+  it("is a quarter-tile cube", () => {
     // The brief calls for a 0.25 × 0.25 × 0.25 cube — block-shaped, not a
     // flat slab — so the spider reads against walkable top-layer decor.
     expect(SPIDER_SIDE).toBeCloseTo(0.25, 10);
     expect(SPIDER_HEIGHT).toBeCloseTo(0.25, 10);
   });
 
-  it("sits with its bottom face flush with the ground slab (task 330)", () => {
-    // Task 330 dropped the lifted offset so a spider on bare grass no
+  it("sits with its bottom face flush with the ground slab", () => {
+    // dropped the lifted offset so a spider on bare grass no
     // longer hovers a full tile-unit above the ground. The accepted
     // tradeoff is that the cube may clip behind a torch/sticks/flower
     // billboard on a shared tile — visually less wrong than floating.
@@ -140,7 +140,7 @@ describe("stackingOffset", () => {
  * Drive the layer through a single tile step `(0,0) → (1,0)` and assert
  * `getRenderedWorldPosition` reports an interpolated value mid-step —
  * not the destination tile centre. This is the regression pin for
- * task 320 (overlay visuals must track the mesh lerp).
+ * (overlay visuals must track the mesh lerp).
  */
 describe("EntityLayer.getRenderedWorldPosition", () => {
   function makeSpider(tileX: number, tileY: number): Entity {

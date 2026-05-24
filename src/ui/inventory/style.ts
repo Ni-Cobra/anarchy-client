@@ -6,7 +6,7 @@
  *
  * Visual tokens (panel background, cell frame, hover, count badge,
  * drag/split highlights) live in `../panel_palette.ts` and are shared
- * with the chest panel (task 600) so the two panels read as one UI
+ * with the chest panel so the two panels read as one UI
  * family.
  */
 
@@ -41,7 +41,7 @@ export const PANEL_WIDTH_PX =
 
 /**
  * Gap (in CSS pixels) between the main hotbar and the two equipment slots
- * (task 100). The equipment cells reuse the hotbar's `SLOT_PX` size so
+ *. The equipment cells reuse the hotbar's `SLOT_PX` size so
  * the mini-hotbar reads as a sibling cluster without a separate scale.
  */
 export const EQUIP_GAP_PX = 16;
@@ -76,7 +76,7 @@ const STYLE = `
     border-radius: ${PANEL_BORDER_RADIUS_PX}px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
-  /* Equipment cluster (task 180): the four circles read as a free-
+  /* Equipment cluster: the four circles read as a free-
      floating group, not as cells in a bar. The container is kept for
      flex layout — sibling of the hotbar inside .anarchy-hotbar-row
      so EQUIP_GAP_PX still falls out of CSS flex — but it carries no
@@ -90,12 +90,12 @@ const STYLE = `
     box-shadow: none;
   }
   /* Equipment slots are circular to read as visually distinct from the
-     square inventory / hotbar cells, and they're mouse-inert (task 60)
-     — the auto-equip paths and the panel-cell toggle from task 570 are
+     square inventory / hotbar cells, and they're mouse-inert
+     — the auto-equip paths and the panel-cell toggle are
      the only fillers. The double-class selector (specificity 0,2,0)
      beats the bare .anarchy-inventory-slot rule below (0,1,0), which
      otherwise wins on source order and re-imposes the 4px corner — that
-     was task 010's bug. overflow: hidden clips any inner element
+     was bug. overflow: hidden clips any inner element
      (today's icon, tomorrow's tint background) to the circle, and
      cursor: default signals the lack of interactivity. */
   .anarchy-inventory-slot.anarchy-equipment-slot {
@@ -103,7 +103,7 @@ const STYLE = `
     overflow: hidden;
     cursor: default;
   }
-  /* Task 180: equipment slots are mouse-inert and must NOT light up on
+  /* equipment slots are mouse-inert and must NOT light up on
      hover the way clickable hotbar / panel cells do. Pin the cell's
      border to its non-hover color so the bare .anarchy-inventory-slot:hover
      rule below (specificity 0,1,1) loses to this double-class :hover
@@ -156,9 +156,9 @@ const STYLE = `
     border-color: #ffffff;
     box-shadow: 0 0 0 2px #5aa0ff inset;
   }
-  /* Equipped-cell highlight (task 010 rework): the cell that holds the
+  /* Equipped-cell highlight: the cell that holds the
      currently-equipped pickaxe paints orange; the axe cell paints green;
-     the utility cell (task 360) paints blue. A cell can be both selected
+     the utility cell paints blue. A cell can be both selected
      and equipped — the selected blue inner shadow still wins for the
      inner ring while the orange/green/blue background reads the
      equipment kind. */
@@ -174,13 +174,13 @@ const STYLE = `
     background: rgba(40, 110, 220, 0.45);
     border-color: rgba(90, 160, 255, 0.85);
   }
-  /* Task 530 fourth equipment kind. Yellow reads "earth-tool" / shovel
+  /* fourth equipment kind. Yellow reads "earth-tool" / shovel
      against the orange/green/blue siblings without colliding. */
   .anarchy-inventory-slot.equipped-shovel {
     background: rgba(210, 180, 30, 0.45);
     border-color: rgba(245, 215, 80, 0.85);
   }
-  /* Task 050 fifth equipment kind. Red reads "combat" / sword against the
+  /* fifth equipment kind. Red reads "combat" / sword against the
      orange/green/blue/yellow siblings without colliding. */
   .anarchy-inventory-slot.equipped-sword {
     background: rgba(196, 58, 58, 0.45);

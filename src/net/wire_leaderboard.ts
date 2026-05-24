@@ -1,5 +1,5 @@
 /**
- * Faction-leaderboard wire bridge (task 240, ADR 0008).
+ * Faction-leaderboard wire bridge (ADR 0008).
  *
  * The server ships two adjacent shapes:
  * - `FactionsSnapshot` on `ServerWelcome.initial_factions` — full

@@ -1,5 +1,5 @@
 /**
- * Faction-name shape validation (task 240).
+ * Faction-name shape validation.
  *
  * Mirror of the server's `validate_faction_name` in
  * `anarchy-server/src/game/faction/mod.rs`: trim leading/trailing ASCII

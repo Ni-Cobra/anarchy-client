@@ -1,5 +1,5 @@
 /**
- * Crafting overlay (task 100): a slide-in side panel that mirrors the
+ * Crafting overlay: a slide-in side panel that mirrors the
  * inventory panel's open/close lifecycle but anchors on the right edge of
  * the viewport. Each row in the panel is one server-advertised recipe,
  * laid out as `[ingredients] → [output]`. Clicking an affordable row
@@ -10,7 +10,7 @@
  * `getInventory` thunk and subscribes to its change channel so the panel
  * re-renders on every `InventoryUpdate` without a round-trip.
  *
- * ## Affordability tiering (task 100)
+ * ## Affordability tiering
  *
  * The server advertises recipes in two tiers — `affordable` (fully
  * craftable now) and `partial-hint` (the player has at least one of any
@@ -25,7 +25,7 @@
  * - [`./style`] — CSS injection + the panel-width constants.
  * - [`./row`] — pure DOM stamp-out for one recipe row.
  *
- * ## Hover anchoring (task 460)
+ * ## Hover anchoring
  *
  * Rows live inside a `.anarchy-crafting-list` wrapper so the panel's
  * slide-in transform is decoupled from a vertical `translateY` we apply to
@@ -34,7 +34,7 @@
  * in the list as a disabled "orphan" until the cursor moves off, so a
  * click that lands mid-update never crafts a different recipe.
  *
- * ## Chrome stability (task 565, retuned in task 110)
+ * ## Chrome stability (retuned)
  *
  * The panel itself owns only the static chrome (border, radius, padding,
  * slide-in transform). Scrolling lives one layer deeper on
@@ -44,7 +44,7 @@
  * `scrollbar-gutter: stable` on that wrapper reserves the scrollbar lane
  * so toggling overflow doesn't shift the row strip horizontally.
  *
- * ## Hover anchor across scroll (task 110)
+ * ## Hover anchor across scroll
  *
  * With internal scrolling the "row stays under cursor across inventory
  * churn" invariant becomes a scrollTop problem: when the hovered row's
@@ -55,7 +55,7 @@
  * with a scrollable container (transformed content can be pushed
  * outside the visible bounds without the scroll machinery noticing).
  *
- * ## Wheel capture (task 110)
+ * ## Wheel capture
  *
  * The bootstrap-level `wheel` listener cycles the hotbar selection
  * ([bootstrap/keybindings.ts]). Scrolling inside the crafting panel
@@ -243,7 +243,7 @@ export function mountCraftingUi(
   // hotbar-cycle when a click or scroll lands on the crafting panel.
   // `contextmenu` also gets `preventDefault` so the browser's native
   // context menu doesn't surface over the panel. `wheel` is captured
-  // unconditionally (task 110) — the simpler "panel ate my scroll"
+  // unconditionally — the simpler "panel ate my scroll"
   // contract matches the user's mental model.
   for (const ev of ["mousedown", "mouseup", "click", "wheel"] as const) {
     panel.addEventListener(ev, (e) => e.stopPropagation());

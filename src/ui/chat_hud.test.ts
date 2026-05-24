@@ -153,7 +153,7 @@ describe("mountChatHud", () => {
     expect(bodies[0]).toContain("three");
   });
 
-  it("preserves the timestamp of a line that already appeared in the prior snapshot (task 100)", () => {
+  it("preserves the timestamp of a line that already appeared in the prior snapshot", () => {
     // Drive `now` from the test so the assertion can pin the exact
     // displayed timestamp.
     const clock = new MockClock(["10:00:00", "10:00:30"]);
@@ -175,7 +175,7 @@ describe("mountChatHud", () => {
     expect(afterTimes).toEqual(["10:00:00", "10:00:00", "10:00:30"]);
   });
 
-  it("forgets a line's timestamp when the server evicts it (task 100)", () => {
+  it("forgets a line's timestamp when the server evicts it", () => {
     // If the same `kind|sender|body` is re-broadcast LATER after the
     // server's rolling buffer pushed it out, it should be treated as a
     // fresh line — stamped at the new arrival time, not the original.
@@ -213,7 +213,7 @@ describe("mountChatHud", () => {
     expect(first.textContent).toContain("line-5");
   });
 
-  it("prefixes each row with a dim-gray HH:MM:SS timestamp (task 020)", () => {
+  it("prefixes each row with a dim-gray HH:MM:SS timestamp", () => {
     handle = mountChatHud();
     handle.replaceHistory([player("Alice", "hi")]);
     const row = rows()[0];
@@ -239,7 +239,7 @@ describe("mountChatHud", () => {
     expect(formatTimestamp(d2)).toBe("23:59:59");
   });
 
-  it("exposes an input host slot positioned directly below the message list (task 010)", () => {
+  it("exposes an input host slot positioned directly below the message list", () => {
     handle = mountChatHud();
     const root = document.getElementById("anarchy-chat-root");
     const list = document.getElementById("anarchy-chat-list");
@@ -253,10 +253,10 @@ describe("mountChatHud", () => {
     expect(children[1]).toBe(host);
   });
 
-  // Task 110 — per-message sender styling: palette color on the sender
+  // per-message sender styling: palette color on the sender
   // span for player-kind rows; italic when the player was unregistered
   // at send time; admin lines stay untouched (bold + warm tint).
-  it("applies the palette color to the sender span on a player-kind row (task 110)", () => {
+  it("applies the palette color to the sender span on a player-kind row", () => {
     handle = mountChatHud();
     handle.replaceHistory([player("Alice", "hi", { colorIndex: 5 })]);
     const sender = rows()[0].querySelector<HTMLSpanElement>(
@@ -271,7 +271,7 @@ describe("mountChatHud", () => {
     expect([expectedHex, expectedRgb]).toContain(sender!.style.color);
   });
 
-  it("italicizes the sender on a guest player-kind row (task 110)", () => {
+  it("italicizes the sender on a guest player-kind row", () => {
     handle = mountChatHud();
     handle.replaceHistory([
       player("Guest", "hello", { colorIndex: 3, registered: false }),
@@ -287,7 +287,7 @@ describe("mountChatHud", () => {
     expect(window.getComputedStyle(sender!).fontStyle).toBe("italic");
   });
 
-  it("does not italicize the sender on a registered player-kind row (task 110)", () => {
+  it("does not italicize the sender on a registered player-kind row", () => {
     handle = mountChatHud();
     handle.replaceHistory([
       player("Alice", "hello", { colorIndex: 2, registered: true }),
@@ -301,10 +301,10 @@ describe("mountChatHud", () => {
     ).toBe(false);
   });
 
-  // Task 120 — System-kind rows render grey-italic with no `<sender>:`
+  // System-kind rows render grey-italic with no `<sender>:`
   // prefix. The renderer branches on `kind` in one place so the body is
   // the sole non-timestamp child of the row.
-  it("renders a system-kind row with the anarchy-chat-system class and no sender prefix (task 120)", () => {
+  it("renders a system-kind row with the anarchy-chat-system class and no sender prefix", () => {
     handle = mountChatHud();
     handle.replaceHistory([system("Player Alice joined")]);
     const row = rows()[0];
@@ -323,7 +323,7 @@ describe("mountChatHud", () => {
     expect(time!.textContent).toMatch(/^\d{2}:\d{2}:\d{2} $/);
   });
 
-  it("styles a system-kind row with grey italic body via the injected stylesheet (task 120)", () => {
+  it("styles a system-kind row with grey italic body via the injected stylesheet", () => {
     handle = mountChatHud();
     handle.replaceHistory([system("Player Bob disconnected")]);
     const row = rows()[0];
@@ -333,7 +333,7 @@ describe("mountChatHud", () => {
     expect(style.fontStyle).toBe("italic");
   });
 
-  it("ignores colorIndex + registered on admin-kind rows (task 110)", () => {
+  it("ignores colorIndex + registered on admin-kind rows", () => {
     // Admin lines render bold + warm-tint regardless of the per-message
     // metadata. The HUD must not stamp an inline color override (it
     // would clobber the warm tint) and must not apply the guest-italic

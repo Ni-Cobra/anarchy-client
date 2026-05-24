@@ -1,5 +1,5 @@
 /**
- * Full-screen "connection lost" overlay — task 190.
+ * Full-screen "connection lost" overlay —.
  *
  * Fires from `bootstrap/session.ts` when the WebSocket transport drops
  * for a reason that isn't a structured lobby reject and isn't a caller-

@@ -1,5 +1,5 @@
 /**
- * Damage-feedback mesh flash (task 150).
+ * Damage-feedback mesh flash.
  *
  * Drops a transient white overlay on a player or entity body material when
  * the target takes damage, then restores the original color after the

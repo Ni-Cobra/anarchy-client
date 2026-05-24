@@ -31,7 +31,7 @@ export interface ChestUiOptions {
   readonly sendCloseChest: (loc: ChestLocation) => void;
   /**
    * Optional resolver for the panel header title. Called once per
-   * mount; the chest UI uses this so a tombstone (task 010-tombstone)
+   * mount; the chest UI uses this so a tombstone
    * panel reads "Tombstone" instead of "Chest" while the rest of the
    * chrome stays shared. Default: every panel titled "Chest".
    */

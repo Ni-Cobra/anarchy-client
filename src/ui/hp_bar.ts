@@ -1,5 +1,5 @@
 /**
- * HP bar above the hotbar — task 060.
+ * HP bar above the hotbar —.
  *
  * Renders a horizontal bar at the same width as the hotbar (so it visually
  * anchors to it), positioned just above. Fill width tracks the local
@@ -34,7 +34,7 @@ const BAR_HEIGHT_PX = 12;
 
 /**
  * Width of the bar in CSS pixels. Matches the hotbar width
- * (9 slots × 48 + 8 gaps × 4 + 2 × 6 padding = 476 px in task 050's hotbar
+ * (9 slots × 48 + 8 gaps × 4 + 2 × 6 padding = 476 px's hotbar
  * tuning). Pinned here rather than imported from the inventory style
  * module to keep the HP bar independent of inventory-layout churn — if
  * the hotbar resizes, retune this constant and the visual anchor stays.
@@ -46,7 +46,7 @@ export const HP_THRESHOLD_HIGH = 0.6;
 export const HP_THRESHOLD_LOW = 0.3;
 
 /**
- * Default duration of the damage-flash overlay (task 120). The HP bar
+ * Default duration of the damage-flash overlay. The HP bar
  * background flashes white briefly when the local player takes damage,
  * then fades back to the normal panel colour.
  */
@@ -110,14 +110,14 @@ export interface HpBarHandle {
    */
   update(health: number | null): void;
   /**
-   * Damage-feedback overlay (task 120). Briefly paints the bar background
+   * Damage-feedback overlay. Briefly paints the bar background
    * white, then fades back to the normal panel colour after `durationMs`.
    * Overlapping calls reset the timer — a follow-up hit re-flashes rather
    * than skipping.
    */
   flashWhite(durationMs?: number): void;
   /**
-   * Test handle (task 120): true while the damage-flash overlay is
+   * Test handle: true while the damage-flash overlay is
    * active. Pinned via a class on the bar root so e2e + unit tests can
    * read the state without poking at internals.
    */

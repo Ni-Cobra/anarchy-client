@@ -117,7 +117,7 @@ describe("World", () => {
     expect(ids).toEqual([1, 2, 3]);
   });
 
-  it("applySnapshot round-trips xp (task 210)", () => {
+  it("applySnapshot round-trips xp", () => {
     const w = new World();
     w.applySnapshot([{ ...p(1), xp: 42 }, { ...p(2), xp: 0 }]);
     expect(w.getPlayer(1)!.xp).toBe(42);

@@ -196,7 +196,7 @@ describe("BeamLayer", () => {
     expect((layer.scene().children[0] as THREE.Line).visible).toBe(false);
   });
 
-  // Task 160 regression pin: the renderer drives `applyChestTargets` +
+  // regression pin: the renderer drives `applyChestTargets` +
   // `update` every frame, not only when the player mesh re-syncs. A
   // standing-still driver tick that just observes a new open chest must
   // still spawn the beam in the same frame, and a tick that clears the

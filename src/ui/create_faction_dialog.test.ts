@@ -111,7 +111,7 @@ describe("showCreateFactionDialog", () => {
     expect(document.getElementById("anarchy-create-faction-modal-root")).toBeNull();
   });
 
-  test("right-click inside the dialog has its default prevented (task 160)", () => {
+  test("right-click inside the dialog has its default prevented", () => {
     const handle = showCreateFactionDialog({ onSubmit: () => {} });
     const root = document.getElementById("anarchy-create-faction-modal-root")!;
     const ev = new MouseEvent("contextmenu", {
@@ -123,7 +123,7 @@ describe("showCreateFactionDialog", () => {
     handle.close();
   });
 
-  test("contextmenu listener is detached on close (task 160)", () => {
+  test("contextmenu listener is detached on close", () => {
     const handle = showCreateFactionDialog({ onSubmit: () => {} });
     const root = document.getElementById("anarchy-create-faction-modal-root")!;
     handle.close();

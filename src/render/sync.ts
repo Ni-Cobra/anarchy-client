@@ -184,7 +184,7 @@ export function syncPlayerMeshes(
  */
 export function disposePlayerMesh(mesh: THREE.Mesh, parent: THREE.Object3D): void {
   parent.remove(mesh);
-  // Task 150: drop any pending damage-flash entry so the side table
+  // drop any pending damage-flash entry so the side table
   // doesn't outlive the mesh through reconnects / local-player reassign.
   purgeMeshFlash(mesh);
   const seenGeoms = new Set<THREE.BufferGeometry>();

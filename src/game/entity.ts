@@ -36,7 +36,7 @@ export interface Entity {
   readonly tileX: number;
   readonly tileY: number;
   /**
-   * Current HP (task 060). The wire only carries `> 0` (a 0-HP entity is
+   * Current HP. The wire only carries `> 0` (a 0-HP entity is
    * dropped server-side before its chunk ships). Mirrored here so a
    * future floating health bar / damage-flash effect has the data
    * available without a follow-up wire round-trip; not rendered this
@@ -44,7 +44,7 @@ export interface Entity {
    */
   readonly health: number;
   /**
-   * Task 200a — active status effects (`Slow`, future kinds), same shape
+   * active status effects (`Slow`, future kinds), same shape
    * as `Player.effects`. Empty when nothing is on the entity. The
    * renderer reads this for the slow indicator over the entity (task
    * 200c).

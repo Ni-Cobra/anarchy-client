@@ -27,12 +27,12 @@ interface MockPick {
   readonly block: { readonly kind: BlockType };
 }
 
-// Task 555 regression: the held-break path must ship `BreakIntent` for
+// regression: the held-break path must ship `BreakIntent` for
 // every targetable cell — including ores whose `min_tool_tier` exceeds
 // the player's equipped pickaxe. The pre-fix code refused to send a
 // non-null target when `pick.gated` was true, so an empty-hand player
 // clicking on IronOre never got the slow under-tooled break going (the
-// server-side task 520 path was wired correctly but the wire intent
+// server-side path was wired correctly but the wire intent
 // never arrived). This pins that the gate has been removed from the
 // outbound intent — the hint can still surface, but the swing always
 // reaches the server.
@@ -153,7 +153,7 @@ function fireMouseUp(button: number, clientX: number, clientY: number): void {
   );
 }
 
-describe("attachBreakAndPlace — task 555 empty-hand gate", () => {
+describe("attachBreakAndPlace — empty-hand gate", () => {
   let detach: (() => void) | null = null;
 
   beforeEach(() => {
@@ -176,7 +176,7 @@ describe("attachBreakAndPlace — task 555 empty-hand gate", () => {
     // The cell is in reach (tile center (1.5, 0.5) is 1 unit from the
     // player at (0.5, 0.5); REACH_BLOCKS = 4) and the player has no
     // equipped pickaxe, so `pickBreakTargetAt` flags it `gated`. The
-    // fix is that the intent ships anyway — the server's task 520 slow
+    // fix is that the intent ships anyway — the server's slow
     // path handles the rest.
     const sendBreakIntent = vi.fn();
     const { deps } = buildDeps(
@@ -244,7 +244,7 @@ describe("attachBreakAndPlace — task 555 empty-hand gate", () => {
   });
 });
 
-describe("attachBreakAndPlace — task 070b target-pick", () => {
+describe("attachBreakAndPlace — target-pick", () => {
   let detach: (() => void) | null = null;
 
   beforeEach(() => {
@@ -306,7 +306,7 @@ describe("attachBreakAndPlace — task 070b target-pick", () => {
   });
 
   it("admits a target at 5.5 tiles (would have rejected pre-110)", () => {
-    // Task 110 bumped ATTACK_RANGE_TILES 4 → 6. A target 5.5 tiles east
+    // bumped ATTACK_RANGE_TILES 4 → 6. A target 5.5 tiles east
     // would have rejected under the old gate but admits now.
     const sendAttackIntent = vi.fn();
     detach = attachBreakAndPlace(
@@ -389,7 +389,7 @@ describe("attachBreakAndPlace — task 070b target-pick", () => {
   });
 });
 
-describe("attachBreakAndPlace — task 200c blowgun routing", () => {
+describe("attachBreakAndPlace — blowgun routing", () => {
   let detach: (() => void) | null = null;
 
   beforeEach(() => {
@@ -484,7 +484,7 @@ describe("attachBreakAndPlace — task 200c blowgun routing", () => {
     expect(sendFire).toHaveBeenCalledWith("entity", 42);
   });
 
-  it("falls through to PlaceBlock on right-click on a block while blowgun is equipped (task 010-blowgun-place)", () => {
+  it("falls through to PlaceBlock on right-click on a block while blowgun is equipped", () => {
     // Regression for the user-reported "blowgun blocks block placement"
     // bug: with the blowgun equipped and the cursor over a non-entity
     // tile, the click must still place. The blowgun only intercepts
@@ -636,7 +636,7 @@ describe("attachBreakAndPlace — task 200c blowgun routing", () => {
   });
 });
 
-describe("attachBreakAndPlace — task 360 flag routing", () => {
+describe("attachBreakAndPlace — flag routing", () => {
   let detach: (() => void) | null = null;
 
   beforeEach(() => {
@@ -818,14 +818,14 @@ describe("attachBreakAndPlace — task 360 flag routing", () => {
   });
 });
 
-// Task 170: drain-to-destroy fall-through. Before the fix, every click on
+// drain-to-destroy fall-through. Before the fix, every click on
 // a flag block within `FLAG_INTERACT_RANGE_TILES` routed unconditionally to
 // `sendFlagInteractIntent`, so a faction-drained flag could never be
 // broken (server-side admission rejected the steal because faction xp == 0,
 // and the held break never started). The fix: the click router consults
 // `getFactionXpAt` and falls through to the break path when the cell holds
 // an unclaimed or drained flag.
-describe("attachBreakAndPlace — task 170 drain-to-destroy fall-through", () => {
+describe("attachBreakAndPlace — drain-to-destroy fall-through", () => {
   let detach: (() => void) | null = null;
 
   beforeEach(() => {
@@ -969,11 +969,11 @@ describe("attachBreakAndPlace — task 170 drain-to-destroy fall-through", () =>
   });
 });
 
-// Task 030: the local attack-cooldown gate. A left-click on an in-range
+// the local attack-cooldown gate. A left-click on an in-range
 // attack target while the local sword is still cooling down must NOT
 // ship `AttackIntent` (the server would silently reject it). Instead the
 // cursor-anchored hint surfaces "Attack on cooldown" for ~1 s.
-describe("attachBreakAndPlace — task 030 attack cooldown hint", () => {
+describe("attachBreakAndPlace — attack cooldown hint", () => {
   let detach: (() => void) | null = null;
 
   const HINT_HOST_ID = "anarchy-cursor-hint";

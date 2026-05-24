@@ -4,7 +4,7 @@
  * X button), the drag-to-move position state for each panel, plus the
  * focus stack that drives z-order and the "active panel" emphasis.
  *
- * Task 592 lifted the "one panel mounted at a time" cap: opening chest
+ * lifted the "one panel mounted at a time" cap: opening chest
  * B while A is open mounts B alongside A. Closing A leaves B
  * undisturbed.
  *
@@ -106,7 +106,7 @@ const STYLE = `
   }
   .anarchy-chest-panel.open { display: flex; }
   /* The wood-toned amber accent is the chest-vs-inventory semantic
-     differentiator (task 600). The body chrome above stays in the shared
+     differentiator. The body chrome above stays in the shared
      palette; only the focused-panel border and the header below carry
      the chest accent. */
   .anarchy-chest-panel.focused {
@@ -199,7 +199,7 @@ export interface PanelManagerOptions {
   /**
    * Resolves the header title for a panel at `loc`. Read once at
    * mount; default is `"Chest"` for every panel. The chest UI passes
-   * a resolver so tombstones (task 010-tombstone) render as
+   * a resolver so tombstones render as
    * "Tombstone" while reusing the same panel chrome.
    */
   readonly panelTitleFor?: (loc: ChestLocation) => string;

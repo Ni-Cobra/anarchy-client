@@ -1,5 +1,5 @@
 /**
- * CSS injection for the crafting overlay (task 100). The crafting panel
+ * CSS injection for the crafting overlay. The crafting panel
  * mirrors the inventory side panel's positioning + animation so the two
  * read as one widget when both are open: the inventory slides in from the
  * left, the crafting panel slides in from the right, both vertically
@@ -33,7 +33,7 @@ export const RECIPE_ICON_PX = 44;
 export const CRAFTING_PANEL_WIDTH_PX = 5 * SLOT_PX + 4 * PANEL_GAP_PX + PANEL_PAD_PX * 2;
 
 /**
- * Recipe-row pitch (task 110). The row is a flex shell of one stack-cell
+ * Recipe-row pitch. The row is a flex shell of one stack-cell
  * tall plus its own 8px y-padding and 1px y-border on each side; the
  * row gap is the shared `PANEL_GAP_PX`. We expose both the outer height
  * and the pitch (height + inter-row gap) so the index.ts anchor math
@@ -45,7 +45,7 @@ export const ROW_HEIGHT_PX = RECIPE_ICON_PX + 2 * (ROW_PAD_Y_PX + ROW_BORDER_PX)
 export const ROW_PITCH_PX = ROW_HEIGHT_PX + PANEL_GAP_PX;
 
 /**
- * Fixed-size widget (task 110). The scroll viewport always reserves room
+ * Fixed-size widget. The scroll viewport always reserves room
  * for `MAX_VISIBLE_ROWS` rows so the panel never reflows as the recipe
  * set grows or shrinks — empty list and 10+ recipes occupy the same
  * vertical space; an 11th row scrolls. The viewport excludes the gap
@@ -84,8 +84,8 @@ const STYLE = `
   }
   .anarchy-crafting-panel.open { transform: translate(0, -50%); }
   /*
-   * Scroll viewport (task 565, retuned in 110). Sits between the panel
-   * chrome and the row list. Task 110 made this a fixed pixel height so
+   * Scroll viewport (retuned in 110). Sits between the panel
+   * chrome and the row list. made this a fixed pixel height so
    * the panel reserves the same vertical space whether the player has
    * 0 craftable recipes or many — no jumping as recipes come and go.
    * Anything past MAX_VISIBLE_ROWS scrolls; the row anchoring in
@@ -137,7 +137,7 @@ const STYLE = `
     outline-offset: 1px;
   }
   /*
-   * Hovered recipe that just stopped being craftable (task 460). It stays
+   * Hovered recipe that just stopped being craftable. It stays
    * in the list so a click already on its way doesn't end up crafting a
    * different row; visually grayed and inert until the cursor leaves.
    */
@@ -151,7 +151,7 @@ const STYLE = `
     border-color: rgba(255, 255, 255, 0.1);
   }
   /*
-   * Partial-hint rows (task 100). The server advertises recipes the
+   * Partial-hint rows. The server advertises recipes the
    * player has *some* of an ingredient toward but cannot yet craft;
    * they sort to the bottom of the panel and render desaturated so the
    * player reads "you're partway here" without confusing them with the
@@ -207,7 +207,7 @@ const STYLE = `
   }
   /*
    * Column wrapper for the arrow glyph + the max-craft-count badge below
-   * (task 490). Sits between the two sides as a flex item so the arrow
+   *. Sits between the two sides as a flex item so the arrow
    * stays centered horizontally while the count tucks directly beneath.
    */
   .anarchy-crafting-arrow-cell {
@@ -232,7 +232,7 @@ const STYLE = `
     line-height: 1;
   }
   /*
-   * Recipe hover tooltip (task 470). Rendered inside the shared
+   * Recipe hover tooltip. Rendered inside the shared
    * anarchy-tooltip node — the tooltip primitive owns the background,
    * border, and padding, so this only styles the layout of the recipe
    * body (title row above an ingredient list).

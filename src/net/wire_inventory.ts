@@ -40,7 +40,7 @@ export function applyInventoryUpdate(
     const extra = itemStackExtraFromWire(s);
     return extra === undefined ? { item, count } : { item, count, extra };
   });
-  // Equipment slot pointers (task 010 rework). `-1` (or any out-of-range
+  // Equipment slot pointers. `-1` (or any out-of-range
   // value) means "nothing equipped"; otherwise the index of the cell in
   // `slots` that holds the equipped tool. The Inventory mirror clamps
   // stale or non-tool indices to `null` defensively.
@@ -276,7 +276,7 @@ export function itemIdFromWire(
 
 /**
  * Translate a wire `ItemSlot.extra` oneof into the client's
- * `ItemStackExtra` (task 220). Returns `undefined` when no extra is set
+ * `ItemStackExtra`. Returns `undefined` when no extra is set
  * — the common case for every non-flag stack — so the call site can
  * decide whether to omit the field on the resulting `ItemStack` rather
  * than emitting `extra: undefined`.

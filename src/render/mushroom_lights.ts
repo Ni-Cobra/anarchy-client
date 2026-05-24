@@ -1,5 +1,5 @@
 /**
- * Per-mushroom point-light pool (task 140). Each placed `BlockType.LightMushroom`
+ * Per-mushroom point-light pool. Each placed `BlockType.LightMushroom`
  * cell contributes a small cool-toned point light in the world; intensity
  * scales with the night factor sampled from `daylight.ts` so mushroom patches
  * barely glow at noon and emit a soft cyan glow at midnight.
@@ -12,7 +12,7 @@
  * The colour deliberately sits in the blue-cyan range so a torch + a
  * mushroom patch read as distinct light sources side-by-side; the
  * radius / intensity envelope is ~50–60% of a torch's so mushrooms feel
- * like ambient atmosphere rather than a torch substitute (task 140 brief).
+ * like ambient atmosphere rather than a torch substitute.
  */
 
 import * as THREE from "three";
@@ -30,13 +30,13 @@ export const MAX_MUSHROOM_LIGHTS = 24;
 
 /** Soft cool-blue/teal tint — distinct from the torch's warm orange so a
  *  scene with both reads them as different light sources. Chosen against
- *  the lighter night ambient introduced by task 120 — the cyan stays
+ *  the lighter night ambient introduced by — the cyan stays
  *  visible against the brighter deep-blue night without bleeding into it. */
 const MUSHROOM_LIGHT_COLOR = 0x9fd9ff;
 
 /** Falloff radius — ~54% of a torch's `TORCH_LIGHT_DISTANCE` (13.0) so a
  *  mushroom lights three-to-four tiles around it. Forces a torch to still
- *  feel like the upgrade for serious lighting. Bumped to 7.0 (task 190)
+ *  feel like the upgrade for serious lighting. Bumped to 7.0
  *  alongside the intensity lift so the brighter, elevated source spreads
  *  proportionally. */
 const MUSHROOM_LIGHT_DISTANCE = 7.0;
@@ -47,11 +47,11 @@ const MUSHROOM_LIGHT_DECAY = 1.4;
 
 /** Peak intensity at midnight — ~55% of `TORCH_LIGHT_PEAK_INTENSITY` so a
  *  mushroom patch reads as ambient atmosphere rather than navigable light.
- *  Lifted to 2.5 (task 190) in lockstep with the torch / lantern bump, keeping
+ *  Lifted to 2.5 in lockstep with the torch / lantern bump, keeping
  *  the mushroom-weaker-than-torch invariant pinned in the test file. */
 const MUSHROOM_LIGHT_PEAK_INTENSITY = 2.5;
 
-/** Y offset of the light. Lifted to 1.8 (task 190) — same elevation as the
+/** Y offset of the light. Lifted to 1.8 — same elevation as the
  *  torch and lantern emitters so a torch and a mushroom side-by-side appear
  *  at the same height relative to a block, and the cone reaches the tops of
  *  nearby top-layer blocks instead of being shadowed by them. */

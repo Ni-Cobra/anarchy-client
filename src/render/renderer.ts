@@ -85,7 +85,7 @@ export type { Viewport } from "./scene_graph.js";
 const SUN_DISTANCE = 60;
 
 /**
- * Duration of the strike-dash render-side animation (task 070b). The
+ * Duration of the strike-dash render-side animation. The
  * server teleports the attacker instantaneously when the charge
  * resolves; the renderer lerps the visible position over this window
  * so the dash reads as a deliberate motion instead of a snap. Pinned
@@ -95,7 +95,7 @@ const SUN_DISTANCE = 60;
 export const DASH_DURATION_MS = 150;
 
 /**
- * Cooldown affordance window (task 070b). Mirrors the server's
+ * Cooldown affordance window. Mirrors the server's
  * `COOLDOWN_DURATION_SECS = 5.0`. The local player's HUD reads the
  * latest strike-time and renders a depleting badge for this long.
  */
@@ -140,12 +140,12 @@ export class Renderer {
   // Re-evaluated every frame against current mesh positions so a player
   // walking under a stationary cursor still triggers the hover-billboard.
   private cursorNdc: { x: number; y: number } | null = null;
-  // Last rendered position per player (task 070b). Captured at the end
+  // Last rendered position per player. Captured at the end
   // of each frame so the dash-on-strike animation can lerp from
   // wherever the attacker was actually drawn, not wherever the snapshot
   // buffer happened to be looking. Cleared on local-player reassign.
   private readonly lastRenderedPos = new Map<PlayerId, { x: number; y: number }>();
-  // Per-attacker dash override (task 070b). On a strike resolution we
+  // Per-attacker dash override. On a strike resolution we
   // capture the attacker's last rendered position, the wall-clock at
   // which the strike landed, and lerp the rendered position toward the
   // authoritative world position over `DASH_DURATION_MS`. Overrides the
@@ -156,7 +156,7 @@ export class Renderer {
     fromY: number;
     startMs: number;
   }>();
-  // Reconstruction anchor for the server tick clock (task 070b). The
+  // Reconstruction anchor for the server tick clock. The
   // first `charge-started` of an attack carries a `started_at_tick`
   // equal to the server's current tick, so the moment the event
   // arrives locally we can pin `(tick → wall-clock ms)` for the whole
@@ -174,8 +174,8 @@ export class Renderer {
    */
   private readonly cooldownStartMsByAttacker = new Map<PlayerId, number>();
   /**
-   * Damage-feedback shake (task 120). Source-agnostic — the session calls
-   * `triggerScreenShake(...)` on a local-HP drop; task 130 wires the
+   * Damage-feedback shake. Source-agnostic — the session calls
+   * `triggerScreenShake(...)` on a local-HP drop; wires the
    * attacker's own strike-shake through the same surface. Sampled in
    * `updateCamera` so the offset perturbs both `camera.position` and the
    * look-at target by the same vector, producing a pure visual translation
@@ -194,7 +194,7 @@ export class Renderer {
     inventory: Inventory | null = null,
     getSelectedHotbarSlot: () => number = () => 0,
     /**
-     * Per-tick projectile mirror (task 200c). Optional — tests that don't
+     * Per-tick projectile mirror. Optional — tests that don't
      * exercise the blowgun feed leave it `null` and the projectile layer
      * simply has nothing to render.
      */
@@ -218,7 +218,7 @@ export class Renderer {
   }
 
   /**
-   * Wire-layer hook (task 310). The latest `time_of_day_seconds` scalar
+   * Wire-layer hook. The latest `time_of_day_seconds` scalar
    * shipped on the most recent `TickUpdate`. Each frame `updateDaylight`
    * reads this and resamples sun direction / colour / ambient tint. The
    * scalar is monotonic per server (advances with each tick), so the
@@ -308,7 +308,7 @@ export class Renderer {
   }
 
   /**
-   * Cursor-driven attack-target pick (task 070b). Returns the first
+   * Cursor-driven attack-target pick. Returns the first
    * player-or-entity whose render hit the cursor, or `null` when no
    * target is under the cursor. Players take precedence over entities
    * sharing the same tile so a body-occluded spider doesn't steal the
@@ -345,7 +345,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 370): project a world tile `(x, y)` to the canvas's
+   * Test handle: project a world tile `(x, y)` to the canvas's
    * client-pixel coordinates. Lets a Playwright spec drive a real
    * `page.mouse.move(x, y)` against a tile centre without reproducing the
    * camera math externally. Reads the live camera matrices, so the
@@ -376,7 +376,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 370): number of player-attached lantern lights
+   * Test handle: number of player-attached lantern lights
    * currently visible in the scene. Visible means `nightFactor > 0` AND
    * the player is wearing a lantern; a daylight scene with lantern-
    * wearers reports `0`. Lets a Playwright spec assert "the lantern
@@ -410,7 +410,7 @@ export class Renderer {
    * Each target is enriched with its targeted layer (`top` if the cell's
    * top kind is non-Air, else `ground`) so the effects layer can draw a
    * flat square outline on the ground for a ground-layer break instead
-   * of a cube hanging in the air at the top layer (task 030 follow-up).
+   * of a cube hanging in the air at the top layer.
    * The beam layer ignores the extra field (structural typing).
    */
   applyTargetingStates(targets: readonly TargetingStateEvent[]): void {
@@ -437,7 +437,7 @@ export class Renderer {
   }
 
   /**
-   * The wire layer observed `TickUpdate.attack_events` (task 070b).
+   * The wire layer observed `TickUpdate.attack_events`.
    * Routes each event into the beam layer, captures dash anchors for
    * the dash render-side animation, and pins the cooldown timestamp
    * for the local player's HUD affordance.
@@ -559,7 +559,7 @@ export class Renderer {
   }
 
   /**
-   * The wire layer observed `TickUpdate.damage_events` (task 150). Drops
+   * The wire layer observed `TickUpdate.damage_events`. Drops
    * a white flash on the target mesh and spawns a floating `-N` red
    * number at the target's head. Source-agnostic — every HP-reducing
    * event (strike hit, admin damage, future env damage) routes here.
@@ -590,7 +590,7 @@ export class Renderer {
   }
 
   /**
-   * The wire layer observed `TickUpdate.flag_interacts` (task 360) —
+   * The wire layer observed `TickUpdate.flag_interacts` —
    * the per-tick set of admitted flag-XP transfers. Wholesale-replace
    * into the beam layer: a player in the list keeps / updates their
    * beam, a player no longer in the list retires theirs. Absent
@@ -610,13 +610,13 @@ export class Renderer {
     this.graph.flagBeams.applyFlagInteracts(specs);
   }
 
-  /** Test handle (task 360): live flag-beam count. */
+  /** Test handle: live flag-beam count. */
   getFlagBeamCount(): number {
     return this.graph.flagBeams.size();
   }
 
   /**
-   * The wire layer observed `TickUpdate.projectile_impacts` (task 200c).
+   * The wire layer observed `TickUpdate.projectile_impacts`.
    * Spawns a small puff at each impact's world position and drops the
    * projectile from the store so the dart mesh retires the same frame.
    */
@@ -634,20 +634,20 @@ export class Renderer {
     }
   }
 
-  /** Test handle (task 200c): live projectile mesh count. */
+  /** Test handle: live projectile mesh count. */
   getProjectileCount(): number {
     return this.graph.projectiles.size();
   }
 
-  /** Test handle (task 020 / 200c lineage): number of targets currently
+  /** Test handle ( lineage): number of targets currently
    *  visualising an active Slow effect. The cyan-disc indicator was
-   *  retired in task 020 for a particle trail; this handle now returns
+   *  retired for a particle trail; this handle now returns
    *  the live emitter count, which is stable while Slow is active. */
   getEffectIndicatorCount(): number {
     return this.graph.slowParticles.emitterCount();
   }
 
-  /** Test handle (task 200c): live impact-puff particle count. */
+  /** Test handle: live impact-puff particle count. */
   getProjectilePuffCount(): number {
     return this.graph.projectiles.puffCount();
   }
@@ -724,7 +724,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 150): number of meshes currently mid-flash.
+   * Test handle: number of meshes currently mid-flash.
    * Mirrors `getAttackBeamCount` / `getSlashCount` for e2e assertions.
    */
   getMeshFlashCount(): number {
@@ -732,7 +732,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 150): number of floating damage numbers
+   * Test handle: number of floating damage numbers
    * currently in the scene.
    */
   getDamageNumberCount(): number {
@@ -740,7 +740,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle / cooldown read-out (task 070b). Returns the wall-clock
+   * Test handle / cooldown read-out. Returns the wall-clock
    * ms at which `playerId`'s most recent strike fired, or `null` if the
    * player has not struck this session. The HUD cooldown affordance
    * subscribes to this for the local player; e2e specs can poll it to
@@ -751,7 +751,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 070b): scene-graph count of live attack beams.
+   * Test handle: scene-graph count of live attack beams.
    * Mirrors `EntityLayer.size()` shape.
    */
   getAttackBeamCount(): number {
@@ -759,7 +759,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 130): scene-graph count of live slash sprites.
+   * Test handle: scene-graph count of live slash sprites.
    * Spawns are one-per-strike (hit or miss); each retires after 250 ms.
    */
   getSlashCount(): number {
@@ -791,7 +791,7 @@ export class Renderer {
   }
 
   /**
-   * Damage-feedback hook (task 120). Caller (today: the bootstrap session
+   * Damage-feedback hook. Caller (today: the bootstrap session
    * on a local-HP drop) supplies a peak magnitude (tiles) and a duration
    * (ms); the renderer applies the resulting offset to the camera each
    * frame. Magnitude is clamped inside `ScreenShake` so an absurd input
@@ -803,7 +803,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 120): current shake offset in tile units, or
+   * Test handle: current shake offset in tile units, or
    * `(0, 0)` when no shake is active. Lets e2e + bootstrap unit tests
    * pin the shake state end-to-end without inspecting the camera.
    */
@@ -847,7 +847,7 @@ export class Renderer {
     const dtMs = this.lastFrameMs === null ? Infinity : nowMs - this.lastFrameMs;
     this.lastFrameMs = nowMs;
     const composed = composePlayerEntities(this.world, this.buffer, nowMs);
-    // Task 070b: any attacker mid-dash overrides the composed position
+    // any attacker mid-dash overrides the composed position
     // with a fast lerp from their pre-strike rendered position to the
     // authoritative world position. After `DASH_DURATION_MS` the
     // entry retires and the standard compose path resumes — by then
@@ -885,12 +885,12 @@ export class Renderer {
     this.refreshGhostPreview();
     this.graph.effects.update(nowMs);
     this.graph.breakParticles.update(nowMs);
-    // Entities (task 010-entities, client half 020). Reads the
+    // Entities. Reads the
     // game-state entity mirror — populated by the wire bridge into
     // `Chunk.entities` — and smoothes mesh positions between tile
     // teleports.
     this.graph.entities.update(this.terrain, nowMs);
-    // Chest beams (task 040) — refresh from the open-chest set carried
+    // Chest beams — refresh from the open-chest set carried
     // on every player snapshot so a beam exists for every (player,
     // chest) the server says is currently open. The world is rebuilt
     // each tick, so this re-pulls fresh.
@@ -901,7 +901,7 @@ export class Renderer {
     const positionByPlayer = new Map<PlayerId, { x: number; y: number }>();
     for (const e of entities) positionByPlayer.set(e.id, { x: e.x, y: e.y });
     this.graph.beams.update((id) => positionByPlayer.get(id) ?? null, nowMs);
-    // Task 070b: the charge beam connects the attacker's body to the
+    // the charge beam connects the attacker's body to the
     // target's body (player or entity), and aims at whichever position
     // is rendered this frame so a moving target keeps the beam glued
     // on. Entities are tile-bound server-side but the entity layer
@@ -915,12 +915,12 @@ export class Renderer {
       }
       return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
     }, nowMs);
-    // Task 360: re-aim every active flag-interact beam against the
+    // re-aim every active flag-interact beam against the
     // latest player position. Beams whose interactor walked out of
     // view this frame are hidden (not retired) — the next tick may
     // bring the player back in via the chunk window.
     this.graph.flagBeams.update((id) => positionByPlayer.get(id) ?? null);
-    // Task 200c: status-effect indicators above each effected target,
+    // status-effect indicators above each effected target,
     // then projectile-layer reconcile against the per-tick store.
     const effectTargets: EffectTarget[] = [];
     for (const p of this.world.players()) {
@@ -961,11 +961,11 @@ export class Renderer {
         return this.resolveEntityRenderedWorldPos(id) ?? this.entityTileCentre(id);
       });
     }
-    // Task 130: advance slash lifetimes (fade + expand) and retire
+    // advance slash lifetimes (fade + expand) and retire
     // expired sprites. Position / rotation are fixed at spawn — the
     // slash anchor never moves, so no per-frame re-aim is needed.
     this.graph.slashes.tick(nowMs);
-    // Task 150: advance damage-feedback layers. The flash module restores
+    // advance damage-feedback layers. The flash module restores
     // body colour after the configured window; the damage-numbers layer
     // advances each floating sprite's float + fade and retires expired ones.
     tickMeshFlashes(nowMs);
@@ -1001,7 +1001,7 @@ export class Renderer {
   }
 
   /**
-   * Chest-beam refresh (task 040). Walks every player the world knows
+   * Chest-beam refresh. Walks every player the world knows
    * about and collects one `ChestBeamTarget` per `(player, open chest)`
    * pair, then hands the union to the beam layer for a wholesale replace.
    * The set arrives via `PlayerSnapshot.open_chests` on every tick so
@@ -1024,7 +1024,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 040): number of chest beams currently in the
+   * Test handle: number of chest beams currently in the
    * scene. Lets a Playwright spec assert "one beam per open chest"
    * without poking at Three.js internals.
    */
@@ -1033,7 +1033,7 @@ export class Renderer {
   }
 
   /**
-   * Test handle (task 020-entities): scene-space `(x, z)` of every
+   * Test handle: scene-space `(x, z)` of every
    * entity mesh the renderer is currently showing, keyed by `EntityId`.
    * Lets an e2e spec pin "a spider appeared at the seeded tile" and "the
    * mesh has moved across the wait window" without inspecting Three.js
@@ -1103,7 +1103,7 @@ export class Renderer {
     // refresh the shadow camera matrix every frame is cheap (one matrix
     // multiply) and avoids ghost-shadows from a stale frustum.
     this.graph.sun.shadow.camera.updateProjectionMatrix();
-    // Moon (task 070): same focus-anchored sphere placement, but no shadow
+    // Moon: same focus-anchored sphere placement, but no shadow
     // pass — it only contributes diffuse fill so up-facing surfaces are
     // legible after dusk. `moonDir` is the antipode of `sunDir`, so this
     // automatically lands above the horizon whenever the sun is below.
@@ -1114,23 +1114,23 @@ export class Renderer {
       focus.y + sample.moonDir.y * SUN_DISTANCE,
       focus.z + sample.moonDir.z * SUN_DISTANCE,
     );
-    // Torches (task 350): light-pool driven by the same daylight sample
+    // Torches: light-pool driven by the same daylight sample
     // and the same focus point as the sun. Pinning the focus to the local
     // player keeps the "32 nearest torches" pick stable as the world
     // streams in around them.
     this.graph.torchLights.update({ x: focus.x, z: focus.z }, sample.nightFactor);
-    // Mushrooms (task 140): cool-glow companion pool to the torch one,
+    // Mushrooms: cool-glow companion pool to the torch one,
     // same nearest-N pick around the focus, weaker radius/intensity so
     // they read as atmosphere rather than navigable light.
     this.graph.mushroomLights.update({ x: focus.x, z: focus.z }, sample.nightFactor);
-    // Task 160: drive the mushroom sprite emissive in lockstep with the
+    // drive the mushroom sprite emissive in lockstep with the
     // light pool. At noon (`nightFactor == 0`) emissive is 0 and the
     // sprite renders as plain lit decor; at midnight it brightens by the
     // peak so the mushroom reads as the source of the surrounding glow.
     this.graph.mushroomMaterial.emissiveIntensity = mushroomEmissiveAt(
       sample.nightFactor,
     );
-    // Lanterns (task 370): one light per player wearing one. Driven by
+    // Lanterns: one light per player wearing one. Driven by
     // the same `nightFactor` so the day cycle reads consistent across
     // every warm light source.
     this.graph.lanternLights.update(entities, sample.nightFactor);
@@ -1148,7 +1148,7 @@ export class Renderer {
       ? tileToScene(local.x, local.y)
       : new THREE.Vector3(0, 0, 0);
     const height = this.zoom.sample(this.now());
-    // Damage-feedback shake (task 120). Tile-space `(dx, dy)` from the
+    // Damage-feedback shake. Tile-space `(dx, dy)` from the
     // shake module maps to scene-space `(dx, 0, -dy)` (mirrors `tileToScene`),
     // then we perturb both the camera position and the look-at by the same
     // vector so the view translates without rotating. Applied as the very

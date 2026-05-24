@@ -34,7 +34,7 @@ export interface TargetingStateEvent {
   /** `0..=100`. */
   readonly durabilityPct: number;
   /**
-   * Which terrain layer the held break is hitting (task 030 follow-up).
+   * Which terrain layer the held break is hitting.
    * `"top"` draws a unit-cube outline at the cell; `"ground"` draws a
    * flat square outline on the ground floor — so a ground-layer break
    * doesn't render a cube hanging in the air at the top layer. Omitted
@@ -67,8 +67,7 @@ const PLACE_PULSE_OPACITY = 0.85;
 const BREAK_SHATTER_MIN_SCALE = 0.2;
 const BREAK_SHATTER_OPACITY = 0.9;
 // Single intensity multiplier applied to the break animation when the
-// broken kind is a non-solid / walk-through top block (task 510 —
-// `Sticks`, flowers, `Bush`, `Torch`). Scales the shatter's starting
+// broken kind is a non-solid / walk-through top block. Scales the shatter's starting
 // size *and* its lifetime so the effect reads as a subtle tap instead
 // of the full-cell "crunching rock" feedback used for solids. Mirrors
 // the same multiplier in `break_particles.ts`.
@@ -79,7 +78,7 @@ const SOFT_BREAK_INTENSITY = 0.45;
 const TARGETING_FRAME_SIZE = 1.05;
 const TARGETING_FRAME_OPACITY = 0.85;
 const TARGETING_FRAME_LIFT = 0.55;
-// Ground-layer outline (task 030 follow-up): flat square on the floor at
+// Ground-layer outline: flat square on the floor at
 // the targeted tile, sized to match the cube outline's footprint. Lifted
 // just above `TILE_TOP_Y` (and above the place-pulse plane) so it sits
 // cleanly on the ground without z-fighting the grass underneath.
@@ -100,7 +99,7 @@ const TILE_TOP_Y = 0.04;
  *   stay sharp), centered at `TARGETING_FRAME_LIFT`. Existing behavior.
  * - `"ground"` — flat square outline on the ground, lifted just above
  *   the tile floor so a ground-layer break doesn't paint a cube hanging
- *   in mid-air (task 030 follow-up).
+ *   in mid-air.
  *
  * The shared `LineBasicMaterial` is owned by the caller; both flavors
  * draw with the same color / opacity / line width so a layer swap reads
@@ -172,7 +171,7 @@ interface TargetingOverlay {
 }
 
 /**
- * The renderer's effects sub-layer (task 070): place pulses, break
+ * The renderer's effects sub-layer: place pulses, break
  * shatters, and held-break targeting overlays. The layer owns its scene
  * group and a tiny per-effect lifecycle: events come in via
  * `onBlockEdit` / `applyTargets`, time advances via `update(nowMs)` from

@@ -1,5 +1,5 @@
 /**
- * Cursor-anchored hint chip with two compositional channels (task 020).
+ * Cursor-anchored hint chip with two compositional channels.
  *
  * The chip sits next to the user's cursor (offset enough that the cursor
  * doesn't overlap the text) and follows it on `mousemove`. `pointer-events:
@@ -13,7 +13,7 @@
  *     (`break_place.ts::applyHint`).
  *   - **transient** — shown briefly, optionally with an auto-fade timer.
  *     Takes priority over sticky for its lifetime; when the transient
- *     clears, any still-active sticky text resumes. Used by task 030 to
+ *     clears, any still-active sticky text resumes. Used by to
  *     surface "Attack on cooldown".
  *
  * Lazy host: the chip element and its scoped `<style>` are only inserted

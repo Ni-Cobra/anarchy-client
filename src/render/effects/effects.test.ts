@@ -135,7 +135,7 @@ describe("EffectsLayer", () => {
     expect(frame).toBeInstanceOf(THREE.LineSegments);
   });
 
-  it("draws a flat square (LineLoop) when the target is ground-layer (task 030)", () => {
+  it("draws a flat square (LineLoop) when the target is ground-layer", () => {
     const layer = makeLayer();
     layer.applyTargets([
       { playerId: 1, cx: 0, cy: 0, lx: 0, ly: 0, durabilityPct: 100, layer: "ground" },
@@ -178,7 +178,7 @@ describe("EffectsLayer", () => {
     expect(frame).toBeInstanceOf(THREE.LineLoop);
   });
 
-  it("uses a smaller, shorter shatter for non-solid top blocks (task 510)", () => {
+  it("uses a smaller, shorter shatter for non-solid top blocks", () => {
     // Stone is solid-top → full-cell shatter cube + standard duration.
     const solid = makeLayer();
     solid.onBlockEdit(

@@ -1,5 +1,5 @@
 /**
- * Floating red "-N" damage numbers (task 150).
+ * Floating red "-N" damage numbers.
  *
  * One sprite per damage event spawns at the target's head and floats up
  * + fades over the configured lifetime. The renderer's `onDamageEvents`

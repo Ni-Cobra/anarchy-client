@@ -1,12 +1,12 @@
 /**
  * Transient camera-perturbation generator for the damage-feedback flow
- * (task 120). The session detects a local-HP drop, maps the damage to a
+ *. The session detects a local-HP drop, maps the damage to a
  * peak magnitude / duration via the helpers below, calls `trigger(...)`,
  * and the renderer samples `offsetAt(nowMs)` once per frame to perturb
  * the camera position. Pure tile-space output — the renderer maps it onto
  * scene axes itself.
  *
- * Source-agnostic by design: task 130 wires the attacker's own strike-
+ * Source-agnostic by design: wires the attacker's own strike-
  * shake through this same surface without further plumbing.
  *
  * Direction is computed from `nowMs` via two `sin`/`cos` curves at

@@ -44,7 +44,7 @@ function styleText(id: string): string {
   return document.getElementById(id)?.textContent ?? "";
 }
 
-describe("panel_palette token consumption (task 600)", () => {
+describe("panel_palette token consumption", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";

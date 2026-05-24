@@ -5,7 +5,7 @@ import { ItemId } from "../game/index.js";
 import { paletteColorCss } from "../game/palette.js";
 import { applyItemIconStyle, paintSlot } from "./slot_cell.js";
 
-describe("applyItemIconStyle — Flag per-stack tint (task 220 / 300)", () => {
+describe("applyItemIconStyle — Flag per-stack tint ()", () => {
   it("paints the grayscale flag PNG without tint when extra is missing", () => {
     const icon = document.createElement("div");
     applyItemIconStyle(icon, { item: ItemId.Flag, count: 1 });

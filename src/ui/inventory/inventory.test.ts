@@ -983,7 +983,7 @@ describe("inventory UI", () => {
     window.removeEventListener("contextmenu", onWindow);
   });
 
-  // Task 100 — equipment slots (pickaxe / axe mini-hotbar).
+  // equipment slots (pickaxe / axe mini-hotbar).
   describe("equipment slots", () => {
     function equipmentCells(): HTMLElement[] {
       return Array.from(
@@ -994,8 +994,8 @@ describe("inventory UI", () => {
     }
 
     it("renders five empty equipment cells next to the hotbar", () => {
-      // Pickaxe + axe (task 100) + shovel (task 530) + sword (task 050) +
-      // utility (task 360). Empty by default — silhouettes for the tool
+      // Pickaxe + axe + shovel + sword +
+      // utility. Empty by default — silhouettes for the tool
       // kinds, plain blank for utility.
       mountInventoryUi({
         getInventory: () => inventory,
@@ -1014,7 +1014,7 @@ describe("inventory UI", () => {
       expect(cells[4].classList.contains("empty")).toBe(true);
     });
 
-    it("paints each empty equipment cell with the bespoke outline-glyph SVG for its kind (task 050)", () => {
+    it("paints each empty equipment cell with the bespoke outline-glyph SVG for its kind", () => {
       // The five equipment slots render in this order: pickaxe, axe,
       // shovel, sword, utility. Each empty cell paints with the
       // corresponding outline SVG under `/textures/slots/` — pickaxe head,
@@ -1046,7 +1046,7 @@ describe("inventory UI", () => {
     });
 
     it("renders the sword slot as the fourth equipment cell with a red background when populated", () => {
-      // Task 050: sword slot sits between shovel and utility. The
+      // sword slot sits between shovel and utility. The
       // .equipped-sword class drives the red background (style.ts).
       const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       slots[5] = { item: ItemId.IronSword, count: 1 };
@@ -1075,8 +1075,7 @@ describe("inventory UI", () => {
     });
 
     it("paints the equipped tool when populated", () => {
-      // Equipment is a flag pointing at an inventory cell (task 010
-      // rework). Place the tools at known slots and pass the slot
+      // Equipment is a flag pointing at an inventory cell rework). Place the tools at known slots and pass the slot
       // indices as the equipped pointers.
       const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       slots[3] = { item: ItemId.IronPickaxe, count: 1 };
@@ -1171,7 +1170,7 @@ describe("inventory UI", () => {
       expect(moves).toEqual([[HOTBAR_SLOTS, 0]]);
     });
 
-    it("clicking the equipped tool's panel cell toggles to UnequipTool (task 570)", () => {
+    it("clicking the equipped tool's panel cell toggles to UnequipTool", () => {
       // Pickaxe sits at panel slot 0 (= flat index HOTBAR_SLOTS) and is
       // currently equipped (pointer at that slot). A clean click on the
       // panel cell ships an Unequip rather than the redundant Equip.
@@ -1307,9 +1306,9 @@ describe("inventory UI", () => {
       expect(moves).toEqual([[HOTBAR_SLOTS, HOTBAR_SLOTS + 7]]);
     });
 
-    // Task 60 — the equipment slots are visually distinct (circular) and
+    // the equipment slots are visually distinct (circular) and
     // mouse-inert. The auto-equip paths (break-time, pickup) and the
-    // panel-cell click toggle (task 570) own filling them; clicks /
+    // panel-cell click toggle own filling them; clicks /
     // drags / right-clicks landing on the equipment cell itself are
     // no-ops.
 
@@ -1325,7 +1324,7 @@ describe("inventory UI", () => {
         .getElementById("anarchy-inventory-style")!
         .textContent!.replace(/\s+/g, " ");
       expect(css).toMatch(/\.anarchy-equipment-slot \{[^}]*border-radius: 50%/);
-      // Task 010 — the rule MUST use the double-class selector so it
+      // the rule MUST use the double-class selector so it
       // beats the bare `.anarchy-inventory-slot` rule by specificity.
       // Bare `.anarchy-equipment-slot { border-radius: 50% }` loses to
       // the later `.anarchy-inventory-slot { border-radius: 4px }` rule
@@ -1339,7 +1338,7 @@ describe("inventory UI", () => {
       );
     });
 
-    // Task 180 — equipment circles read as a free-floating cluster: no
+    // equipment circles read as a free-floating cluster: no
     // hover-tint on the circle (mouse-inert; the bare `.anarchy-inventory-
     // slot:hover` rule lights up clickable cells, and a double-class
     // override pins the equipment circle's border color back to the
@@ -1390,7 +1389,7 @@ describe("inventory UI", () => {
       // It must also NOT be lumped in with the hotbar's chrome rule.
       // The old combined selector `.anarchy-hotbar, .anarchy-equipment-bar`
       // gave both the dark background and the rounded frame; that grouping
-      // is precisely what task 180 unwound.
+      // is precisely what unwound.
       expect(css).not.toMatch(
         /\.anarchy-hotbar, \.anarchy-equipment-bar \{/,
       );
@@ -1511,7 +1510,7 @@ describe("inventory UI", () => {
     });
 
     it("re-renders equipment cells reactively when InventoryUpdate flips equip / unequip", () => {
-      // Task 130 contract: the equipment-slot UI must re-paint when an
+      // contract: the equipment-slot UI must re-paint when an
       // `InventoryUpdate` carries a different equipped tool — both for the
       // empty → populated transition (equip) and the populated → empty
       // transition (unequip). The hotbar / panel re-render path is tested
@@ -1526,8 +1525,7 @@ describe("inventory UI", () => {
 
       const empty: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       // Place tools in known cells so the equipped flag has somewhere
-      // to point. The mini-hotbar mirrors the equipped cell (task 010
-      // rework).
+      // to point. The mini-hotbar mirrors the equipped cell rework).
       const withTools: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       withTools[3] = { item: ItemId.IronPickaxe, count: 1 };
       withTools[7] = { item: ItemId.WoodAxe, count: 1 };
@@ -1610,7 +1608,7 @@ describe("inventory UI", () => {
     });
 
     it("paints orange highlight on the equipped pickaxe cell and green on the equipped axe cell", () => {
-      // Task 010 rework: equipment is a flag on a cell; the cell renders
+      // rework: equipment is a flag on a cell; the cell renders
       // with an `equipped-pickaxe` (orange) or `equipped-axe` (green)
       // class so the player can see at a glance which cell is the
       // equipped tool. The mini-hotbar mirrors the cell — it's not the
@@ -1812,7 +1810,7 @@ describe("inventory UI", () => {
     });
   });
 
-  describe("hotbar drag/drop + right-click split (task 20)", () => {
+  describe("hotbar drag/drop + right-click split", () => {
     function dragWithStubbedHitTest(
       src: HTMLElement,
       dst: HTMLElement,
@@ -1891,7 +1889,7 @@ describe("inventory UI", () => {
       expect(moves).toEqual([[HOTBAR_SLOTS + 4, 7]]);
     });
 
-    it("dragging a tool from a hotbar cell onto its equipment slot is a no-op (task 60 — equip via panel-cell click, task 570)", () => {
+    it("dragging a tool from a hotbar cell onto its equipment slot is a no-op", () => {
       inventory.replaceFromWire(
         fillSlots({ 2: { item: ItemId.IronPickaxe, count: 1 } }),
       );

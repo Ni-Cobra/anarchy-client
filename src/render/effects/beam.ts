@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { tileCenterToScene } from "../terrain.js";
 
 /**
- * Visual feedback (task 030) connecting an actor to the cell they are
+ * Visual feedback connecting an actor to the cell they are
  * acting on. Three driving signals from the wire layer:
  *
  *   - **Break:** held-break targeting state ships every tick (per-player,
@@ -13,7 +13,7 @@ import { tileCenterToScene } from "../terrain.js";
  *     flashes briefly so the action reads even though no held-state
  *     follows (`PLACE_FLASH_DURATION_MS`).
  *   - **Chest:** every `PlayerSnapshot` carries the chests that player has
- *     open (task 590) — a beam runs from each open-chest owner to the chest
+ *     open — a beam runs from each open-chest owner to the chest
  *     for as long as the chest stays in the set, and clears the moment it
  *     drops out (closed, evicted, broken, out of range).
  *
@@ -62,7 +62,7 @@ export type BeamPositionLookup = (
 
 const BEAM_COLOR = 0xffffff;
 const BEAM_OPACITY = 0.55;
-// Chest beams (task 040) run continuously while the chest is open, so
+// Chest beams run continuously while the chest is open, so
 // they sit at a calmer opacity than the action beams. The action beams
 // flash and fade; the chest beam is a steady tether and reading several
 // at once shouldn't strobe the scene.
@@ -98,7 +98,7 @@ export class BeamLayer {
   private readonly group: THREE.Group;
   private readonly breakBeams = new Map<number, Beam>();
   private readonly placeFlashes: PlaceFlash[] = [];
-  // Chest beams (task 040) — keyed by `playerId|cx|cy|lx|ly` so one
+  // Chest beams — keyed by `playerId|cx|cy|lx|ly` so one
   // player with multiple open chests has one beam per chest, and each
   // beam tracks its specific player.
   private readonly chestBeams = new Map<string, ChestBeam>();
@@ -216,7 +216,7 @@ export class BeamLayer {
   }
 
   /**
-   * Test handle (task 040): number of chest beams currently in the
+   * Test handle: number of chest beams currently in the
    * scene. The renderer drives this from the per-tick chest-open set on
    * `PlayerSnapshot`; unit tests assert against it without poking at
    * Three.js internals.

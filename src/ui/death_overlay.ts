@@ -1,5 +1,5 @@
 /**
- * Respawn "You died" overlay — task 160.
+ * Respawn "You died" overlay —.
  *
  * On local-player death the bootstrap controller calls `trigger(nowMs)`;
  * the overlay paints the screen fully black with a large red "You died"

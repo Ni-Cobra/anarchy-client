@@ -62,7 +62,7 @@ describe("LanternLights", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = LanternLights.intensityAt(1);
-    // Peak pinned by task 190 — mirrors the torch lift so the day-night
+    // Peak pinned by — mirrors the torch lift so the day-night
     // fade stays consistent across both warm-light sources.
     expect(peak).toBe(4.5);
     expect(LanternLights.intensityAt(0)).toBe(0);
@@ -73,7 +73,7 @@ describe("LanternLights", () => {
     expect(LanternLights.intensityAt(1.5)).toBe(peak);
   });
 
-  it("attaches each light above the top-layer block plane (task 190)", () => {
+  it("attaches each light above the top-layer block plane", () => {
     // Pinned to the shared lift across torch / lantern / mushroom — a
     // lantern wearer next to a torch should not appear at a visibly
     // different emitter height.
@@ -87,7 +87,7 @@ describe("LanternLights", () => {
 
   it("pins the lantern's distance to the upgraded falloff radius", () => {
     // The lantern is the torch upgrade — strictly larger radius. Pinned by
-    // task 190; if a future refactor collapses the constant the test fires.
+    // if a future refactor collapses the constant the test fires.
     const layer = new LanternLights();
     layer.update([wearer(1)], 1);
     const light = layer.scene().children[0] as THREE.PointLight;

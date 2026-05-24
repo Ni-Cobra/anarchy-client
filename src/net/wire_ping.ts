@@ -1,5 +1,5 @@
 /**
- * `Pong` handler (task 200). The client emits a `Ping { client_time_ms }`
+ * `Pong` handler. The client emits a `Ping { client_time_ms }`
  * on `connection.ts::pingTimer` every `PING_INTERVAL_MS`; the server
  * echoes back a `Pong` carrying the same `client_time_ms`. Subtracting it
  * from the receive wall-clock yields the round-trip time, which the

@@ -1,5 +1,5 @@
 /**
- * Client-side mirror of the server's crafting recipe table (task 090).
+ * Client-side mirror of the server's crafting recipe table.
  *
  * The wire surface only ships *recipe ids* — stable strings like
  * `"wood-pickaxe"` — so the client can render the ingredient/output preview
@@ -24,7 +24,7 @@ export interface RecipeStack {
 }
 
 /**
- * One ingredient clause of a recipe (task 175). Mirrors the server's
+ * One ingredient clause of a recipe. Mirrors the server's
  * `Ingredient` enum:
  *
  * - `{ kind: "one" }` — exactly `count` of one specific item from the
@@ -54,7 +54,7 @@ export interface Recipe {
 }
 
 /**
- * Task 180 — pooled input list for every `concrete-<color>` recipe. Mirrors
+ * pooled input list for every `concrete-<color>` recipe. Mirrors
  * the server's `CONCRETE_INPUTS` slice (palette order). Declaration order is
  * load-bearing: the server drains entries in list order, so common variants
  * (Gray, farmed from stone) drain first and rarer colors stay put.
@@ -90,7 +90,7 @@ export const RECIPES: readonly Recipe[] = [
     ingredients: [{ kind: "one", item: ItemId.Wood, count: 1 }],
     output: { item: ItemId.Stick, count: 4 },
   },
-  // Task 390: trees drop `Log` items now. Logs craft into Wood blocks
+  // trees drop `Log` items now. Logs craft into Wood blocks
   // (1:1) and into Sticks (1 Log → 4 Sticks).
   {
     id: "wood-from-log",
@@ -102,7 +102,7 @@ export const RECIPES: readonly Recipe[] = [
     ingredients: [{ kind: "one", item: ItemId.Log, count: 1 }],
     output: { item: ItemId.Stick, count: 4 },
   },
-  // Task 580: wood-tier pickaxe + shovel now take raw `Log`s rather than
+  // wood-tier pickaxe + shovel now take raw `Log`s rather than
   // refined `Wood` planks (the wood-axe recipe still uses planks so the
   // shape stays asymmetric).
   {
@@ -137,7 +137,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.StoneAxe, count: 1 },
   },
-  // Task 150 smelting recipes — 1 raw → 1 ingot.
+  // smelting recipes — 1 raw → 1 ingot.
   {
     id: "copper-ingot",
     ingredients: [{ kind: "one", item: ItemId.RawCopper, count: 1 }],
@@ -153,7 +153,7 @@ export const RECIPES: readonly Recipe[] = [
     ingredients: [{ kind: "one", item: ItemId.RawTungsten, count: 1 }],
     output: { item: ItemId.TungstenIngot, count: 1 },
   },
-  // Task 150 tool-tier upgrades.
+  // tool-tier upgrades.
   {
     id: "copper-pickaxe",
     ingredients: [
@@ -202,7 +202,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.TungstenAxe, count: 1 },
   },
-  // Task 350 light-source recipe: 1 Stick + 1 Coal → 4 Torches.
+  // light-source recipe: 1 Stick + 1 Coal → 4 Torches.
   {
     id: "torch",
     ingredients: [
@@ -211,7 +211,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.Torch, count: 4 },
   },
-  // Task 370 first Utility item: 1 Torch + 1 IronIngot → 1 Lantern.
+  // first Utility item: 1 Torch + 1 IronIngot → 1 Lantern.
   {
     id: "lantern",
     ingredients: [
@@ -220,14 +220,14 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.Lantern, count: 1 },
   },
-  // Task 420 placeable storage: 8 Wood → 1 Chest.
+  // placeable storage: 8 Wood → 1 Chest.
   {
     id: "chest",
     ingredients: [{ kind: "one", item: ItemId.Wood, count: 8 }],
     output: { item: ItemId.Chest, count: 1 },
   },
-  // Task 530 shovel ladder — mirrors the axe ladder exactly.
-  // Task 580: wood-tier shovel takes raw `Log`s — see the wood-pickaxe note.
+  // shovel ladder — mirrors the axe ladder exactly.
+  // wood-tier shovel takes raw `Log`s — see the wood-pickaxe note.
   {
     id: "wood-shovel",
     ingredients: [
@@ -268,7 +268,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.TungstenShovel, count: 1 },
   },
-  // Task 050 sword ladder — mirrors the pickaxe / shovel shape exactly
+  // sword ladder — mirrors the pickaxe / shovel shape exactly
   // (3 of the head material + 2 sticks → 1 sword). Wood-sword consumes
   // raw `Log`s for symmetry with the wood-pickaxe / wood-shovel path.
   {
@@ -311,10 +311,10 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.TungstenSword, count: 1 },
   },
-  // Task 190 — blowgun (single-tier, 3 Sticks → 1 Blowgun) and poison-dart
+  // blowgun (single-tier, 3 Sticks → 1 Blowgun) and poison-dart
   // (1 VenomSack + 2 Sticks → 4 PoisonDart). The blowgun slots into the
   // dedicated combat-tool slot (mutually exclusive with the sword); the
-  // dart is the ammunition for task 200's shoot mechanic.
+  // dart is the ammunition's shoot mechanic.
   {
     id: "blowgun",
     ingredients: [{ kind: "one", item: ItemId.Stick, count: 3 }],
@@ -328,7 +328,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.PoisonDart, count: 4 },
   },
-  // Task 220 — woven cloth + colored flag. The flag output is stamped
+  // woven cloth + colored flag. The flag output is stamped
   // server-side with the crafter's color via `ItemStackExtra.flag`; the
   // client doesn't see the color until the inventory mirror updates,
   // since this table just describes the recipe shape.
@@ -345,7 +345,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.Flag, count: 1 },
   },
-  // Task 170 — dyes. Five source recipes, three RGB combos, seven dark
+  // dyes. Five source recipes, three RGB combos, seven dark
   // variants. Combos / darks output 2 dyes per 1+1 inputs so the palette
   // can expand without burning ingredients at 1:1.
   {
@@ -453,7 +453,7 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.DyeDarkOrange, count: 2 },
   },
-  // Task 180 — colored concrete. One stone-base recipe (gray from any
+  // colored concrete. One stone-base recipe (gray from any
   // stone variant via pooled `AnyOf`) and 15 dye-application recipes
   // (any concrete + 1 matching dye → 4 colored concrete). The dye
   // recipes' `AnyOf` input list spans every concrete variant — already-

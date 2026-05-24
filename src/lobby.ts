@@ -120,7 +120,7 @@ export function showLobby(defaults: LobbyDefaults = {}): Promise<LobbyIdentity> 
     applyMode();
   });
   dom.usernameInput.addEventListener("input", refresh);
-  // Task 060: Enter on either field is "submit the lobby". Swallow the
+  // Enter on either field is "submit the lobby". Swallow the
   // keydown (preventDefault + stopPropagation) so the same keystroke
   // can't bubble up past the lobby and reach the in-world chat keybind
   // the moment the session mounts. (`bootstrap/keybindings` also has a

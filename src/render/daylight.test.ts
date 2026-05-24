@@ -37,7 +37,7 @@ describe("dayPhaseFromSeconds", () => {
 });
 
 describe("sampleDaylight angle / intensity", () => {
-  // Half-diagonal arc (task 440): sunrise / sunset still lie on the
+  // Half-diagonal arc: sunrise / sunset still lie on the
   // horizon (y == 0) because the around-+x rotation fixes the +x axis,
   // but the 45° azimuth puts them on the (+x, -z) and (-x, +z) diagonals
   // rather than pure ±x. Noon / midnight inherit the small tilt off the
@@ -89,7 +89,7 @@ describe("sampleDaylight angle / intensity", () => {
     }
   });
 
-  it("nightFactor is 0 from sunrise through sunset and 1 at midnight (task 350)", () => {
+  it("nightFactor is 0 from sunrise through sunset and 1 at midnight", () => {
     expect(sampleDaylight(0).nightFactor).toBeCloseTo(0);
     expect(sampleDaylight(DAY_LENGTH_SECONDS * PHASE_NOON).nightFactor).toBeCloseTo(0);
     expect(sampleDaylight(DAY_LENGTH_SECONDS * PHASE_SUNSET).nightFactor).toBeCloseTo(0);
@@ -102,7 +102,7 @@ describe("sampleDaylight angle / intensity", () => {
     expect(between.nightFactor).toBeLessThan(1);
   });
 
-  it("moonDir is the antipode of sunDir across the arc (task 070)", () => {
+  it("moonDir is the antipode of sunDir across the arc", () => {
     for (const phase of [0, 0.1, PHASE_NOON, 0.35, PHASE_SUNSET, 0.6, PHASE_MIDNIGHT, 0.9]) {
       const s = sampleDaylight(DAY_LENGTH_SECONDS * phase);
       expect(s.moonDir.x).toBeCloseTo(-s.sunDir.x);
@@ -111,14 +111,14 @@ describe("sampleDaylight angle / intensity", () => {
     }
   });
 
-  it("moon is above the horizon at midnight and below at noon (task 070)", () => {
+  it("moon is above the horizon at midnight and below at noon", () => {
     const noon = sampleDaylight(DAY_LENGTH_SECONDS * PHASE_NOON);
     const midnight = sampleDaylight(DAY_LENGTH_SECONDS * PHASE_MIDNIGHT);
     expect(noon.moonDir.y).toBeCloseTo(-COS_TILT);
     expect(midnight.moonDir.y).toBeCloseTo(COS_TILT);
   });
 
-  it("moonIntensity is 0 from sunrise through sunset and peaks at midnight (task 070)", () => {
+  it("moonIntensity is 0 from sunrise through sunset and peaks at midnight", () => {
     expect(sampleDaylight(0).moonIntensity).toBeCloseTo(0);
     expect(sampleDaylight(DAY_LENGTH_SECONDS * PHASE_NOON).moonIntensity).toBeCloseTo(0);
     expect(sampleDaylight(DAY_LENGTH_SECONDS * PHASE_SUNSET).moonIntensity).toBeCloseTo(0);

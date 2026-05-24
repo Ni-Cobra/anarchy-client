@@ -160,7 +160,7 @@ describe("showHelpDialog", () => {
     window.removeEventListener("keydown", onWindow);
   });
 
-  it("right-click inside the dialog has its default prevented (task 210)", () => {
+  it("right-click inside the dialog has its default prevented", () => {
     open();
     const r = root()!;
     const ev = new MouseEvent("contextmenu", {
@@ -171,7 +171,7 @@ describe("showHelpDialog", () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
-  it("contextmenu guard is detached on close (task 210)", () => {
+  it("contextmenu guard is detached on close", () => {
     const h = open();
     const r = root()!;
     h.close();

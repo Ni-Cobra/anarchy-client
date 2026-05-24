@@ -1,5 +1,5 @@
 /**
- * Local-player attack-charge gate (task 110).
+ * Local-player attack-charge gate.
  *
  * The server locks an attacker immobile for the 0.7 s `Charging` window
  * (`world::mod.rs::tick` zeroes velocity and skips `Player::step` while the
@@ -23,7 +23,7 @@ import { CHARGE_DURATION_SECS } from "../config.js";
 
 /**
  * Wall-clock cap on a single charge before the tracker force-releases the
- * lock. `CHARGE_DURATION_SECS + 1.0 s` matches the spec in task 110: the
+ * lock. `CHARGE_DURATION_SECS + 1.0 s` matches the spec: the
  * server resolves every admitted charge at exactly `CHARGE_TICKS` (14 at
  * 20 Hz, i.e. 0.7 s); 1 s of margin absorbs network jitter without ever
  * leaving a frozen client behind a packet drop.

@@ -27,7 +27,7 @@ export interface KeybindingDeps {
   readonly inventoryUi: InventoryUiHandle;
   readonly renderer: Renderer;
   /**
-   * Task 090: the chat input field. Pressing `Enter` while the field
+   * the chat input field. Pressing `Enter` while the field
    * is closed opens it (the field's own listener handles Enter when
    * focused — submit + close).
    */
@@ -44,7 +44,7 @@ export function attachKeybindings(
   deps: KeybindingDeps,
 ): () => void {
   let zoomedOut = false;
-  // Task 060: ignore Enter keydowns whose dispatch began before this
+  // ignore Enter keydowns whose dispatch began before this
   // listener was attached. The lobby's submit-on-Enter resolves a Promise
   // synchronously inside its keydown handler; the await continuation
   // (which constructs the session and attaches *us*) can run as a
@@ -81,12 +81,12 @@ export function attachKeybindings(
       deps.renderer.setZoomedOut(zoomedOut);
       return;
     }
-    // Task 090 — Enter opens the chat input. While the input is open,
+    // Enter opens the chat input. While the input is open,
     // its own input-gate stops keystrokes from reaching this window
     // listener, so this branch only fires from the gameplay context.
     // The field's own Enter handler submits + closes.
     if (ev.code === "Enter" && !deps.chatInput.isOpen()) {
-      // Task 060 — drop any Enter whose dispatch started before we
+      // drop any Enter whose dispatch started before we
       // attached; that's the lobby-submit keystroke leaking into the
       // freshly-mounted session.
       if (ev.timeStamp < attachedAt) return;

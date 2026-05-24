@@ -7,7 +7,7 @@
  * Mirrors `anarchy-server/src/game/inventory.rs`. Indexing is flat
  * `0..INVENTORY_SIZE`. Indices `0..HOTBAR_SLOTS` are the hotbar;
  * `HOTBAR_SLOTS..INVENTORY_SIZE` are the main grid. The split is observational
- * today — task 030 will add UI rendering and task 040 will add interactions
+ * today — will add UI rendering and will add interactions
  * (slot moves, place-consume, break-drops).
  *
  * Invariants the inventory upholds (matched by the server):
@@ -33,7 +33,7 @@ export const INVENTORY_SIZE = HOTBAR_SLOTS + MAIN_SLOTS;
  * Variants 5..14 are the task-090 tool family — pickaxe and axe in five
  * material tiers (Wood, Stone, Copper, Iron, Tungsten). Tools are inert in
  * this iteration: holding one in the hotbar does not enable
- * mining-with-tools yet (task 120). They have no `places_block`, so a
+ * mining-with-tools yet. They have no `places_block`, so a
  * right-click while a tool is selected is a server-side no-op.
  */
 export enum ItemId {
@@ -52,7 +52,7 @@ export enum ItemId {
   IronAxe = 13,
   TungstenAxe = 14,
   /**
-   * Task 130 decorative drops. Each flower variant has its own item form so
+   * decorative drops. Each flower variant has its own item form so
    * a player can replant the variant they picked up. `Bush` exists for
    * symmetry with the place-from-inventory affordance, but bushes drop
    * sticks rather than themselves so a Bush item is not normally obtainable
@@ -64,7 +64,7 @@ export enum ItemId {
   FlowerWhite = 18,
   Bush = 19,
   /**
-   * Task 140 ground-block-variety drops. Each places its matching block.
+   * ground-block-variety drops. Each places its matching block.
    * `StoneLight` / `StoneDark` are sibling variants of `Stone` — same item
    * stacking shape, different placed block.
    */
@@ -74,7 +74,7 @@ export enum ItemId {
   StoneLight = 23,
   StoneDark = 24,
   /**
-   * Task 150 raw ore drops. `RawCopper` / `RawIron` / `RawTungsten` smelt
+   * raw ore drops. `RawCopper` / `RawIron` / `RawTungsten` smelt
    * via the crafting menu; `Coal` / `Diamond` are gem-form (no smelting).
    */
   RawCopper = 25,
@@ -90,12 +90,12 @@ export enum ItemId {
   IronIngot = 31,
   TungstenIngot = 32,
   /**
-   * Task 350 placed-light source. Crafted from 1 Stick + 1 Coal → 4 Torches
+   * placed-light source. Crafted from 1 Stick + 1 Coal → 4 Torches
    * and placed via the standard right-click flow.
    */
   Torch = 33,
   /**
-   * Task 370 first Utility item. Crafted from 1 Torch + 1 IronIngot → 1
+   * first Utility item. Crafted from 1 Torch + 1 IronIngot → 1
    * Lantern. Equipped into the Utility slot — a worn item, not a placed
    * block. The renderer reads the equipped utility from each
    * `PlayerSnapshot` and attaches a warm point light at the player's head
@@ -103,21 +103,21 @@ export enum ItemId {
    */
   Lantern = 34,
   /**
-   * Task 390 felled-tree drop. Trees no longer scatter `Sticks` blocks in
+   * felled-tree drop. Trees no longer scatter `Sticks` blocks in
    * a 3×3 around the broken tile — they drop 1-3 `Log` items (axe-tier
    * dependent) into the breaker's inventory. Logs are not placeable; they
    * craft into Wood blocks (1 Log → 1 Wood) or sticks (1 Log → 4 Sticks).
    */
   Log = 35,
   /**
-   * Task 420 placeable storage. Crafted from 8 Wood; places `BlockType.Chest`
+   * placeable storage. Crafted from 8 Wood; places `BlockType.Chest`
    * via the standard right-click flow.
    */
   Chest = 36,
   /**
-   * Task 530 third tool family — shovels in five material tiers. Mining
+   * third tool family — shovels in five material tiers. Mining
    * `Sand`, `Dirt`, `Gravel`, `Grass` with the matching tier is fast and
-   * drops normally; wrong tool falls back to the soft tool gate (task 520).
+   * drops normally; wrong tool falls back to the soft tool gate.
    */
   WoodShovel = 37,
   StoneShovel = 38,
@@ -125,20 +125,20 @@ export enum ItemId {
   IronShovel = 40,
   TungstenShovel = 41,
   /**
-   * Task 580 — Grass blocks are collectible. Breaking a Grass cell drops one
+   * Grass blocks are collectible. Breaking a Grass cell drops one
    * `Grass` (stackable like other ground-block items); placing puts the
    * matching `BlockType.Grass` back down via the standard right-click flow.
    */
   Grass = 42,
   /**
-   * Task 140 bioluminescent mushroom drop. Placeable; right-click places a
+   * bioluminescent mushroom drop. Placeable; right-click places a
    * `BlockType.LightMushroom` into a top-layer Air cell. Stacks like the
    * other decorative block items.
    */
   LightMushroom = 43,
   /**
-   * Task 050 fifth tool family — swords in five material tiers. Combat
-   * lands in task 070; for now equipping a sword has no in-game effect
+   * fifth tool family — swords in five material tiers. Combat
+   * lands; for now equipping a sword has no in-game effect
    * beyond the slot being filled.
    */
   WoodSword = 44,
@@ -147,35 +147,35 @@ export enum ItemId {
   IronSword = 47,
   TungstenSword = 48,
   /**
-   * Task 080 spider death drop. Non-placeable resource; no recipe consumes
+   * spider death drop. Non-placeable resource; no recipe consumes
    * it yet (future bows / fishing rods / web traps / leashes). Dropped
    * straight into the killer's inventory in stacks of 1-3.
    */
   String = 49,
   /**
-   * Task 180 — second spider death drop. Always exactly 1 per spider kill.
-   * Raw input for the poison-dart recipe landing in task 190.
+   * second spider death drop. Always exactly 1 per spider kill.
+   * Raw input for the poison-dart recipe landing.
    */
   VenomSack = 50,
   /**
-   * Task 190 — new combat tool. Crafted from 3 Sticks → 1 Blowgun. Task 310
-   * re-homed it into the shared `utility` slot (alongside the lantern) —
-   * carrying a sword + blowgun together is allowed. Non-stackable.
+   * new combat tool. Crafted from 3 Sticks → 1 Blowgun. Equipped into
+   * the shared `utility` slot (alongside the lantern) — carrying a sword
+   * + blowgun together is allowed. Non-stackable.
    */
   Blowgun = 51,
   /**
-   * Task 190 — blowgun ammunition. Crafted from 1 VenomSack + 2 Sticks →
+   * blowgun ammunition. Crafted from 1 VenomSack + 2 Sticks →
    * 4 Poison Darts. Stackable. Consumed by the blowgun's shoot mechanic
-   * in task 200; no in-game effect on its own today.
+   *; no in-game effect on its own today.
    */
   PoisonDart = 52,
   /**
-   * Task 220 — woven cloth. Crafted from 6 String → 1 Cloth. Pure
+   * woven cloth. Crafted from 6 String → 1 Cloth. Pure
    * ingredient; no `places_block`, no tool kind. Stackable.
    */
   Cloth = 53,
   /**
-   * Task 220 — placeable colored flag. Crafted from 2 Cloth + 1 Wood →
+   * placeable colored flag. Crafted from 2 Cloth + 1 Wood →
    * 1 Flag stamped with the crafter's color via `ItemStackExtra.flag`.
    * Places `BlockType.Flag` via the standard right-click flow; the
    * placed flag's color is read from the placing stack's extra.
@@ -183,7 +183,7 @@ export enum ItemId {
    */
   Flag = 54,
   /**
-   * Task 170 dye items. Inventory-only (no `places_block`, no tool kind).
+   * dye items. Inventory-only (no `places_block`, no tool kind).
    * Crafted from flowers / coal, combined into secondary colors, then
    * combined with `DyeBlack` into "dark" variants. `DyeGray` is the name
    * of `DyeWhite + DyeBlack`; there is no `DyeDarkWhite`.
@@ -204,7 +204,7 @@ export enum ItemId {
   DyeDarkPurple = 68,
   DyeDarkOrange = 69,
   /**
-   * Task 180 colored concrete items. One per `BlockType.Concrete*` variant;
+   * colored concrete items. One per `BlockType.Concrete*` variant;
    * the item places its matching block via the standard right-click flow.
    * Stack to 64 like every other block item.
    */
@@ -226,7 +226,7 @@ export enum ItemId {
 }
 
 /**
- * Per-stack metadata carried on individual `ItemStack`s (task 220).
+ * Per-stack metadata carried on individual `ItemStack`s.
  * Today only `Flag` populates it with its frozen color index; every
  * other item leaves the field undefined. Designed as a discriminated
  * union so future per-stack metadata (durability, charges, owner)
@@ -239,7 +239,7 @@ export interface ItemStack {
   readonly item: ItemId;
   readonly count: number;
   /**
-   * Per-stack metadata (task 220 — today only flags populate it).
+   * Per-stack metadata.
    * `undefined` for every non-flag stack.
    */
   readonly extra?: ItemStackExtra;
@@ -255,8 +255,8 @@ export type Slot = ItemStack | null;
 /**
  * Identifies one of the equipment-slot mini-hotbar cells. Mirrors the proto
  * `ToolKind` enum and the server's `game::ToolKind`. Pickaxe and Axe land
- * with task 100; Utility (task 360) is the third slot, sitting next to
- * them; Shovel (task 530) is the fourth.
+ *; Utility is the third slot, sitting next to
+ * them; Shovel is the fourth.
  */
 export type ToolKind =
   | "pickaxe"
@@ -292,15 +292,15 @@ export function isAxe(item: ItemId): boolean {
 }
 
 /**
- * `true` iff `item` is a utility-slot item. The lantern (task 370) was
- * the first such item; task 310 re-homed the blowgun into the same
+ * `true` iff `item` is a utility-slot item. The lantern was
+ * the first such item; re-homed the blowgun into the same
  * shared slot, so both items return `true` here.
  */
 export function isUtility(item: ItemId): boolean {
   return item === ItemId.Lantern || item === ItemId.Blowgun;
 }
 
-/** True iff `item` is one of the five shovel tiers (task 530). */
+/** True iff `item` is one of the five shovel tiers. */
 export function isShovel(item: ItemId): boolean {
   return (
     item === ItemId.WoodShovel ||
@@ -311,7 +311,7 @@ export function isShovel(item: ItemId): boolean {
   );
 }
 
-/** True iff `item` is one of the five sword tiers (task 050). */
+/** True iff `item` is one of the five sword tiers. */
 export function isSword(item: ItemId): boolean {
   return (
     item === ItemId.WoodSword ||
@@ -333,7 +333,7 @@ export function toolKindOf(item: ItemId): ToolKind | null {
 }
 
 /**
- * Per-recipe advertise tier (task 100). `affordable` rows render normally
+ * Per-recipe advertise tier. `affordable` rows render normally
  * and click to craft; `partial-hint` rows render grayed at the bottom of
  * the panel and are click-inert — the player has at least one of any
  * ingredient but not enough to actually craft. Mirrors the server's
@@ -351,7 +351,7 @@ export interface CraftableRecipe {
  * Per-player inventory. Slots are addressed flat — the hotbar/main split is
  * a constant-driven offset, not a separate field.
  *
- * Equipment is a flag pointing at an inventory cell (task 010 rework):
+ * Equipment is a flag pointing at an inventory cell:
  * the equipped pickaxe / axe is identified by a slot index, and the tool
  * itself stays in its inventory cell. The HUD reads
  * [`getEquippedSlot`] to paint the colored highlight on the equipped
@@ -372,7 +372,7 @@ export class Inventory {
   }
 
   /**
-   * Recipes (task 100) the server most recently advertised for this
+   * Recipes the server most recently advertised for this
    * inventory. Each entry pairs a stable recipe id with its availability
    * tier (affordable vs. partial-hint). The list is sorted before storage
    * so the crafting panel's per-tier render order is stable across ticks.
@@ -457,12 +457,12 @@ export class Inventory {
    * subscribers after the swap so a UI mirror can re-render reactively.
    *
    * `equippedPickaxeSlot` / `equippedAxeSlot` carry the equipped-cell
-   * pointers (task 010 rework). Either may be `null` to mean "nothing
+   * pointers. Either may be `null` to mean "nothing
    * equipped"; out-of-range or non-tool-bearing indices are normalized
    * to `null` defensively so the UI never paints a wrong-color highlight.
    *
    * `craftableRecipes` carries the server's per-tick advertise of recipes
-   * (task 100). Each entry pairs a stable recipe id with its availability
+   *. Each entry pairs a stable recipe id with its availability
    * tier — `affordable` rows are fully craftable; `partial-hint` rows are
    * the "you have some but not enough" tier. Sorted before storage so the
    * panel's per-tier render order is stable: affordable rows first

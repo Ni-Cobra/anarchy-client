@@ -9,13 +9,13 @@
  * Cells live in one of two grids: the player's own inventory
  * (`kind: "player"`) or an open chest's inventory (`kind: "chest"`,
  * carrying a `chestKey` so the same machinery is ready to address N
- * panels — task 591). Each registered cell carries a `SlotRef` so the
+ * panels). Each registered cell carries a `SlotRef` so the
  * state machine can route `MoveSlot` / `TransferItems` with the cross-
  * grid `chestKey` filled in.
  *
- * Equipment cells (the four tool slots — task 60) are deliberately NOT
+ * Equipment cells (the four tool slots) are deliberately NOT
  * wired here. They're mouse-inert: filled by the auto-equip paths and
- * the panel-cell click toggle (task 570), and never targeted by the
+ * the panel-cell click toggle, and never targeted by the
  * cross-grid drag pipeline. The toggle path lives in this module's
  * pointer-up handler (panel-cell click on a tool → `sendEquip` /
  * `sendUnequip`) — that's still routed through the dragdrop machinery
@@ -52,8 +52,7 @@ import { applyItemIconStyle } from "./cells.js";
 
 /**
  * Tag that identifies a cell as belonging to either the player's own
- * inventory or to an open chest's inventory (task 591 discriminated
- * union shape). Equipment sentinels are player-only with negative `idx`.
+ * inventory or to an open chest's inventory. Equipment sentinels are player-only with negative `idx`.
  */
 export type SlotRef =
   | { readonly kind: "player"; readonly idx: number }
@@ -222,7 +221,7 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
   };
 
   // Drop resolver. Equipment cells aren't wired into the registry
-  // (task 60), so any drag that releases over one resolves to `null`
+  // so any drag that releases over one resolves to `null`
   // and never reaches this function — the routing here only ever sees
   // regular → regular drops.
   const handleDrop = (src: SlotRef, dst: SlotRef): void => {

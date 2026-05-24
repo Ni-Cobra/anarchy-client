@@ -13,7 +13,7 @@ export interface InputSink {
 }
 
 /**
- * Optional gate (task 110). When supplied, the controller asks before
+ * Optional gate. When supplied, the controller asks before
  * every flush whether the local player is currently mid attack-charge;
  * while it returns `true`, outbound intents are suppressed and the
  * controller's "last sent" mirror is forced to zero so the *next* flush
@@ -57,7 +57,7 @@ export class InputController {
   // when it equals `lastSent`, because during suppression the server's stored
   // intent was frozen at whatever it was at charge start — releasing all
   // movement keys mid-charge would otherwise leave the server with a stale
-  // non-zero intent and the player drifting once Cooldown begins (task 050).
+  // non-zero intent and the player drifting once Cooldown begins.
   private suppressedLastFlush = false;
 
   constructor(
@@ -113,7 +113,7 @@ export class InputController {
    */
   flush(): void {
     const intent = this.computeIntent();
-    // Task 110: while the local player is mid attack-charge the server
+    // while the local player is mid attack-charge the server
     // is ignoring every `MoveIntent` anyway — suppress the send so the
     // wire stays clean. Force the next post-charge intent to ship by
     // pretending the last send was zero, since the lock period may have

@@ -41,8 +41,7 @@ const PARTICLE_GRAVITY = 5;
 const PARTICLE_OPACITY = 0.95;
 const PARTICLE_CAP = 64;
 // Single intensity multiplier applied to the puff when the broken kind
-// is a non-solid / walk-through top block (task 510 — `Sticks`, flowers,
-// `Bush`, `Torch`). Scales particle size, horizontal + vertical speeds,
+// is a non-solid / walk-through top block. Scales particle size, horizontal + vertical speeds,
 // and gravity by the same factor: with `v_y` and `g` scaled together the
 // arc keeps its shape but lower-amplitude, so the puff still reads as
 // a puff — just a smaller, softer one. Mirrors the same multiplier in
@@ -206,20 +205,20 @@ export const DEFAULT_BREAK_PARTICLE_COLORS: Readonly<Record<BlockType, number>> 
   [BlockType.TungstenOre]: 0x4d5560,
   [BlockType.CoalOre]: 0x18181a,
   [BlockType.DiamondOre]: 0x4ac2e5,
-  // Task 350: a broken torch puffs warm flame-coloured shards.
+  // a broken torch puffs warm flame-coloured shards.
   [BlockType.Torch]: 0xf6761a,
-  // Task 420: broken chest puffs warm wooden shards.
+  // broken chest puffs warm wooden shards.
   [BlockType.Chest]: 0xb07a3a,
-  // Task 010-tombstone: broken tombstone puffs gray stone shards.
+  // broken tombstone puffs gray stone shards.
   [BlockType.Tombstone]: 0x808088,
-  // Task 140: broken bioluminescent mushroom puffs cool cyan spore shards.
+  // broken bioluminescent mushroom puffs cool cyan spore shards.
   [BlockType.LightMushroom]: 0x9fd9ff,
-  // Task 220: a broken flag puffs neutral cloth-coloured shards. The
+  // a broken flag puffs neutral cloth-coloured shards. The
   // placed flag's color is per-cell, not per-kind, so a single tint
   // here loses the color identity — kept generic rather than reaching
   // into the per-cell `flagBlocks` map from inside the particle path.
   [BlockType.Flag]: 0xd6cabb,
-  // Task 180: broken concrete puffs shards tinted to the concrete's color.
+  // broken concrete puffs shards tinted to the concrete's color.
   // Same palette as the block texture (see `dev_utils/anarchy_dev_utils/
   // textures/painters.py` and `blocks.py`).
   [BlockType.ConcreteGray]: 0xb0b0b0,

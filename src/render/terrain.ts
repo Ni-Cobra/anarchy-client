@@ -12,7 +12,7 @@ import {
 import { paletteColorHex } from "../game/palette.js";
 import type { BlockTextureSet } from "./texture_loader.js";
 
-// Fake-ambient-occlusion against `BlockType.Hidden` neighbours (task 290).
+// Fake-ambient-occlusion against `BlockType.Hidden` neighbours.
 // Each side of a top-layer cell that borders a Hidden cell darkens the two
 // top-face corners on that edge; THREE's vertex-color interpolation fades the
 // darkening back to the block's normal albedo across the cell. Multiple
@@ -67,7 +67,7 @@ export function disposeTerrainMesh(
   parent?: THREE.Object3D,
   /**
    * Materials owned by the caller (e.g. the renderer-wide mushroom
-   * emissive singleton, task 160) that must not be disposed when a
+   * emissive singleton) that must not be disposed when a
    * chunk sub-group is torn down. Their GPU resources outlive any
    * single chunk.
    */
@@ -108,8 +108,8 @@ const FALLBACK_BLOCK_COLOR: Partial<Record<BlockType, number>> = {
   [BlockType.Gold]: 0xf5c542,
   [BlockType.Tree]: 0x2d6a2d,
   [BlockType.Sticks]: 0xa9774a,
-  // Hidden cells render as pitch black (task 290): the server never emits
-  // the true kind for occluded cells (task 060) so an attacker can't
+  // Hidden cells render as pitch black: the server never emits
+  // the true kind for occluded cells so an attacker can't
   // distinguish underlying ore from stone by sampling pixels — pitch black
   // makes that an obvious solid void rather than a coy grey placeholder.
   // Adjacent visible top blocks pick up a faked AO darkening towards Hidden
@@ -127,7 +127,7 @@ const FALLBACK_BLOCK_COLOR: Partial<Record<BlockType, number>> = {
   [BlockType.StoneLight]: 0xa8aeb6,
   [BlockType.StoneDark]: 0x525255,
   [BlockType.Torch]: 0xf6761a,
-  // Cool teal-cyan placeholder for the bioluminescent mushroom (task 140) —
+  // Cool teal-cyan placeholder for the bioluminescent mushroom —
   // close enough to the real glow that the no-texture test path still reads
   // as "a glowy mushroom" rather than the magenta missing-kind marker.
   [BlockType.LightMushroom]: 0x9fd9ff,
@@ -167,16 +167,16 @@ const TREE_CANOPY_Y =
 // remain the dominant verticals in a felled grove. Slightly inset from the
 // full cell so adjacent sticks read as separate piles, and lifted just
 // above the ground slab so they don't z-fight with it. Texture is
-// alpha-transparent (task 400) so only the painted stick pixels render —
+// alpha-transparent so only the painted stick pixels render —
 // the rest of the slab disappears into the ground tile below.
 const STICKS_WIDTH = 0.85;
 const STICKS_THICKNESS = 0.06;
 const STICKS_COLOR = 0xa9774a;
 const STICKS_Y = GROUND_Y + GROUND_THICKNESS / 2 + STICKS_THICKNESS / 2;
 
-// Decorative content (task 130). Flowers render as Minecraft-style cross-
+// Decorative content. Flowers render as Minecraft-style cross-
 // quads — two perpendicular planes textured with the same alpha-transparent
-// flower sprite (stem + bloom on a transparent backdrop, task 400) so the
+// flower sprite (stem + bloom on a transparent backdrop) so the
 // silhouette reads as a stem-with-petals from any viewing angle and the
 // surrounding ground tile shows through. Bushes render as a wider, shorter
 // box with an alpha-cropped foliage texture, so the corners of the cell
@@ -189,16 +189,16 @@ const BUSH_HEIGHT = 0.55;
 const BUSH_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
 const BUSH_Y = BUSH_BOTTOM + BUSH_HEIGHT / 2;
 
-// Torch (task 350): a small upright billboard so the painted sprite (haft +
+// Torch: a small upright billboard so the painted sprite (haft +
 // flame) reads against whatever is behind it. Non-solid server-side, like
-// Sticks. Rendered as cross-quads (task 150) — two perpendicular planes
+// Sticks. Rendered as cross-quads — two perpendicular planes
 // textured with the alpha-transparent sprite — so the silhouette reads
 // from any horizontal viewing angle.
 const TORCH_WIDTH = 0.4;
 const TORCH_HEIGHT = 0.85;
 const TORCH_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
 
-// Bioluminescent mushroom (task 140) — flowery cross-quad billboard at
+// Bioluminescent mushroom — flowery cross-quad billboard at
 // ~flower scale so a patch reads as forest decoration rather than torch-
 // height upright. Non-solid server-side; the alpha-cropped texture shows
 // only the cap + stalk silhouette.
@@ -209,26 +209,26 @@ const MUSHROOM_BOTTOM = GROUND_Y + GROUND_THICKNESS / 2;
 // and the surrounding light pool read as the same source. Mirrored as a
 // module-local constant instead of imported to avoid a renderer-internal
 // cross-import the moment a sibling renderer module adds something
-// borrow-worthy the other way (task 160).
+// borrow-worthy the other way.
 export const MUSHROOM_EMISSIVE_COLOR = 0x9fd9ff;
 // Peak emissive scalar at deep night (nightFactor == 1). Blends with the
 // texture's lit colour; 1.0 washes the cap/stem detail out, lower values
 // don't read as a glow against the deep-blue night ambient — 0.8 keeps
-// the silhouette legible while reading clearly as a glowy source (task 160).
+// the silhouette legible while reading clearly as a glowy source.
 export const MUSHROOM_EMISSIVE_PEAK = 0.8;
 
 /**
  * Map a `nightFactor ∈ [0, 1]` to the mushroom-sprite emissive intensity.
  * Out-of-range values clamp like `MushroomLights.intensityAt` — same
  * input/output curve so the sprite glow and the surrounding point-light
- * pool stay locked to a single day-cycle scalar (task 160).
+ * pool stay locked to a single day-cycle scalar.
  */
 export function mushroomEmissiveAt(nightFactor: number): number {
   const clamped = nightFactor < 0 ? 0 : nightFactor > 1 ? 1 : nightFactor;
   return clamped * MUSHROOM_EMISSIVE_PEAK;
 }
 
-// Flag (task 220) — a thin upright pole topped by a small colored cloth.
+// Flag — a thin upright pole topped by a small colored cloth.
 // Solid `is_solid_top` server-side (collision blocks players), but rendered
 // as a pole + cloth rather than a full cube so the cell visually reads as
 // "a flag plot" rather than a wall. The cloth color comes from the
@@ -268,7 +268,7 @@ export function buildChunkMesh(
   textures: BlockTextureSet | null = null,
   terrain: Terrain | null = null,
   /**
-   * Optional renderer-owned mushroom material singleton (task 160). When
+   * Optional renderer-owned mushroom material singleton. When
    * supplied, every `LightMushroom` mesh in this chunk shares it so the
    * per-frame emissive-intensity update can be written once. Left `null`
    * by the unit-test path; the chunk then builds its own per-chunk
@@ -291,7 +291,7 @@ export function buildChunkMesh(
     return m;
   };
 
-  // AO-side caches (task 290). Sibling of the regular geom/mat caches:
+  // AO-side caches. Sibling of the regular geom/mat caches:
   // `aoGeomFor` clones the top geometry and bakes vertex colors per
   // 4-bit Hidden-neighbour mask — at most 15 distinct non-zero masks —
   // and `aoMaterialFor` clones the per-kind material with `vertexColors`
@@ -328,15 +328,15 @@ export function buildChunkMesh(
   let sticksGeom: THREE.BoxGeometry | null = null;
   let sticksMat: THREE.Material | null = null;
 
-  // Decorative content (task 130). Flowers + bushes share their geometry
+  // Decorative content. Flowers + bushes share their geometry
   // across instances of the same kind in a chunk, so the per-build allocation
-  // count stays small even on a flowery hilltop. Flowers (task 400) use a
+  // count stays small even on a flowery hilltop. Flowers use a
   // cross-quads BufferGeometry so two perpendicular planes display the
   // alpha-transparent flower sprite from both axis directions; bushes keep
   // their box.
   let flowerGeom: THREE.BufferGeometry | null = null;
   let bushGeom: THREE.BoxGeometry | null = null;
-  // Tree canopy texture is alpha-transparent (task 400) so the silhouette
+  // Tree canopy texture is alpha-transparent so the silhouette
   // reads as roughly circular over a visible trunk + ground. Material is
   // built lazily and shared across every tree in the chunk.
   let canopyDecorMat: THREE.Material | null = null;
@@ -354,20 +354,20 @@ export function buildChunkMesh(
     return m;
   };
 
-  // Torch geometry (task 150). Cross-quads BufferGeometry shared across every
+  // Torch geometry. Cross-quads BufferGeometry shared across every
   // torch in the chunk; same transparent material is shared too.
   let torchGeom: THREE.BufferGeometry | null = null;
   let torchMat: THREE.Material | null = null;
 
-  // Mushroom geometry (task 140). One cross-quad BufferGeometry shared across
+  // Mushroom geometry. One cross-quad BufferGeometry shared across
   // every mushroom in the chunk; material is the renderer-owned singleton
-  // (task 160) when supplied, else a per-chunk emissive material built
+  // when supplied, else a per-chunk emissive material built
   // lazily so unit-test calls without a `SceneGraph` still get a textured
   // alpha-transparent mesh.
   let mushroomGeom: THREE.BufferGeometry | null = null;
   let mushroomMatLocal: THREE.MeshLambertMaterial | null = null;
 
-  // Flag geometry (task 220). Pole geometry + material are shared across
+  // Flag geometry. Pole geometry + material are shared across
   // every flag in the chunk (one neutral wood-brown stick); the cloth
   // material is per-color so two flags of different colors in the same
   // chunk don't share state — colors are cached by `colorIndex` so two
@@ -501,7 +501,7 @@ export function buildChunkMesh(
         mesh.receiveShadow = true;
         group.add(mesh);
       } else if (topBlock.kind === BlockType.Flag) {
-        // Task 220: pole + per-color cloth. The cell's color lives in the
+        // pole + per-color cloth. The cell's color lives in the
         // hosting chunk's `flagBlocks` map, keyed by `flagCellKey(x, y)`.
         // A missing entry shouldn't be reachable in practice (the server
         // writes the map atomically with the top block) but defaults to
@@ -577,7 +577,7 @@ export function buildChunkMesh(
  * alpha to take. `alphaTest` cuts the near-zero pixels at depth-test time so
  * the quad doesn't paint a translucent rectangle when viewed against another
  * transparent surface. `side: DoubleSide` is what lets the cross-quads
- * geometry (task 150) render from either face of each plane without
+ * geometry render from either face of each plane without
  * duplicating triangles. When no texture set is supplied (unit-test path)
  * the material falls back to the warm flame color from `FALLBACK_BLOCK_COLOR`
  * so the test renderer still produces a visible mesh.
@@ -602,7 +602,7 @@ function buildTorchMaterial(
 
 /**
  * Material for decorative top-layer kinds (sticks, flowers, bushes, tree
- * canopy — task 400). The texture for each of these is RGBA with an
+ * canopy). The texture for each of these is RGBA with an
  * alpha-zero backdrop so the silhouette can sit against the ground tile
  * instead of painting a square colored cap. `transparent: true` lets the
  * alpha take and `alphaTest` discards near-zero pixels at depth-test time
@@ -633,7 +633,7 @@ function buildDecorMaterial(
 }
 
 /**
- * Mushroom-specific decor material (task 160). Same alpha-transparent
+ * Mushroom-specific decor material. Same alpha-transparent
  * shape as `buildDecorMaterial`, but with an `emissive` cyan colour and
  * an `emissiveIntensity` field the renderer updates every frame from
  * the night-cycle sample. At `emissiveIntensity == 0` the material
@@ -735,7 +735,7 @@ export function torchPositionsInChunk(
  * Scene-space positions of every `LightMushroom` top-layer cell in `chunk` at
  * `(cx, cy)`. The mushroom-light subsystem (`mushroom_lights.ts`) consumes
  * this on `applyChunkLoaded` so each chunk's mushrooms contribute to the
- * per-frame nearest-N pick around the local player (task 140).
+ * per-frame nearest-N pick around the local player.
  */
 export function mushroomPositionsInChunk(
   cx: number,
@@ -760,7 +760,7 @@ export function mushroomPositionsInChunk(
  * `null` (test path) or the kind is missing from the set. `colorOverride`
  * is for the tree-trunk / sticks special cases that want their historical
  * accent color in the no-texture fallback. `vertexColors` enables the
- * per-vertex tint multiply that the Hidden-AO geometry pass (task 290)
+ * per-vertex tint multiply that the Hidden-AO geometry pass
  * uses to darken edges near the void; off by default so the regular
  * shared materials stay untouched.
  */

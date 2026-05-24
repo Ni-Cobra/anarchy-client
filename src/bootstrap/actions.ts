@@ -10,7 +10,7 @@
  * counter and may surface it again later, so every sequenced send is
  * still gated by `++actionSeq`.
  *
- * `placeBlock` deliberately ships without a `clientSeq` — task 040 made
+ * `placeBlock` deliberately ships without a `clientSeq` — made
  * place authoritative-only and the wire frame doesn't carry one.
  */
 
@@ -27,7 +27,7 @@ export interface ActionSenders {
   /**
    * Ship a `MoveSlot` drag-drop action up to the server. The optional
    * `srcChest` / `dstChest` arguments name which chest a slot index
-   * lives in (task 590 multi-open); pass `null` (or omit) when the slot
+   * lives in; pass `null` (or omit) when the slot
    * lives in the player's own grid.
    */
   sendMoveSlot(
@@ -42,7 +42,7 @@ export interface ActionSenders {
    * refuses mismatched-kind destinations rather than swapping. The
    * right-click hold UI ships repeated `count = 1` frames as the timer
    * ramps up; drag-and-drop full-stack moves still go through `sendMoveSlot`.
-   * The cross-grid arguments mirror `sendMoveSlot` (task 590).
+   * The cross-grid arguments mirror `sendMoveSlot`.
    */
   sendTransferItems(
     src: number,
@@ -55,22 +55,22 @@ export interface ActionSenders {
   sendEquipTool(sourceSlot: number, kind: ToolKind): void;
   sendUnequipTool(kind: ToolKind): void;
   sendRegisterAccount(password: string): void;
-  /** Task 420: open the chest at `(cx, cy, lx, ly)`. */
+  /** open the chest at `(cx, cy, lx, ly)`. */
   sendOpenChest(cx: number, cy: number, lx: number, ly: number): void;
   /**
-   * Task 590: close the chest at `chest` from the player's open-chests
+   * close the chest at `chest` from the player's open-chests
    * set. The server emits one final closing `ChestUpdate` for it.
    */
   sendCloseChest(chest: ChestLocation): void;
   /**
-   * Task 070b: ship an `AttackIntent` against `targetKind` / `targetId`.
+   * ship an `AttackIntent` against `targetKind` / `targetId`.
    * The server validates cooldown / range / self-target / existence; a
    * misbehaving client cannot break invariants here so silent failure on
    * the server side is fine. Bumps the local action seq.
    */
   sendAttackIntent(targetKind: "player" | "entity", targetId: number): void;
   /**
-   * Task 200c: ship a `FireBlowgunIntent` against `targetKind` /
+   * ship a `FireBlowgunIntent` against `targetKind` /
    * `targetId`. The server validates blowgun-equipped + dart-in-inventory
    * + range + cooldown + not-self; rejections are silent. Bumps the local
    * action seq.
@@ -80,7 +80,7 @@ export interface ActionSenders {
     targetId: number,
   ): void;
   /**
-   * Task 240: ship a `CreateFactionIntent` for the flag at
+   * ship a `CreateFactionIntent` for the flag at
    * `(cx, cy, lx, ly)` with `name`. The server validates flag-exists,
    * un-claimed, ownership, name shape + uniqueness; rejections are
    * silent. Bumps the local action seq.
@@ -93,7 +93,7 @@ export interface ActionSenders {
     name: string,
   ): void;
   /**
-   * Task 250: ship a held `FlagInteractIntent` against the flag at
+   * ship a held `FlagInteractIntent` against the flag at
    * `(cx, cy, lx, ly)` in `mode` (`deposit` / `steal`). `active=true`
    * is sent on press; `active=false` is the release. The server
    * re-validates each tick and transfers XP at 10/s while admissible.
@@ -108,7 +108,7 @@ export interface ActionSenders {
     active: boolean,
   ): void;
   /**
-   * Task 090: ship a `SendChat { body }` frame. The caller has already
+   * ship a `SendChat { body }` frame. The caller has already
    * trimmed the body; the server re-trims + length-checks defensively
    * and silently drops over-cap / empty bodies. No `clientSeq` — chat
    * is out-of-band and the client doesn't reconcile it.

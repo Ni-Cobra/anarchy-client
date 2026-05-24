@@ -108,7 +108,7 @@ describe("mountHpBar", () => {
   });
 });
 
-describe("HpBarHandle.flashWhite (task 120)", () => {
+describe("HpBarHandle.flashWhite", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

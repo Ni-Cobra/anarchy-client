@@ -113,34 +113,34 @@ export interface WireDeps {
    */
   readonly inventory?: Inventory;
   /**
-   * Task 420 open-chest mirror sink. Optional — tests that don't
+   * open-chest mirror sink. Optional — tests that don't
    * exercise the chest UI leave it absent; production bootstrap mounts
    * a `ChestState` here so `ChestUpdate` frames feed the chest panel.
    */
   readonly chestSink?: ChestSink;
   /**
-   * Task 170 connected-player roster store. Optional — tests that don't
+   * connected-player roster store. Optional — tests that don't
    * exercise the player-list HUD leave it absent; production bootstrap
    * mounts a `RosterStore` here so the welcome's `initial_roster` and
    * the per-join/leave `ConnectedPlayersList` broadcasts feed the HUD.
    */
   readonly rosterStore?: RosterStore;
   /**
-   * Task 240 faction-leaderboard store. Optional — tests that don't
+   * faction-leaderboard store. Optional — tests that don't
    * exercise the leaderboard HUD leave it absent; production bootstrap
    * mounts a `LeaderboardStore` here so the welcome's
    * `initial_factions` and the per-tick `factions_delta` feed the HUD.
    */
   readonly leaderboardStore?: LeaderboardStore;
   /**
-   * Task 080 / 100 chat HUD sink. Optional — tests that don't exercise
+   *  chat HUD sink. Optional — tests that don't exercise
    * the chat overlay leave it absent; production bootstrap mounts a
    * `ChatHudHandle.replaceHistory`-bound sink so `ChatHistory`
    * envelopes feed the overlay.
    */
   readonly chatSink?: ChatSink;
   /**
-   * Task 200 ping sink. Optional — tests that don't exercise the coords
+   * ping sink. Optional — tests that don't exercise the coords
    * HUD's ping line leave it absent; production bootstrap mounts a
    * mutable holder so `Pong` frames feed the readout.
    */
@@ -170,12 +170,12 @@ export function applyServerMessage(
       }
     }
     deps.world.applySnapshot([]);
-    // Task 170: seed the roster from the welcome's `initial_roster`
+    // seed the roster from the welcome's `initial_roster`
     // snapshot so the HUD paints before the first join/leave event.
     if (msg.welcome.initialRoster) {
       applyConnectedPlayersList(msg.welcome.initialRoster, deps.rosterStore);
     }
-    // Task 240: seed the leaderboard from the welcome's
+    // seed the leaderboard from the welcome's
     // `initial_factions` snapshot so the leaderboard HUD paints
     // before the first per-tick `factions_delta` arrives.
     if (msg.welcome.initialFactions) {
@@ -189,7 +189,7 @@ export function applyServerMessage(
 
   if (msg.tickUpdate) {
     applyTickUpdate(msg.tickUpdate, deps, now());
-    // Task 240: leaderboard delta fans into the cached table on every
+    // leaderboard delta fans into the cached table on every
     // tick. The handler short-circuits when both lists are empty so
     // the common case is cheap.
     applyFactionsDelta(msg.tickUpdate.factionsDelta, deps.leaderboardStore);

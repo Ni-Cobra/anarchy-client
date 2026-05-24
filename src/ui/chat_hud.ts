@@ -1,8 +1,8 @@
 /**
- * Chat overlay — task 080 / 100.
+ * Chat overlay — .
  *
  * Bottom-left transparent overlay. The server owns the chat scrollback as
- * a 20-message rolling buffer (task 100) and re-broadcasts the full
+ * a 20-message rolling buffer and re-broadcasts the full
  * snapshot every time it changes; the HUD replaces its DOM rows from
  * each snapshot via [`ChatHudHandle.replaceHistory`]. There is no
  * per-message append wire path — the snapshot is the wire shape.
@@ -21,14 +21,14 @@
  * wall-clock time captured the first time the line was observed by this
  * HUD. A late-joining client will stamp every replayed message at its
  * join time — that's acceptable because timestamps are display-only
- * (the server does not ship per-message timestamps, per task 100).
+ * (the server does not ship per-message timestamps,).
  *
  * The root is a bottom-anchored flex column with two children: the
  * message list, then an empty input slot exposed via
  * [`ChatHudHandle.inputHost`]. `chat_input` mounts into that slot so the
  * typing field always sits directly below the last message, sharing the
  * same bottom anchor — focusing it never shifts the message stack
- * (task 010).
+ *.
  *
  * Network-free; pure DOM. The wire bridge calls
  * [`ChatHudHandle.replaceHistory`] for every `ChatHistory` envelope it
@@ -44,7 +44,7 @@ const INPUT_HOST_ID = "anarchy-chat-input-host";
 
 /**
  * Render-side safety belt for the message list. The server caps the
- * history at 20 (task 100, `CHAT_HISTORY_MAX`), so this trim should
+ * history at 20 (`CHAT_HISTORY_MAX`), so this trim should
  * never actually fire — keep it as a defensive cap in case a future
  * server bump grows the buffer without coordinating with the client.
  */
@@ -57,7 +57,7 @@ export const CHAT_HUD_MAX_LINES = 50;
 export const CHAT_HUD_ADMIN_COLOR = "#ffb347";
 
 /**
- * Task 120: neutral grey applied to System-kind lines (server lifecycle
+ * neutral grey applied to System-kind lines (server lifecycle
  * events — `Player <name> joined / disconnected / registered / killed`).
  * Read against the dark UI chrome and deliberately quieter than the
  * Admin warm tint so a flurry of join/leave events doesn't drown out
@@ -117,7 +117,7 @@ const STYLE = `
     font-weight: 700;
     color: ${CHAT_HUD_ADMIN_COLOR};
   }
-  /* Task 120: System-kind lines (server lifecycle events). Grey
+  /* System-kind lines (server lifecycle events). Grey
      italic body, no sender prefix — the entire row reads as a
      quiet status line distinct from chat. */
   #${LIST_ID} li.anarchy-chat-system {
@@ -129,7 +129,7 @@ const STYLE = `
     opacity: ${CHAT_HUD_TIME_OPACITY};
     font-weight: 400;
   }
-  /* Task 110: italicize the sender label on player-kind lines whose
+  /* italicize the sender label on player-kind lines whose
      sender was unregistered at send time (a guest). The palette also
      reuses the same dark chrome the in-world nametags sit on, so the
      palette colors are already legible without a per-color luminance
@@ -143,7 +143,7 @@ const STYLE = `
  * Chat-line kind in client-side form. Mirrors
  * `proto.v1.ChatMessage.Kind` minus the proto3 `UNSPECIFIED = 0`
  * sentinel — the wire bridge filters that out before passing lines to
- * the HUD. `system` covers task 120's server-generated lifecycle /
+ * the HUD. `system` covers server-generated lifecycle /
  * combat lines (`Player <name> joined / disconnected / registered /
  * killed`).
  */
@@ -154,13 +154,13 @@ export interface ChatLine {
   sender: string;
   body: string;
   /**
-   * Task 110: sender's palette index at the time the line was sent
+   * sender's palette index at the time the line was sent
    * (`0` for admin / system lines, which the HUD styles via `kind`
    * rather than by palette color). Frozen at send time on the server.
    */
   colorIndex: number;
   /**
-   * Task 110: `true` iff the sender had a registered account at send
+   * `true` iff the sender had a registered account at send
    * time. The HUD italicizes player-kind rows whose sender is a guest
    * (unregistered). Frozen at send time on the server.
    */
@@ -260,7 +260,7 @@ export function mountChatHud(deps?: {
     timeSpan.className = "anarchy-chat-time";
     timeSpan.textContent = `${ts} `;
     li.appendChild(timeSpan);
-    // Task 120: System-kind lines render `[hh:mm:ss] <body>` — no
+    // System-kind lines render `[hh:mm:ss] <body>` — no
     // `<sender>:` prefix because the line is server-authored and
     // the body already names whichever player the event is about.
     if (line.kind === "system") {
@@ -272,7 +272,7 @@ export function mountChatHud(deps?: {
     }
     const senderSpan = document.createElement("span");
     senderSpan.className = "anarchy-chat-sender";
-    // Task 110: per-message sender styling. Admin lines keep their
+    // per-message sender styling. Admin lines keep their
     // existing class-driven bold + warm-tint styling (`color`
     // override would clobber the warm tint, italic is reserved for
     // guest player lines), so we only touch player-kind rows here.

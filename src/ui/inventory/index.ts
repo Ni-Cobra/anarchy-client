@@ -24,8 +24,8 @@
  *   `paintEquipmentSlot`, `applyItemIconStyle`).
  * - [`./dragdrop`] — pointer state machine (pending click vs. promoted
  *   drag) plus the routing matrix that turns a release into the right
- *   wire action (`MoveSlot` / `EquipTool` / `UnequipTool`). Task 535
- *   added the cross-grid surface: the chest UI registers its cells
+ *   wire action (`MoveSlot` / `EquipTool` / `UnequipTool`). Cross-grid
+ *   moves go through the same surface: the chest UI registers its cells
  *   through `wireChestSlot` and the dragdrop ships the right
  *   `srcChest` / `dstChest` flags on the wire.
  *
@@ -77,7 +77,7 @@ export interface InventoryUiOptions {
    * Reads the inventory mirror for the chest identified by `chestKey`,
    * or `null` if no chest with that key is currently open. Optional
    * because the existing test suite predates the chest surface;
-   * production wires this through `bootstrap.ts`. Task 591 promoted the
+   * production wires this through `bootstrap.ts`. promoted the
    * thunk to take a `chestKey` so the dragdrop machinery is ready for
    * N panels — for now bootstrap matches the single open chest against
    * the requested key.
@@ -95,7 +95,7 @@ export interface InventoryUiOptions {
   /**
    * Ship a `MoveSlot` drag-drop action up to the server. The optional
    * cross-grid `chestKey` arguments name the chest a slot index lives
-   * in (task 591); pass `null` (or omit) when the slot lives in the
+   * in; pass `null` (or omit) when the slot lives in the
    * player's own grid. Bootstrap turns the `chestKey` back into the
    * wire `ChestLocation` via `chestLocationFromKey`.
    */
@@ -117,9 +117,9 @@ export interface InventoryUiOptions {
     srcChestKey?: ChestKey | null,
     dstChestKey?: ChestKey | null,
   ) => void;
-  /** Ship an `EquipTool` action up to the server (task 100). */
+  /** Ship an `EquipTool` action up to the server. */
   readonly sendEquip: (sourceSlot: number, kind: ToolKind) => void;
-  /** Ship an `UnequipTool` action up to the server (task 100). */
+  /** Ship an `UnequipTool` action up to the server. */
   readonly sendUnequip: (kind: ToolKind) => void;
 }
 
@@ -136,10 +136,9 @@ export interface InventoryUiHandle {
   selectHotbarSlot(slot: number): void;
   /**
    * Register a chest-grid cell with the shared drag-and-drop machinery
-   * (task 535/591). The chest panel manager calls this for every chest
+   * (). The chest panel manager calls this for every chest
    * slot when a panel mounts, passing the panel's `chestKey` so the
-   * machinery is ready to address N panels (task 592 promotes this
-   * from singleton to N).
+   * machinery is ready to address N panels.
    */
   wireChestSlot(chestKey: ChestKey, idx: number, cell: HTMLDivElement): void;
   /**
@@ -332,9 +331,9 @@ export function mountInventoryUi(
       panelCells[i],
     );
   }
-  // Equipment cells (task 60) are deliberately NOT wired into the dragdrop
+  // Equipment cells are deliberately NOT wired into the dragdrop
   // registry — they're mouse-inert. The auto-equip paths (break-time, pickup)
-  // and the panel-cell toggle (task 570) own filling them; clicks / drags
+  // and the panel-cell toggle own filling them; clicks / drags
   // landing on the equipment cell itself are no-ops because no `SlotRef` is
   // registered for those DOM nodes (so the drop resolver skips them).
 

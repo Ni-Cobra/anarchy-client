@@ -1,5 +1,5 @@
 /**
- * Per-frame projectile render layer (task 200c).
+ * Per-frame projectile render layer.
  *
  * Reads the network-free [`ProjectileStore`] each frame and reconciles a
  * Three.js mesh pool against it: one dart-shaped mesh per live projectile,

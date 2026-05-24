@@ -1,5 +1,5 @@
 /**
- * On-join onboarding overlay — task 070.
+ * On-join onboarding overlay —.
  *
  * A transparent, centered, non-interactive hint card mounted at session
  * start that shows new players the five things they need to begin

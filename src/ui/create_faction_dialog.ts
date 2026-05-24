@@ -1,5 +1,5 @@
 /**
- * Create-faction modal (task 240, ADR 0008 §5).
+ * Create-faction modal (ADR 0008 §5).
  *
  * Opens after the local player places a flag the server confirms is
  * un-claimed. Collects a faction name, validates the shape locally

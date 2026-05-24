@@ -73,7 +73,7 @@ export interface ConnectHooks {
    * frame has arrived within `RECV_TIMEOUT_MS`. Lobby rejects route
    * through `onLobbyReject` and explicit `connection.close()` calls
    * (the Disconnect button, lobby-loop teardowns) don't trigger this.
-   * Fires at most once per connection. Task 190 — drives the
+   * Fires at most once per connection. drives the
    * full-screen "Connection lost" overlay.
    */
   onTransportDrop?: () => void;
@@ -93,7 +93,7 @@ export function connect(
 
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let lastRecvAt = 0;
-  // Drop-detection bookkeeping for `onTransportDrop` (task 190). We only
+  // Drop-detection bookkeeping for `onTransportDrop`. We only
   // want to fire when the transport went away without us asking it to,
   // and we want to fire at most once even if both `error` and `close`
   // event handlers run.

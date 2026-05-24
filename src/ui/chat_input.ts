@@ -1,16 +1,15 @@
 /**
- * Chat input field (task 090).
+ * Chat input field.
  *
  * Single-line `<input>` mounted into the chat HUD's input slot so it
- * always sits directly below the message list (task 010 — the slot
- * reserves its own space, so focusing the field never shifts messages).
+ * always sits directly below the message list.
  * Hidden by default; the bootstrap-level `Enter` keybinding calls
  * `open()`, which reveals the field, attaches an input gate so movement
  * / hotbar / place keys don't fire while typing, and focuses the input.
  * Inside the field, `Enter` ships the trimmed body via `onSubmit` and
  * closes; `Escape` closes without sending.
  *
- * Per task 090 the client does NOT render locally — the server is the
+ * Per the client does NOT render locally — the server is the
  * source of truth and bounces the line back through `ChatMessage`. This
  * module therefore only sends; rendering still flows through `chat_hud`.
  */

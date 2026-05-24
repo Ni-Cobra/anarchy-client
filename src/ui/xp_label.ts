@@ -1,5 +1,5 @@
 /**
- * XP label above the hotbar — task 210, with the task 290 `+N` floater
+ * XP label above the hotbar — with the `+N` floater
  * polish on top.
  *
  * Renders `XP: N` as plain text right-aligned to the hotbar's right edge,

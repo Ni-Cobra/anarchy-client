@@ -1,5 +1,5 @@
 /**
- * Player-list HUD — task 170.
+ * Player-list HUD —.
  *
  * Top-left badge reading `N / MAX` (current connected players over the
  * server's `MAX_PLAYERS` cap). Hovering the badge expands a dropdown
@@ -27,7 +27,7 @@ const STYLE = `
   #${ROOT_ID} {
     position: fixed;
     top: 12px;
-    /* Task 090: the coords/ping HUD sits at left: 12px and renders three
+    /* the coords/ping HUD sits at left: 12px and renders three
        short lines (tile, subtile, ping). Its rendered width grows with
        coord magnitude (~75px at spawn, ~110px at 3-digit coords); offset
        the badge so the typical-play gap stays around 8–15 px without

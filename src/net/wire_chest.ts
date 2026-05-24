@@ -1,10 +1,10 @@
 /**
- * `ChestUpdate` message handler (task 420 / 590 / 592).
+ * `ChestUpdate` message handler ( / 592).
  *
  * Each `ChestUpdate` covers exactly one chest (server may emit several
  * per tick for a multi-chest open). The frame either opens / refreshes
  * a chest (`closed = false`, `slots` carries the full inventory) or
- * retires it (`closed = true`, `slots` empty). Task 592 promoted the
+ * retires it (`closed = true`, `slots` empty). promoted the
  * client mirror to a multi-chest map keyed by `ChestKey`; opens and
  * updates land in the map without touching any other chest's mirror.
  */
@@ -28,7 +28,7 @@ export function applyChestUpdate(
   if (!sink) return;
   const location = update.chest;
   if (!location) {
-    // Defensive: every well-formed update under the task 590 shape
+    // Defensive: every well-formed update under the shape
     // carries a chest location. Drop a malformed frame.
     return;
   }

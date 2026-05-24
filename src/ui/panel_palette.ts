@@ -2,7 +2,7 @@
  * Shared visual tokens for inventory-style overlay panels — the player's
  * inventory side panel ([`inventory/style.ts`]) and each chest panel
  * ([`chest/panel_manager.ts`]). Both panels lifted these out of their
- * per-module style strings (task 600) so a future palette tweak lands
+ * per-module style strings so a future palette tweak lands
  * once and the two panels read as one UI family when sitting side by
  * side.
  *

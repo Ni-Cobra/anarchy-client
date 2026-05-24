@@ -1,5 +1,5 @@
 /**
- * Per-player lantern lights (task 370). Each player whose `equippedUtility`
+ * Per-player lantern lights. Each player whose `equippedUtility`
  * is [`ItemId.Lantern`] gets a warm point light pinned at head height that
  * tracks their position. Intensity scales with the night factor sampled
  * from `daylight.ts`, mirroring the placed-torch behavior.
@@ -12,7 +12,7 @@
  *
  * Reuses `createTorchLight()` from `torch_lights.ts` so the lantern shares
  * the torch's warm tint + decay; the lantern bumps `distance` slightly
- * (task 370 says "slightly larger radius than a torch — it's the upgrade")
+ *
  * and keeps the same peak intensity so the night-factor scale reads
  * consistent across both light kinds.
  */
@@ -23,14 +23,14 @@ import { ItemId, type PlayerId } from "../game/index.js";
 import { createTorchLight } from "./torch_lights.js";
 import { tileToScene } from "./sync.js";
 
-/** Y offset where the lantern light sits. Lifted to 1.8 (task 190) so the
+/** Y offset where the lantern light sits. Lifted to 1.8 so the
  *  emitter clears top-layer geometry (tree canopy top is ~1.1 scene units)
  *  and the cone reaches the tops of nearby blocks rather than being
  *  shadowed by them. Shared with the torch and mushroom pools so all three
  *  emitters appear at the same height relative to a block. */
 const LANTERN_LIGHT_Y = 1.8;
 
-/** Lantern peak intensity at midnight. Lifted to 4.5 (task 190) in lockstep
+/** Lantern peak intensity at midnight. Lifted to 4.5 in lockstep
  *  with the torch so a player carrying one still reads as
  *  brighter-than-a-torch (via the larger radius), and so the day-night
  *  fade stays consistent across both warm light sources. */
@@ -38,10 +38,10 @@ const LANTERN_PEAK_INTENSITY = 4.5;
 
 /** Distance multiplier on the shared torch falloff. The lantern lights
  *  ~7-8 tiles vs. the torch's ~5-6, matching "slightly larger radius
- *  than a torch — it's the upgrade" from task 370. The number is the
+ *  than a torch — it's the upgrade". The number is the
  *  raw `THREE.PointLight.distance`, not a scaling factor — it replaces
  *  whatever `createTorchLight()` set. Bumped from 13.0 alongside the
- *  intensity lift (task 190) so the brighter source spreads to a
+ *  intensity lift so the brighter source spreads to a
  *  proportionally larger pool. */
 const LANTERN_LIGHT_DISTANCE = 16.0;
 

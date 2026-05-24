@@ -65,31 +65,31 @@ export interface Player {
    */
   equippedUtility: ItemId | null;
   /**
-   * Chests this player currently has open (task 590 multi-open). Carried
+   * Chests this player currently has open. Carried
    * on `PlayerSnapshot` so every observer sees the set, not just the
    * originating client — the renderer draws a light beam from each
    * player to each chest they have open. Empty when nothing is open.
    */
   openChests: readonly OpenChestRef[];
   /**
-   * Current HP (task 060). `0` means dead; `MAX_PLAYER_HEALTH` is full.
+   * Current HP. `0` means dead; `MAX_PLAYER_HEALTH` is full.
    * The local player's HP feeds the bottom-of-screen HP bar; remote
    * players' HP is on the wire too but is not rendered this iteration.
    * Defaults to `MAX_PLAYER_HEALTH` when the wire field is unset (older
-   * server snapshots pre-task 060).
+   * server snapshots).
    */
   health: number;
   /**
-   * Task 200a — active status effects (`Slow`, future kinds). The wire
+   * active status effects (`Slow`, future kinds). The wire
    * carries one entry per active effect; the renderer reads this for
-   * the slow indicator over the player (task 200c). Empty when the
+   * the slow indicator over the player. Empty when the
    * player has no effect on them.
    */
   effects: readonly ActiveEffect[];
   /**
-   * Task 210 — experience points earned by breaking ores and killing
+   * experience points earned by breaking ores and killing
    * spiders. Defaults to `0` when the wire field is unset (older server
-   * snapshots pre-task 210). PvP kills transfer 100% of the victim's XP
+   * snapshots). PvP kills transfer 100% of the victim's XP
    * to the killer; non-PvP deaths leave it untouched. The HUD reads
    * the local player's `xp` to render the `XP: N` label above the
    * hotbar.
@@ -98,7 +98,7 @@ export interface Player {
 }
 
 /**
- * Task 200a — kind of an active status effect. Mirrors the proto
+ * kind of an active status effect. Mirrors the proto
  * `EffectKind` enum. Variants append on extension.
  */
 export enum EffectKind {
@@ -106,7 +106,7 @@ export enum EffectKind {
 }
 
 /**
- * Task 200a — one active effect on a player or entity snapshot.
+ * one active effect on a player or entity snapshot.
  * `remainingTicks` is `expires_at - now_tick` at the moment the snapshot
  * was composed server-side; clients interpret it relative to their own
  * frame budget rather than tracking server tick numbers.

@@ -1,10 +1,10 @@
 /**
- * Per-frame slow-effect particle trail (task 020).
+ * Per-frame slow-effect particle trail.
  *
  * Visualises an active `EffectKind.Slow` on a target by emitting a slow,
  * steady stream of small desaturated-cyan particles from the target's
  * foot position — "frozen wisps" rather than a UI badge. Replaces the
- * cyan disc sprite that lived in `render/effects_layer.ts` (task 200c).
+ * cyan disc sprite that lived in `render/effects_layer.ts`.
  *
  * Per-target emitters appear when `applyTargets` first sees a slowed
  * target and stop emitting the tick the wire stops reporting Slow on

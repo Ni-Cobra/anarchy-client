@@ -1,5 +1,5 @@
 /**
- * `ConnectedPlayersList` handler (task 170). Decodes the wire roster
+ * `ConnectedPlayersList` handler. Decodes the wire roster
  * (`entries` + `max_players`) into the client's `Roster` shape and pushes
  * it into the `RosterStore` the HUD subscribes to.
  *

@@ -1,5 +1,5 @@
 /**
- * Faction-leaderboard mirror (task 240, ADR 0008).
+ * Faction-leaderboard mirror (ADR 0008).
  *
  * Server ships a full snapshot once on welcome
  * (`ServerWelcome.initial_factions`) and a per-tick delta on every

@@ -1,6 +1,6 @@
 /**
  * `maxCraftCount(recipe, ...pools)` — how many times a recipe can be crafted
- * right now given one or more inventory pools (task 490). For each
+ * right now given one or more inventory pools. For each
  * ingredient the helper computes `floor(have / need)` where `have` is the
  * pooled count across all passed `Inventory` instances; the recipe's craft
  * ceiling is the `min` across ingredients.
@@ -9,7 +9,7 @@
  * crafting panel today) use that as the signal to hide the count entirely,
  * since an uncraftable row is already styled distinctly.
  *
- * Variadic over `Inventory` so the open-chest grid (task 420) can extend
+ * Variadic over `Inventory` so the open-chest grid can extend
  * this to consume the chest's contents as a second input pool by adding
  * one argument at the call site — no helper change needed.
  */
@@ -28,7 +28,7 @@ export function maxCraftCount(
     if (ing.kind === "one") {
       for (const pool of pools) have += pool.countOf(ing.item);
     } else {
-      // AnyOf (task 175): pool counts across every listed item — any
+      // AnyOf: pool counts across every listed item — any
       // combination of those items contributes to the same requirement.
       for (const item of ing.items) {
         for (const pool of pools) have += pool.countOf(item);

@@ -1,5 +1,5 @@
 /**
- * Per-tick entity visualization (task 010-entities, client half 020).
+ * Per-tick entity visualization.
  *
  * The server is tile-bound: an `Entity` occupies an integer tile and
  * teleports between tiles on the ticks it steps. The client renders
@@ -30,14 +30,14 @@ import { BODY_LIT_MAT_USERDATA_KEY } from "./player_mesh.js";
 import { purgeMeshFlash } from "./mesh_flash.js";
 import { tileCenterToScene } from "./terrain.js";
 
-// Spider mesh dimensions (task 040). The spider renders as a small black
+// Spider mesh dimensions. The spider renders as a small black
 // cube — a quarter-tile-side `BoxGeometry` sitting on the ground slab.
 export const SPIDER_SIDE = 0.25;
 export const SPIDER_HEIGHT = 0.25;
 // Bottom face sits flush with the ground slab. A spider co-occupying a
 // walkable top-layer decor tile (sticks / flowers / bushes / mushrooms /
 // torches) may clip behind the decor billboard — accepted tradeoff
-// (task 330): the previous lifted-cube offset made lone spiders on bare
+// the previous lifted-cube offset made lone spiders on bare
 // grass visually hover a full tile-unit above the ground, which read as
 // more wrong than the occasional decor clip.
 const SPIDER_GROUND_OFFSET = 0.0;
@@ -172,7 +172,7 @@ export class EntityLayer {
     for (const [id, state] of this.states) {
       if (seen.has(id)) continue;
       this.group.remove(state.mesh);
-      // Task 150: drop the mesh-flash side-table entry so it doesn't
+      // drop the mesh-flash side-table entry so it doesn't
       // leak across despawn → respawn cycles. The per-mesh material
       // clone is disposed too so the cloned colour state doesn't leak.
       purgeMeshFlash(state.mesh);
@@ -306,7 +306,7 @@ export class EntityLayer {
     switch (kind) {
       case EntityKind.Spider: {
         // Clone the shared material so each spider has its own colour state.
-        // The damage-feedback flash (task 150) mutates `.color` per hit, so
+        // The damage-feedback flash mutates `.color` per hit, so
         // a shared material would whitewash every spider whenever any one
         // of them took damage.
         const material = this.spiderMaterial.clone();
@@ -321,7 +321,7 @@ export class EntityLayer {
   }
 
   /**
-   * Test handle (task 150): the `THREE.Mesh` currently rendered for
+   * Test handle: the `THREE.Mesh` currently rendered for
    * entity `id`, or `null` if no mesh exists. The renderer's
    * `onDamageEvents` reads this to dispatch a flash on the right mesh.
    */

@@ -13,7 +13,7 @@ describe("createTorchLight", () => {
     expect(light).toBeInstanceOf(THREE.PointLight);
     // Warm flame tint shared with the lantern: red dominates blue.
     expect(light.color.r).toBeGreaterThan(light.color.b);
-    // Pinned by task 190 — see torch_lights.ts comments for rationale.
+    // Pinned by — see torch_lights.ts comments for rationale.
     expect(light.distance).toBe(13.0);
     expect(light.decay).toBe(1.4);
   });
@@ -49,7 +49,7 @@ describe("TorchLights pool", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = TorchLights.intensityAt(1);
-    // Peak pinned by task 190 — louder than the previous 3.0 so a torch
+    // Peak pinned by — louder than the previous 3.0 so a torch
     // genuinely illuminates several tiles at full night.
     expect(peak).toBe(4.5);
     expect(TorchLights.intensityAt(0)).toBe(0);
@@ -60,7 +60,7 @@ describe("TorchLights pool", () => {
     expect(TorchLights.intensityAt(1.5)).toBe(peak);
   });
 
-  it("attaches each light above the top-layer block plane (task 190)", () => {
+  it("attaches each light above the top-layer block plane", () => {
     // Pinned just above the tallest top-layer geometry (tree canopy ~1.1
     // scene units) so the cone lights the tops of blocks rather than being
     // shadowed by them. Shared with the lantern and mushroom pools.

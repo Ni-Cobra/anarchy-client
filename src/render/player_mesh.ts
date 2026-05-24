@@ -71,7 +71,7 @@ const BILLBOARD_USERDATA_KEY = "usernameBillboard";
 // userData keys for the per-player lit / unlit body materials. Both are
 // built at mesh-create time and swapped under `mesh.material` by
 // `applyLanternBodyUnlit` to express the "lantern keeps my color readable
-// in the dark" effect (task 450 revised): wearers render with their
+// in the dark" effect: wearers render with their
 // palette color at full intensity regardless of scene lighting; everyone
 // else stays on the standard lit Lambert path and dims with ambient.
 // Materials share the body texture so disposal walks one texture, not two.
@@ -98,7 +98,7 @@ export const defaultPlayerMeshFactory: PlayerMeshFactory = {
     const body = new THREE.Mesh(bodyGeom, bodyMat);
     body.userData[BODY_LIT_MAT_USERDATA_KEY] = bodyMat;
     body.userData[BODY_UNLIT_MAT_USERDATA_KEY] = bodyUnlitMat;
-    // Day-cycle shadows (task 310). Players cast onto terrain and receive
+    // Day-cycle shadows. Players cast onto terrain and receive
     // from neighbouring blocks, so a player walking into a tree's shade
     // visually darkens.
     body.castShadow = true;
@@ -266,8 +266,7 @@ export interface LanternGlowEntity {
 
 /**
  * Swap each player body between its lit and unlit material based on whether
- * the server reports `ItemId.Lantern` in their Utility slot (task 450,
- * re-spec). The intent is "the lantern keeps the wearer's body color
+ * the server reports `ItemId.Lantern` in their Utility slot. The intent is "the lantern keeps the wearer's body color
  * readable in the dark" — not a glowing aura. Wearers get the stashed
  * `MeshBasicMaterial` (texture/color at full intensity, ignores lights);
  * everyone else stays on the stashed `MeshLambertMaterial` and dims with

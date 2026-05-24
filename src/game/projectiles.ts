@@ -1,5 +1,5 @@
 /**
- * Client-side mirror of the server's in-flight projectile set (task 200c).
+ * Client-side mirror of the server's in-flight projectile set.
  *
  * The wire ships one `ProjectileSnapshot` per live projectile each tick
  * (see `net/wire_tick.ts`) and a one-shot `ProjectileImpactEvent` the tick

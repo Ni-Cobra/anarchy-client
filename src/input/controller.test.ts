@@ -263,7 +263,7 @@ describe("InputController", () => {
     stop();
   });
 
-  describe("move-intent gate (task 110)", () => {
+  describe("move-intent gate", () => {
     it("suppresses outbound intents while the gate reports charging", () => {
       const { sent, sink } = makeSink();
       let charging = false;
@@ -295,7 +295,7 @@ describe("InputController", () => {
       stop();
     });
 
-    it("ships a zero intent on suppression release when keys released mid-charge (task 050)", () => {
+    it("ships a zero intent on suppression release when keys released mid-charge", () => {
       // Repro for the post-attack drift bug: user holds W, clicks attack
       // (gate arms), releases W mid-charge, gate disarms. Without the
       // explicit suppression-release resync the controller would see

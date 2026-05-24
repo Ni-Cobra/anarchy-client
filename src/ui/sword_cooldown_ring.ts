@@ -1,5 +1,5 @@
 /**
- * Sword-slot cooldown ring (task 140). Replaces the bottom-right
+ * Sword-slot cooldown ring. Replaces the bottom-right
  * `Cooldown Xs` badge that lived in the now-deleted `attack_cooldown.ts`
  * — the sword equipment slot is the single canonical surface for the
  * post-strike 5 s cooldown.
@@ -92,8 +92,8 @@ export function mountSwordCooldownRing(
 }
 
 /**
- * Generalised cooldown ring used by both the sword slot (task 140, 5 s
- * post-strike) and the blowgun slot (task 200c, 1 s between fires).
+ * Generalised cooldown ring used by both the sword slot (5 s
+ * post-strike) and the blowgun slot (1 s between fires).
  * Shape mirrors [`mountSwordCooldownRing`] — pass `durationMs` for the
  * cooldown window length. Exported so callers outside this module can
  * mount their own without duplicating the SVG / CSS.

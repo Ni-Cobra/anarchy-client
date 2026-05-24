@@ -1,5 +1,5 @@
 /**
- * Charge-beam render layer for the attack pipeline (task 070b).
+ * Charge-beam render layer for the attack pipeline.
  *
  * The server is authoritative: an admitted `AttackIntent` flips the
  * attacker to `Charging` for 0.7 s, then resolves to `StrikeHit` /

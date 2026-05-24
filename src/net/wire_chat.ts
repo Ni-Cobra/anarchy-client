@@ -1,5 +1,5 @@
 /**
- * `ChatHistory` handler (task 100). Decodes the wire payload (a list of
+ * `ChatHistory` handler. Decodes the wire payload (a list of
  * `ChatMessage`s in oldest → newest order) into a `ChatLine[]` and hands
  * it to the chat HUD's `replaceHistory` entry point. Server→client only;
  * the server owns the rolling buffer (max 20) and re-broadcasts a fresh
@@ -36,7 +36,7 @@ export function applyChatHistory(
  * emits it, but a defensive drop keeps a malformed frame from rendering
  * as an un-styled line.
  *
- * Task 110: `sender_color_index` and `sender_registered` travel per-message
+ * `sender_color_index` and `sender_registered` travel per-message
  * (frozen at send time on the server). Wire decode follows proto3 defaults
  * — a missing `sender_color_index` lands as `0` (palette slot 0) and a
  * missing `sender_registered` lands as `false`. The current server always

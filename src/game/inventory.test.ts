@@ -61,7 +61,7 @@ describe("Inventory", () => {
     expect(inv.slot(0)).toEqual({ item: ItemId.Wood, count: 1 });
   });
 
-  it("round-trips a Flag stack with its per-stack extra.colorIndex (task 220)", () => {
+  it("round-trips a Flag stack with its per-stack extra.colorIndex", () => {
     // The flag's color travels with the stack — placement reads it back
     // to write the chunk's flag map. Pin the field round-trips through
     // `replaceFromWire` unchanged.
@@ -116,7 +116,7 @@ describe("Inventory", () => {
   });
 
   it("replaceFromWire surfaces the equipped slot indices via the typed getters", () => {
-    // Task 010 rework: equipment is a flag on a cell. The mirror must
+    // rework: equipment is a flag on a cell. The mirror must
     // expose the equipped slot index so the UI layer can paint the
     // colored highlight on the right cell, and `getEquipped` must derive
     // the equipped item from the cell's contents.

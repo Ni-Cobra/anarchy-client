@@ -110,13 +110,13 @@ export interface AnarchyHandle {
    */
   inventory: Inventory;
   /**
-   * Task 420 open-chest mirror. Populated by `ChestUpdate` frames the
+   * open-chest mirror. Populated by `ChestUpdate` frames the
    * server ships when the local player opens / mutates / closes a chest.
    * `location() === null` means no chest is open.
    */
   chestState: ChestState;
   /**
-   * Task 240 faction-leaderboard mirror. Populated by the welcome's
+   * faction-leaderboard mirror. Populated by the welcome's
    * `initial_factions` snapshot and the per-tick `factions_delta`.
    * Lets e2e specs inspect the registry without inspecting Three.js.
    */
@@ -137,7 +137,7 @@ export interface AnarchyHandle {
   /**
    * Send a place-block action. The placed kind is now decided
    * authoritatively by the server from the player's selected hotbar slot
-   * — the client no longer ships a kind on the wire (task 040).
+   * — the client no longer ships a kind on the wire.
    */
   sendPlaceBlock: (cx: number, cy: number, lx: number, ly: number) => void;
   /** Send a hotbar-selection action; bumps the local action seq. */
@@ -145,7 +145,7 @@ export interface AnarchyHandle {
   /**
    * Send an inventory drag-drop action; bumps the local action seq. The
    * optional `srcChest` / `dstChest` arguments name which chest a slot
-   * index lives in (task 590 multi-open); pass `null` (or omit) when the
+   * index lives in; pass `null` (or omit) when the
    * slot lives in the player's own grid.
    */
   sendMoveSlot: (
@@ -167,15 +167,14 @@ export interface AnarchyHandle {
     dstChest?: ChestLocation | null,
   ) => void;
   /**
-   * Ship a `CraftRequest(recipe_id)` action up to the server (task 090
-   * client wiring). The server re-validates ingredient availability and
+   * Ship a `CraftRequest(recipe_id)` action up to the server client wiring). The server re-validates ingredient availability and
    * inventory fit; failures are silently dropped, success surfaces in the
    * next `InventoryUpdate`.
    */
   sendCraft: (recipeId: string) => void;
   /**
    * Equip the tool at `sourceSlot` into the equipment slot named by
-   * `kind` (task 100). Server validates that the source slot holds a
+   * `kind`. Server validates that the source slot holds a
    * tool of the matching kind and atomically swaps the source slot with
    * the equipment slot.
    */
@@ -187,13 +186,13 @@ export interface AnarchyHandle {
    */
   sendUnequipTool: (kind: ToolKind) => void;
   /**
-   * Task 420: open the chest at `(cx, cy, lx, ly)`. The server validates
+   * open the chest at `(cx, cy, lx, ly)`. The server validates
    * range and that the cell holds a chest block; failures are silently
    * dropped. Bumps the local action seq.
    */
   sendOpenChest: (cx: number, cy: number, lx: number, ly: number) => void;
   /**
-   * Task 590: close the chest at `(cx, cy, lx, ly)`. The server removes
+   * close the chest at `(cx, cy, lx, ly)`. The server removes
    * it from the player's open-chests set and emits one final closing
    * `ChestUpdate` for it. Bumps the local action seq.
    */
@@ -207,34 +206,34 @@ export interface AnarchyHandle {
   // place-visibility behavior without round-tripping a real PlaceBlock.
   canPlaceAt: (cx: number, cy: number, lx: number, ly: number) => boolean;
   /**
-   * Test handle (task 070): authoritative latest set of held-break
+   * Test handle: authoritative latest set of held-break
    * targeting overlays for any player visible to this client. Mirrors
    * the wire bridge's `applyTargets` call exactly — wholesale replace
    * each tick a `TickUpdate.targets` arrives.
    */
   getActiveTargetingStates: () => readonly WireTargetingStateEvent[];
   /**
-   * Test handle (task 070): total count of `BlockEdit` events observed
+   * Test handle: total count of `BlockEdit` events observed
    * on this connection since session start. Lets a Playwright spec assert
    * "client B saw the place / break that client A initiated" without
    * inspecting renderer internals.
    */
   getObservedBlockEditCount: () => number;
   /**
-   * Test handle (task 310): latest server-synced `time_of_day_seconds`
+   * Test handle: latest server-synced `time_of_day_seconds`
    * scalar. Returns `0` before the first `TickUpdate` lands. Lets e2e
    * specs assert the synced field is non-zero and advances across ticks
    * without parsing protobuf themselves.
    */
   getTimeOfDaySeconds: () => number;
   /**
-   * Test handle (task 020): latest ghost-block preview state computed by
+   * Test handle: latest ghost-block preview state computed by
    * the renderer's per-frame driver, or `null` when no preview is shown
    * (held slot empty / non-placeable, or no valid target under cursor).
    */
   getGhostState: () => GhostState | null;
   /**
-   * Test handle (task 370): number of player-attached lantern lights the
+   * Test handle: number of player-attached lantern lights the
    * renderer is currently showing. Lets a Playwright spec assert the
    * lantern's player-attached point light lands in the scene without
    * poking at Three.js internals. Always 0 at noon (intensity scales
@@ -242,21 +241,21 @@ export interface AnarchyHandle {
    */
   getLanternLightCount: () => number;
   /**
-   * Test handle (task 040): number of chest beams the renderer is
+   * Test handle: number of chest beams the renderer is
    * currently showing. One per `(player, open chest)` pair, sourced
    * from `PlayerSnapshot.open_chests`. Lets a Playwright spec assert
    * beams light up on open and clear on close.
    */
   getChestBeamCount: () => number;
   /**
-   * Task 070b ship-on-the-wire shim: emit an `AttackIntent` against
+   * ship-on-the-wire shim: emit an `AttackIntent` against
    * `(targetKind, targetId)`. Server validates cooldown / range /
    * existence; client-side mirror is invariant-free. Bumps the local
    * action seq.
    */
   sendAttackIntent: (targetKind: "player" | "entity", targetId: number) => void;
   /**
-   * Task 200c ship-on-the-wire shim: emit a `FireBlowgunIntent` against
+   * ship-on-the-wire shim: emit a `FireBlowgunIntent` against
    * `(targetKind, targetId)`. Server validates blowgun-equipped +
    * dart-in-inventory + range + cooldown + not-self.
    */
@@ -265,64 +264,64 @@ export interface AnarchyHandle {
     targetId: number,
   ) => void;
   /**
-   * Test handle (task 200c): number of in-flight projectile meshes in
+   * Test handle: number of in-flight projectile meshes in
    * the scene. Lets a Playwright spec assert "the dart appeared in the
    * world" without inspecting Three.js internals.
    */
   getProjectileCount: () => number;
   /**
-   * Test handle (task 200c): number of status-effect indicators (today
+   * Test handle: number of status-effect indicators (today
    * only `Slow`) rendered above targets.
    */
   getEffectIndicatorCount: () => number;
   /** True iff the local player has an active `Slow` effect on them. */
   isLocalPlayerSlowed: () => boolean;
   /**
-   * Test handle (task 070b): number of attack-charge beams currently
+   * Test handle: number of attack-charge beams currently
    * live in the scene. One per attacking player (server allows at most
    * one active attack per player). Lets an e2e spec assert the beam
    * appears on `charge-started` and clears on `strike-*`.
    */
   getAttackBeamCount: () => number;
   /**
-   * Test handle (task 360): number of flag-XP-interact beams currently
+   * Test handle: number of flag-XP-interact beams currently
    * live in the scene. One per active flag interact this tick; absent
    * the next tick the beam is retired.
    */
   getFlagBeamCount: () => number;
   /**
-   * Test handle (task 130): number of strike-resolution slash sprites
+   * Test handle: number of strike-resolution slash sprites
    * currently live in the scene. Spawned on `STRIKE_HIT` /
    * `STRIKE_MISSED_OUT_OF_REACH`; each retires after 250 ms.
    */
   getSlashCount: () => number;
   /**
-   * Test handle (task 150): number of meshes currently mid-damage-flash.
+   * Test handle: number of meshes currently mid-damage-flash.
    * One per recently damaged player or entity inside the local view
    * window; each entry retires after MESH_FLASH_DURATION_MS.
    */
   getMeshFlashCount: () => number;
   /**
-   * Test handle (task 150): number of floating damage numbers currently
+   * Test handle: number of floating damage numbers currently
    * in the scene. Each retires after DAMAGE_NUMBER_DURATION_MS.
    */
   getDamageNumberCount: () => number;
   /**
-   * Test handle (task 070b): the most recent `AttackEvent` observed
+   * Test handle: the most recent `AttackEvent` observed
    * on this connection. Drives the `e2e/attack-client.spec.ts` checks
    * for "the beam appeared", "the strike landed", etc. without
    * inspecting renderer internals.
    */
   getLastAttackEvent: () => WireAttackEvent | null;
   /**
-   * Test handle (task 070b): wall-clock ms at which the local
+   * Test handle: wall-clock ms at which the local
    * player's most recent `strike-*` fired, or `null` if the local
    * player has not struck. Lets e2e specs assert the cooldown badge
    * is active without inspecting the DOM.
    */
   getLocalCooldownStartedMs: () => number | null;
   /**
-   * Test handle (task 020-entities): scene-space positions of every
+   * Test handle: scene-space positions of every
    * entity the renderer is currently showing, keyed by `EntityId`.
    * Lets a Playwright spec assert a spider mesh exists at a seeded
    * tile and that it moves across a wait window without inspecting
@@ -330,14 +329,14 @@ export interface AnarchyHandle {
    */
   getRenderedEntities: () => Record<number, { x: number; z: number }>;
   /**
-   * Test handle (task 020): drive the renderer's cursor NDC directly,
+   * Test handle: drive the renderer's cursor NDC directly,
    * bypassing the page's mouse event plumbing. Lets a Playwright spec aim
    * the ghost preview at a known tile without computing screen-space
    * coordinates from the live camera transform. Pass `null` to clear.
    */
   setCursorNdc: (ndc: { x: number; y: number } | null) => void;
   /**
-   * Test handle (task 370): project a world tile `(worldX, worldY)` to
+   * Test handle: project a world tile `(worldX, worldY)` to
    * the canvas's client-pixel coordinates so a Playwright spec can drive
    * `page.mouse.move(x, y)` against a tile centre without reproducing the
    * camera math externally. Returns `null` only when the canvas isn't
@@ -348,19 +347,19 @@ export interface AnarchyHandle {
     worldY: number,
   ) => { x: number; y: number } | null;
   /**
-   * Test handle (task 120): current screen-shake offset in tile units, or
+   * Test handle: current screen-shake offset in tile units, or
    * `(0, 0)` when no shake is active. Lets an e2e spec assert "the shake
    * fired" without inspecting the camera.
    */
   getScreenShakeOffset: () => ScreenShakeOffset;
   /**
-   * Test handle (task 120): true while the HP bar's damage-flash overlay
+   * Test handle: true while the HP bar's damage-flash overlay
    * is active. Mirrors the DOM class on the bar root so the assertion is
    * a one-call read.
    */
   isHpBarFlashing: () => boolean;
   /**
-   * Test handle (task 160): current respawn-overlay state. `visible`
+   * Test handle: current respawn-overlay state. `visible`
    * is true between `trigger` and the end of the 2 s title fade;
    * `blackOpacity` / `titleOpacity` are the per-element opacities
    * being painted this frame. Lets e2e specs assert the overlay's
@@ -446,10 +445,10 @@ export function constructSession(deps: SessionDeps): Session {
   const chestState = new ChestState();
   const rosterStore = new RosterStore();
   const leaderboardStore = new LeaderboardStore();
-  // Task 200c: per-tick projectile mirror, written by the wire layer
+  // per-tick projectile mirror, written by the wire layer
   // and read by the renderer.
   const projectiles = new ProjectileStore();
-  // Task 110: tracks whether the local player is mid attack-charge so
+  // tracks whether the local player is mid attack-charge so
   // the input controller can suppress outbound `MoveIntent` frames the
   // server is going to ignore anyway. Fed by the wire layer's per-tick
   // `attack_events` fan-out below.
@@ -467,7 +466,7 @@ export function constructSession(deps: SessionDeps): Session {
   // envelopes into. The callback reads `chatHud` at call time (the first
   // message can't arrive before the synchronous construction finishes).
   let chatHud!: ChatHudHandle;
-  // Task 090: chat input. Mounted alongside chat HUD; keybindings.ts
+  // chat input. Mounted alongside chat HUD; keybindings.ts
   // opens it on Enter; on submit it routes through `sendChat`. Forward-
   // declared so `attachKeybindings` and the action senders can read it
   // at construction time even though the actual mount happens after
@@ -499,29 +498,29 @@ export function constructSession(deps: SessionDeps): Session {
 
   let localPlayerId: number | null = null;
 
-  // Damage-feedback detection state (task 120). The `pumpCoords` rAF loop
+  // Damage-feedback detection state. The `pumpCoords` rAF loop
   // (defined below) mirrors the local player's HP across frames; whenever
   // it drops it fires `renderer.triggerScreenShake` + `hpBar.flashWhite`.
   // Declared up here so the local-player reassign callback in the wire
   // bridge can reset it without a forward-reference.
   let lastSeenLocalHp: number | null = null;
 
-  // Test-handle observability for the task 070 effects feed. The
+  // Test-handle observability for the effects feed. The
   // renderer-visible effects layer is internal; these mirrors give
   // Playwright (and unit tests for the bootstrap wire) a way to assert
   // that the new wire surface is being delivered end-to-end.
   let observedBlockEditCount = 0;
   let activeTargets: readonly WireTargetingStateEvent[] = [];
-  // Latest server-authoritative `time_of_day_seconds` (task 310) — the
+  // Latest server-authoritative `time_of_day_seconds` — the
   // wire layer plumbs this through the daylight sink and we mirror it
   // for the test handle so e2e specs can pin the synced scalar without
   // reaching into Three.js.
   let lastTimeOfDaySeconds = 0;
-  // Task 070b: latest observed attack event (any outcome) for the test
+  // latest observed attack event (any outcome) for the test
   // handle. The renderer captures cooldown / dash state internally; this
   // mirror only exists so e2e specs can pin the wire shape end-to-end.
   let lastAttackEvent: WireAttackEvent | null = null;
-  // Task 200: latest measured round-trip-time. `null` before the first
+  // latest measured round-trip-time. `null` before the first
   // Pong arrives — the coords HUD renders that as `ping —`. The wire
   // bridge writes here on every Pong; the per-frame coords loop reads
   // it. On transport drop the renderer keeps painting whatever sample
@@ -537,7 +536,7 @@ export function constructSession(deps: SessionDeps): Session {
   // time pattern lets us define everything in dependency order.
   let registerFlow!: RegisterFlow;
 
-  // Task 160 respawn overlay — same forward-declare shape as `inventoryUi`
+  // respawn overlay — same forward-declare shape as `inventoryUi`
   // / `registerFlow`. The wire bridge's death-event sink (below) calls
   // `deathOverlay.trigger`, but the overlay is mounted later in this
   // function alongside the other DOM chrome (HP bar + coords HUD). The
@@ -546,7 +545,7 @@ export function constructSession(deps: SessionDeps): Session {
   // finished and the binding is set.
   let deathOverlay!: ReturnType<typeof mountDeathOverlay>;
 
-  // Task 190 connection-lost overlay. Mounted up front so the
+  // connection-lost overlay. Mounted up front so the
   // `onTransportDrop` hook on the connection below has something to
   // dispatch into for the boot-time case where the WebSocket is
   // refused before any other UI has had a chance to mount.
@@ -643,10 +642,10 @@ export function constructSession(deps: SessionDeps): Session {
             // we observe on the new player never spuriously fires
             // shake/flash against a stale previous-session value.
             lastSeenLocalHp = null;
-            // Task 200c: drop the blowgun fire timestamp so the new
+            // drop the blowgun fire timestamp so the new
             // local player isn't gated by the previous session's fire.
             lastBlowgunFireMs = null;
-            // Task 160: a local id reassign means a new life — hide any
+            // a local id reassign means a new life — hide any
             // previous overlay synchronously so the stale "You died"
             // from the prior session doesn't bleed over the new spawn.
             deathOverlay.cancel();
@@ -665,7 +664,7 @@ export function constructSession(deps: SessionDeps): Session {
       },
       onRegisterResult: (status) => registerFlow.onResult(status),
       onTransportDrop: () => {
-        // Task 190: the WebSocket dropped for a non-lobby-reject, non-
+        // the WebSocket dropped for a non-lobby-reject, non-
         // caller-initiated reason (boot-time refusal, mid-session server
         // close, heartbeat timeout). Show the full-screen "Connection
         // lost" overlay; the input gate it attaches keeps the canvas
@@ -714,12 +713,12 @@ export function constructSession(deps: SessionDeps): Session {
   // MoveSlot) up via `sendSelectSlot` / `sendMoveSlot`; the server's
   // next `InventoryUpdate` is the canonical state.
   //
-  // Task 591: the inventory UI now ships the chest source / destination
+  // the inventory UI now ships the chest source / destination
   // as a `chestKey` per cell. Bootstrap turns it back into the wire
   // `ChestLocation` via `chestLocationFromKey`. The client-side mirror is
   // still singleton today, so the matching `getChestInventory(key)`
   // returns the mirror only when the key resolves to the open chest;
-  // task 592 promotes the mirror to N panels.
+  // promotes the mirror to N panels.
   const sendMoveSlotUi = (
     src: number,
     dst: number,
@@ -769,14 +768,14 @@ export function constructSession(deps: SessionDeps): Session {
   });
   teardowns.push(() => craftingUi.unmount());
 
-  // Task 420 chest panel — opens automatically when `ChestUpdate` lands
+  // chest panel — opens automatically when `ChestUpdate` lands
   // with a non-null `chest` and closes when the server ships a closed
-  // sentinel (range loss / explicit close / chest broken). Task 535
-  // unified drag/drop + right-click split + click-to-withdraw through
-  // the inventory UI's shared dragdrop state machine — the chest UI
-  // registers its cells through `inventoryUiInner.wireChestSlot`. Task
-  // 591 added header chrome (title + X button + drag-to-move); the X
-  // button ships a `CloseChest` via `sendCloseChest`.
+  // sentinel (range loss / explicit close / chest broken). Drag/drop,
+  // right-click split, and click-to-withdraw go through the inventory
+  // UI's shared dragdrop state machine — the chest UI registers its
+  // cells through `inventoryUiInner.wireChestSlot`. Header chrome
+  // (title + X button + drag-to-move) sits on top; the X button ships
+  // a `CloseChest` via `sendCloseChest`.
   const chestUi = mountChestUi({
     chestState,
     inventoryUi: inventoryUiInner,
@@ -792,7 +791,7 @@ export function constructSession(deps: SessionDeps): Session {
 
   // ESC closes every open chest. Bound at window-level so it works
   // whether the inventory panel is open or not; falls through to other
-  // handlers if no chest is open. With multi-open (task 592) ESC fans
+  // handlers if no chest is open. With multi-open ESC fans
   // out a `CloseChest` per panel — the server retires each chest and
   // ships a closed `ChestUpdate` per chest.
   const onEscape = (ev: KeyboardEvent): void => {
@@ -827,7 +826,7 @@ export function constructSession(deps: SessionDeps): Session {
     unmount: () => inventoryUiInner.unmount(),
   };
 
-  // Task 200c: last wall-clock the local player dispatched a blowgun-fire
+  // last wall-clock the local player dispatched a blowgun-fire
   // intent — drives the blowgun-slot cooldown ring on the hotbar.
   let lastBlowgunFireMs: number | null = null;
 
@@ -839,9 +838,9 @@ export function constructSession(deps: SessionDeps): Session {
     store: rosterStore,
     getLocalPlayerId: () => localPlayerId,
   });
-  // Task 080: bottom-left chat overlay. The wire bridge above routes every
+  // bottom-left chat overlay. The wire bridge above routes every
   // `ChatMessage` envelope into `chatHud.append`; nothing else writes here
-  // (player typing lands in task 090).
+  // (player typing lands).
   chatHud = mountChatHud();
   chatInput = mountChatInput({
     onSubmit: (body) => sendChat(body),
@@ -851,18 +850,18 @@ export function constructSession(deps: SessionDeps): Session {
   const coordsHud = mountCoordsHud();
   const hpBar = mountHpBar();
   const xpLabel = mountXpLabel();
-  // Task 050: replace the corner `?` with a labeled "How to play" pill
+  // replace the corner `?` with a labeled "How to play" pill
   // centered above the XP bar while in-game. The corner is restored on
   // session teardown (back to lobby).
   const howToPlayButton = mountHowToPlayButton();
-  // Task 070: transparent centered tutorial card. Self-gates on a
+  // transparent centered tutorial card. Self-gates on a
   // localStorage flag so it only appears the very first time a given
   // browser enters the world; auto-fades 3s after the player's first
   // movement keypress. Strictly session-mount — the lobby has its
   // own onboarding.
   const onboardingHint = mountOnboardingHint();
   deathOverlay = mountDeathOverlay();
-  // Task 140 cooldown affordance — driven from the same rAF loop. The
+  // cooldown affordance — driven from the same rAF loop. The
   // renderer captures the latest strike timestamp; the ring reads it and
   // draws a depleting arc over the sword equipment slot. The equipment
   // bar is mounted once for the lifetime of the session (cells are
@@ -877,7 +876,7 @@ export function constructSession(deps: SessionDeps): Session {
     );
   }
   const swordCooldownRing = mountSwordCooldownRing(swordSlotEl);
-  // Task 200c blowgun cooldown ring — mirrors the sword ring on the
+  // blowgun cooldown ring — mirrors the sword ring on the
   // blowgun equipment slot. Same handle contract.
   const blowgunSlotEl = document.querySelector<HTMLElement>(
     ".anarchy-equipment-slot-blowgun",
@@ -951,7 +950,7 @@ export function constructSession(deps: SessionDeps): Session {
       sendFireBlowgunIntent,
       sendFlagInteractIntent,
       getFactionXpAt: (cx, cy, lx, ly) => {
-        // Task 170: scan the leaderboard mirror for a faction bound to
+        // scan the leaderboard mirror for a faction bound to
         // this flag cell. `null` means unclaimed; `0` means drained.
         // The break_place click router uses both as "fall through to
         // the break path" — the flag's drain-to-destroy invariant.
@@ -968,7 +967,7 @@ export function constructSession(deps: SessionDeps): Session {
         return null;
       },
       onPlaceDispatched: (cx, cy, lx, ly) => {
-        // Task 240: opening the create-faction dialog is part of the
+        // opening the create-faction dialog is part of the
         // place-block flow when the selected item is a Flag. Server
         // validates ownership + un-claimed on the eventual
         // `CreateFactionIntent`, so we open optimistically as soon as
@@ -997,7 +996,7 @@ export function constructSession(deps: SessionDeps): Session {
         }
         return null;
       },
-      // Task 030: feed the same wall-clock strike timestamp the sword-
+      // feed the same wall-clock strike timestamp the sword-
       // slot cooldown ring reads. break_place uses it to gate attack
       // clicks against the local cooldown and surface a transient
       // "Attack on cooldown" hint when the swing would be silently

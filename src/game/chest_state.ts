@@ -1,11 +1,11 @@
 /**
- * Open-chest mirror (task 420 / 590 / 592). Tracks every chest the local
+ * Open-chest mirror ( / 592). Tracks every chest the local
  * player currently has open — one `ChestPanelMirror` per chest, keyed by
  * `ChestKey`. Network-free: the wire bridge in `../net/wire_chest.ts`
  * decodes `ChestUpdate` frames and writes the resulting state here.
  *
- * Task 592 promoted this from a singleton to N mirrors. The shape mirrors
- * the server's per-player open-chests set (task 590):
+ * promoted this from a singleton to N mirrors. The shape mirrors
+ * the server's per-player open-chests set:
  * - Each mirror carries the `ChestLocation` of the chest and its 45-slot
  *   `Inventory`.
  * - `replaceFromWire(location, slots)` either adds a new mirror (firing

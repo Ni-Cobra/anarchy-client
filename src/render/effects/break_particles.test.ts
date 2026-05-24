@@ -123,7 +123,7 @@ describe("BreakParticles", () => {
     expect(e.scene().children).toHaveLength(0);
   });
 
-  it("emits a softer puff for non-solid / walk-through top blocks (task 510)", () => {
+  it("emits a softer puff for non-solid / walk-through top blocks", () => {
     // Reference burst: a solid kind (Stone) at t=0. Particle 0 moves
     // along +x at the unmodified horizontal speed.
     const solid = makeEmitter();

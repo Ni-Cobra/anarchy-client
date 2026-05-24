@@ -158,7 +158,7 @@ describe("applyServerMessage — Welcome", () => {
     expect(unloaded).toEqual(["0,0", "1,0"]);
   });
 
-  it("seeds the roster store from welcome.initialRoster (task 170)", async () => {
+  it("seeds the roster store from welcome.initialRoster", async () => {
     const base = makeFixture();
     const { RosterStore } = await import("../game/index.js");
     const rosterStore = new RosterStore();
@@ -190,7 +190,7 @@ describe("applyServerMessage — Welcome", () => {
   });
 });
 
-describe("applyServerMessage — ConnectedPlayersList (task 170)", () => {
+describe("applyServerMessage — ConnectedPlayersList", () => {
   it("routes a top-level roster broadcast through to the roster store", async () => {
     const base = makeFixture();
     const { RosterStore } = await import("../game/index.js");
@@ -228,7 +228,7 @@ describe("applyServerMessage — ConnectedPlayersList (task 170)", () => {
   });
 });
 
-describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
+describe("applyServerMessage — ChatHistory ()", () => {
   it("routes a top-level chat history envelope into the chat sink as one replace", () => {
     const { deps: base } = makeFixture();
     const calls: Array<Array<{ kind: string; sender: string; body: string }>> =
@@ -309,7 +309,7 @@ describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
     expect(() => applyServerMessage(msg, deps)).not.toThrow();
   });
 
-  it("decodes a SYSTEM-kind message as kind \"system\" (task 120)", () => {
+  it("decodes a SYSTEM-kind message as kind \"system\"", () => {
     const { deps: base } = makeFixture();
     const calls: Array<Array<{ kind: string; sender: string; body: string }>> =
       [];
@@ -384,7 +384,7 @@ describe("applyServerMessage — ChatHistory (task 080 / 100)", () => {
 });
 
 describe("applyServerMessage — TickUpdate", () => {
-  it("decodes per-cell flag_blocks into the chunk's flagBlocks map (task 220)", () => {
+  it("decodes per-cell flag_blocks into the chunk's flagBlocks map", () => {
     const { deps, terrain } = makeTerrainFixture();
     const c00 = emptyChunk();
     setBlock(c00.top, 3, 5, { kind: BlockType.Flag });
@@ -534,7 +534,7 @@ describe("applyServerMessage — TickUpdate", () => {
     expect(onChunkUnloaded).toContainEqual([1, 0]);
   });
 
-  it("populates chunk.entities from the wire and clears them on an empty refresh (task 010-entities)", () => {
+  it("populates chunk.entities from the wire and clears them on an empty refresh", () => {
     const { deps, terrain } = makeTerrainFixture();
     // Tick 1: chunk (0,0) carries two spiders.
     const tick1 = decodeRoundtrip({
@@ -743,7 +743,7 @@ describe("applyServerMessage — TickUpdate", () => {
     expect(world.getPlayer(1)?.facing).toBe(DEFAULT_FACING);
   });
 
-  it("decodes the player's open-chest set from PlayerSnapshot (task 040)", () => {
+  it("decodes the player's open-chest set from PlayerSnapshot", () => {
     const { deps, world } = makeFixture();
     const wire = chunkWire(0, 0, [
       {
@@ -767,7 +767,7 @@ describe("applyServerMessage — TickUpdate", () => {
     ]);
   });
 
-  it("decodes an empty open-chest set as the empty array (task 040)", () => {
+  it("decodes an empty open-chest set as the empty array", () => {
     const { deps, world } = makeFixture();
     const wire = chunkWire(0, 0, [{ id: 1, x: 0, y: 0 }]);
     const msg = decodeRoundtrip({
@@ -911,7 +911,7 @@ describe("applyServerMessage — InventoryUpdate", () => {
   });
 
   it("forwards craftable_recipes onto the inventory mirror with availability", () => {
-    // Task 100 wiring: every InventoryUpdate carries the per-player
+    // wiring: every InventoryUpdate carries the per-player
     // advertised recipe list. The wire bridge stores it on the Inventory
     // mirror so the crafting panel can render rows (with affordability
     // tier) without a separate request frame.
@@ -975,7 +975,7 @@ describe("applyServerMessage — InventoryUpdate", () => {
   });
 });
 
-describe("applyServerMessage — TickUpdate effects feed (task 070)", () => {
+describe("applyServerMessage — TickUpdate effects feed", () => {
   it("forwards block edits to the effects sink with the right shape", () => {
     const base = makeTerrainFixture();
     const edits: import("./wire.js").WireBlockEditEvent[] = [];
@@ -1104,7 +1104,7 @@ describe("applyServerMessage — TickUpdate effects feed (task 070)", () => {
     expect(() => applyServerMessage(msg, deps)).not.toThrow();
   });
 
-  it("forwards damage events to the effects sink (task 150)", () => {
+  it("forwards damage events to the effects sink", () => {
     const base = makeTerrainFixture(() => 12_345);
     const observed: {
       events: import("./wire.js").WireDamageEvent[];
@@ -1163,7 +1163,7 @@ describe("applyServerMessage — TickUpdate effects feed (task 070)", () => {
     ]);
   });
 
-  it("forwards attack events to the effects sink (task 070b)", () => {
+  it("forwards attack events to the effects sink", () => {
     const base = makeTerrainFixture(() => 12_345);
     const observed: {
       events: import("./wire.js").WireAttackEvent[];
@@ -1240,7 +1240,7 @@ describe("applyServerMessage — TickUpdate effects feed (task 070)", () => {
     ]);
   });
 
-  it("forwards death events to the effects sink (task 160)", () => {
+  it("forwards death events to the effects sink", () => {
     const base = makeTerrainFixture(() => 7_777);
     const observed: {
       events: import("./wire.js").WireDeathEvent[];

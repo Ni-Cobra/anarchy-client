@@ -154,7 +154,7 @@ describe("buildTerrainMesh", () => {
   });
 });
 
-describe("Transparent decor rendering (task 400)", () => {
+describe("Transparent decor rendering", () => {
   it("flowers render as cross-quads (8 verts / 12 indices) so each plane shows the silhouette from its axis", () => {
     const c = emptyChunk();
     setBlock(c.top, 4, 4, { kind: BlockType.FlowerRed });
@@ -214,7 +214,7 @@ describe("Transparent decor rendering (task 400)", () => {
     expect(sticks.castShadow).toBe(false);
     // Tree at x=5 has two meshes — the higher one is the canopy, the
     // lower one the trunk. Canopy's `castShadow` is the load-bearing
-    // invariant for task 400; trunk keeps its shadow.
+    // invariant; trunk keeps its shadow.
     const treeMeshes = decorMeshesByX.get(5)!;
     expect(treeMeshes).toHaveLength(2);
     treeMeshes.sort((a, b) => a.position.y - b.position.y);
@@ -226,7 +226,7 @@ describe("Transparent decor rendering (task 400)", () => {
   });
 });
 
-describe("Torch top-layer rendering (task 350 / task 150)", () => {
+describe("Torch top-layer rendering ()", () => {
   it("renders a Torch as cross-quads (8 verts / 12 indices) so the sprite reads from any horizontal angle", () => {
     const c = emptyChunk();
     setBlock(c.top, 7, 8, { kind: BlockType.Torch });
@@ -237,7 +237,7 @@ describe("Torch top-layer rendering (task 350 / task 150)", () => {
     expect(meshes).toHaveLength(1);
     const torch = meshes[0]!;
     // Cross-quads: 8 vertices (two perpendicular quads, 4 corners each) and
-    // 12 indices (two triangles per quad). Pins task 150's mesh swap.
+    // 12 indices (two triangles per quad). Pins mesh swap.
     const positions = torch.geometry.getAttribute("position");
     expect(positions.count).toBe(8);
     const index = torch.geometry.getIndex()!;
@@ -278,7 +278,7 @@ describe("torchPositionsInChunk", () => {
   });
 });
 
-describe("buildMushroomMaterial (task 160)", () => {
+describe("buildMushroomMaterial", () => {
   it("returns a transparent double-sided emissive material pinned to the mushroom-glow cyan", () => {
     // Texture-less path (unit-test fallback) — the no-texture branch must
     // still produce an emissive material so the constant pin is meaningful
@@ -295,12 +295,12 @@ describe("buildMushroomMaterial (task 160)", () => {
 
   it("pins the colour to `0x9fd9ff` so a drift to a different cyan is caught", () => {
     // The constant must stay in lockstep with `MUSHROOM_LIGHT_COLOR` in
-    // mushroom_lights.ts (mirrored, not imported, by design — task 160).
+    // mushroom_lights.ts (mirrored, not imported, by design).
     expect(MUSHROOM_EMISSIVE_COLOR).toBe(0x9fd9ff);
   });
 });
 
-describe("mushroomEmissiveAt (task 160)", () => {
+describe("mushroomEmissiveAt", () => {
   it("scales linearly with night factor between 0 and the pinned peak", () => {
     expect(mushroomEmissiveAt(0)).toBe(0);
     expect(mushroomEmissiveAt(1)).toBe(MUSHROOM_EMISSIVE_PEAK);
@@ -317,7 +317,7 @@ describe("mushroomEmissiveAt (task 160)", () => {
   });
 });
 
-describe("LightMushroom rendering (task 160)", () => {
+describe("LightMushroom rendering", () => {
   it("uses the renderer-owned mushroom material singleton when provided so the per-frame update is shared", () => {
     const c = emptyChunk();
     setBlock(c.top, 4, 4, { kind: BlockType.LightMushroom });
@@ -430,7 +430,7 @@ describe("disposeTerrainMesh", () => {
   });
 });
 
-describe("Hidden-adjacent AO (task 290)", () => {
+describe("Hidden-adjacent AO", () => {
   // Helpers for the AO assertions: vertex colors are baked on the +y face
   // of cloned BoxGeometries, so reading the `color` attribute pins the
   // shader-side behavior without a real GL context.

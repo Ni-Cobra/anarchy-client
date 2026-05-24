@@ -104,7 +104,7 @@ describe("lobby form (ADR 0007)", () => {
     expect(submit.disabled).toBe(false);
   });
 
-  it("Enter on the username field swallows the keystroke so it can't leak into in-world bindings (task 060)", () => {
+  it("Enter on the username field swallows the keystroke so it can't leak into in-world bindings", () => {
     showLobby();
     const root = panel();
     const username = root.querySelector<HTMLInputElement>("#anarchy-username")!;
@@ -138,7 +138,7 @@ describe("lobby form (ADR 0007)", () => {
 });
 
 describe("lobbyRejectMessage", () => {
-  // Task 010 — multi-login prevention: pin the user-visible message the
+  // multi-login prevention: pin the user-visible message the
   // lobby renders when the server rejects a second concurrent in-world
   // session from the same peer IP. The string itself is the contract —
   // the lobby's `rejectMessage` overlay tests rely on it.

@@ -150,7 +150,7 @@ describe("mountChatInput", () => {
     expect(input().maxLength).toBe(CHAT_INPUT_MAX_LEN);
   });
 
-  it("when closed the input root keeps its layout box (no display:none) — task 010 no-shift invariant", () => {
+  it("when closed the input root keeps its layout box (no display:none) — no-shift invariant", () => {
     mount();
     const root = document.getElementById("anarchy-chat-input-root");
     expect(root).not.toBeNull();
@@ -162,7 +162,7 @@ describe("mountChatInput", () => {
     expect(style.visibility).toBe("hidden");
   });
 
-  it("mounts into the host element when one is supplied (task 010 — shared chat stack)", () => {
+  it("mounts into the host element when one is supplied", () => {
     const host = document.createElement("div");
     host.id = "test-chat-host";
     document.body.appendChild(host);

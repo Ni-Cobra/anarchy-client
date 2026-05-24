@@ -1,5 +1,5 @@
 /**
- * Day-cycle sun + ambient sampler (task 310). Pure math — no `three` import,
+ * Day-cycle sun + ambient sampler. Pure math — no `three` import,
  * no DOM — so the renderer can plug it in and the unit tests can pin the
  * angle / colour curves without a WebGL context.
  *
@@ -38,7 +38,7 @@ export interface DaylightSample {
   /**
    * Night factor in `[0, 1]`. `0` whenever the sun is on or above the
    * horizon (sunrise / day / sunset); ramps to `1` at midnight. Consumers
-   * like the torch / lantern light pool (task 350 / 370) scale their
+   * like the torch / lantern light pool () scale their
    * intensity by this so artificial light only meaningfully contributes
    * once natural light has fallen.
    */
@@ -65,7 +65,7 @@ export interface DaylightSample {
 export const SUN_PEAK_INTENSITY = 1.1;
 // The sun's `NIGHT_FLOOR_INTENSITY` only meaningfully contributes during the
 // dusk/dawn shoulders — at midnight `sunDir.y ≈ -0.93` so three.js's diffuse
-// term zeroes the sun for up-facing surfaces. The moon (task 070, see
+// term zeroes the sun for up-facing surfaces. The moon (see
 // MOON_PEAK_INTENSITY below) is the real legibility driver after dark, so
 // 0.12 here only needs to keep the horizon transition smooth.
 export const NIGHT_FLOOR_INTENSITY = 0.12;
@@ -75,13 +75,13 @@ export const DAY_AMBIENT = 0.55;
 // is what makes geometry legible. Kept here so dusk/dawn ambient still
 // shifts perceptibly into the night palette.
 export const NIGHT_AMBIENT = 0.38;
-// Moon directional (task 070). Peaks at midnight (nightFactor = 1) and is
+// Moon directional. Peaks at midnight (nightFactor = 1) and is
 // 0 during the day. 0.55 lands well below sun peak (1.1) so noon stays the
 // bright extreme, but is enough to lift up-facing surfaces out of the
 // "black smear" the ambient-only night produced.
 export const MOON_PEAK_INTENSITY = 0.55;
 
-// Sun-arc orientation (task 440). The arc is originally a great circle in
+// Sun-arc orientation. The arc is originally a great circle in
 // the xz=0 plane — noon sat at the +y zenith, so shaded faces read flat.
 // We rotate the arc twice so the noon zenith lands on a half-diagonal in
 // the xz plane (small off-vertical tilt + 45° azimuth in the xz plane).

@@ -43,7 +43,7 @@ function buildChatInput(): ChatInputHandle & {
   };
 }
 
-describe("attachKeybindings — Enter / chat open (task 060 regression)", () => {
+describe("attachKeybindings — Enter / chat open", () => {
   let detach: (() => void) | null = null;
 
   afterEach(() => {

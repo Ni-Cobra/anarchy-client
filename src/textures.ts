@@ -45,7 +45,7 @@ export interface BlockMeta {
    * walk-through decoratives (`Sticks`, flowers, `Bush`, `Torch`),
    * `true` for full-cell solids and `Tree` / `Chest`. Renderer-only on
    * the client: drives the softer break animation for non-solid top
-   * cells (task 510). `Air` and the wire-only `Hidden` sentinel are
+   * cells. `Air` and the wire-only `Hidden` sentinel are
    * `false`; neither is ever a real break target.
    */
   readonly isSolidTop: boolean;
@@ -60,7 +60,7 @@ const BLOCK_TEXTURES_BASE = "/textures/blocks";
  * `BlockType` variant requires a matching entry here and on the server.
  *
  * `Air` and `Hidden` carry `textureUrl: null` — neither has a renderable
- * face. Wire-occlusion sentinel `Hidden` (task 060) stays in the registry
+ * face. Wire-occlusion sentinel `Hidden` stays in the registry
  * because the renderer's per-kind branches still consult the metadata for
  * naming.
  */
@@ -381,7 +381,7 @@ export function textureUrlForBlock(kind: BlockType): string | null {
 /**
  * Whether a top-layer block of this kind blocks player movement. Mirrors
  * the server's `BlockType::is_solid_top`. Renderer-only consumer today:
- * the break animation scales down for non-solid-top kinds (task 510).
+ * the break animation scales down for non-solid-top kinds.
  * Unknown kinds default to `true` — being conservative here means a
  * surprise variant still gets the full "real block broke" feedback
  * rather than a silently muted puff.

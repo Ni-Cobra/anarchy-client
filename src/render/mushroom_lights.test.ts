@@ -14,7 +14,7 @@ describe("createMushroomLight", () => {
     // Cool tint — blue/cyan dominates red so a torch + a mushroom in the
     // same frame read as distinctly different light sources.
     expect(light.color.b).toBeGreaterThan(light.color.r);
-    // Pinned by task 190.
+    // Pinned.
     expect(light.distance).toBe(7.0);
     expect(light.decay).toBe(1.4);
   });
@@ -49,7 +49,7 @@ describe("MushroomLights pool", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = MushroomLights.intensityAt(1);
-    // Peak pinned by task 190 — lifted in lockstep with the torch / lantern
+    // Peak pinned by — lifted in lockstep with the torch / lantern
     // bump while keeping mushroom < torch.
     expect(peak).toBe(2.5);
     expect(MushroomLights.intensityAt(0)).toBe(0);
@@ -66,7 +66,7 @@ describe("MushroomLights pool", () => {
     );
   });
 
-  it("shares the lifted attachment Y with the torch + lantern pools (task 190)", async () => {
+  it("shares the lifted attachment Y with the torch + lantern pools", async () => {
     expect(MushroomLights.attachmentY()).toBe(1.8);
 
     // The lift must be consistent across the three pools so a torch and a

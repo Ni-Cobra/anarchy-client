@@ -91,7 +91,7 @@ describe("mountCoordsHud", () => {
   });
 
   it("keeps painting the ping line independent of update(null) hide", () => {
-    // The connection-error overlay (task 190) covers the canvas on a
+    // The connection-error overlay covers the canvas on a
     // transport drop, but the rAF loop still ticks until teardown. Make
     // sure that hiding the coords readout doesn't blank the ping line —
     // the line lives inside the same root and only the root's `hidden`

@@ -17,7 +17,7 @@
  * dropped out of view (or who left the chunk to a neighbor we've also
  * dropped) disappears the same way.
  *
- * The per-tick effects feed (task 070) — `tick.edits` (block place/break
+ * The per-tick effects feed — `tick.edits` (block place/break
  * one-shots) and `tick.targets` (held-break progress, an authoritative
  * replace) — is fanned out through `EffectsSink` so the renderer can
  * spawn / advance / cull its visuals without the bridge importing
@@ -75,7 +75,7 @@ export interface TerrainSink {
 }
 
 /**
- * Per-tick block-edit + targeting feed (task 070). The wire layer reads
+ * Per-tick block-edit + targeting feed. The wire layer reads
  * the new `TickUpdate.edits` / `TickUpdate.targets` fields and routes
  * them here so the renderer can spawn / advance / cull effects without
  * the bridge importing `three`. The shape mirrors
@@ -108,7 +108,7 @@ export interface WireTargetingStateEvent {
 }
 
 /**
- * Per-tick attack lifecycle event (task 070), routed through
+ * Per-tick attack lifecycle event, routed through
  * `TickUpdate.attack_events` and forwarded here by the bridge so the
  * renderer can spawn / retire the charge beam and the cooldown affordance
  * can be driven for the local player. Mirrors `AttackEvent` on the
@@ -132,7 +132,7 @@ export interface WireAttackEvent {
 }
 
 /**
- * Per-tick damage event (task 150), routed through
+ * Per-tick damage event, routed through
  * `TickUpdate.damage_events` and forwarded here by the bridge. One entry
  * per HP-reducing event regardless of source (strike hit, admin damage,
  * future env damage). The renderer flashes the target mesh white and
@@ -153,7 +153,7 @@ export interface WireDamageEvent {
 }
 
 /**
- * Per-tick death event (task 160), routed through
+ * Per-tick death event, routed through
  * `TickUpdate.death_events` and forwarded here by the bridge. Per-receiver
  * scoped server-side: each client only sees events whose `playerId` is
  * their own, so a non-empty list in v1 is always the local player's own
@@ -171,7 +171,7 @@ export interface WireDeathEvent {
 }
 
 /**
- * Per-tick projectile-impact event (task 200c). Routed through
+ * Per-tick projectile-impact event. Routed through
  * `TickUpdate.projectile_impacts` and forwarded here by the bridge so the
  * renderer can spawn a one-shot impact puff at `(x, y)` the same tick
  * the dart despawns. Mirrors `ProjectileImpactEvent` on the wire — types
@@ -187,7 +187,7 @@ export interface WireProjectileImpactEvent {
 }
 
 /**
- * Per-tick flag-XP-interact snapshot (task 250 + 360). Routed through
+ * Per-tick flag-XP-interact snapshot (). Routed through
  * `TickUpdate.flag_interacts` and forwarded here by the bridge so the
  * renderer can draw a directional beam between the interactor and the
  * flag. The server scopes the list to the receiver's view window —
@@ -214,21 +214,21 @@ export interface EffectsSink {
    */
   onAttackEvents?(events: readonly WireAttackEvent[], tickReceivedMs: number): void;
   /**
-   * Fan-out for `TickUpdate.damage_events` (task 150). Optional — tests
+   * Fan-out for `TickUpdate.damage_events`. Optional — tests
    * that don't exercise damage feedback leave it absent and the bridge
    * silently drops the events. `tickReceivedMs` lets the renderer anchor
    * the floating-number / mesh-flash lifetimes to its own animation clock.
    */
   onDamageEvents?(events: readonly WireDamageEvent[], tickReceivedMs: number): void;
   /**
-   * Fan-out for `TickUpdate.death_events` (task 160). Optional — tests
+   * Fan-out for `TickUpdate.death_events`. Optional — tests
    * that don't exercise the respawn overlay leave it absent and the bridge
    * silently drops the events. `tickReceivedMs` anchors the overlay's
    * 2-second fade timeline.
    */
   onDeathEvents?(events: readonly WireDeathEvent[], tickReceivedMs: number): void;
   /**
-   * Fan-out for `TickUpdate.projectiles` (task 200c) — replaces the
+   * Fan-out for `TickUpdate.projectiles` — replaces the
    * client-side store wholesale each tick. Optional — tests that don't
    * exercise the blowgun leave it absent and the bridge silently drops
    * the data.
@@ -238,7 +238,7 @@ export interface EffectsSink {
     tickReceivedMs: number,
   ): void;
   /**
-   * Fan-out for `TickUpdate.projectile_impacts` (task 200c). Optional —
+   * Fan-out for `TickUpdate.projectile_impacts`. Optional —
    * tests that don't exercise the blowgun puff visual leave it absent.
    */
   onProjectileImpacts?(
@@ -246,14 +246,14 @@ export interface EffectsSink {
     tickReceivedMs: number,
   ): void;
   /**
-   * Fan-out for `TickUpdate.flag_interacts` (task 360). Optional —
+   * Fan-out for `TickUpdate.flag_interacts`. Optional —
    * wholesale-replace each tick (absence means "no beams this tick").
    */
   applyFlagInteracts?(events: readonly WireFlagInteractEvent[]): void;
 }
 
 /**
- * Day-cycle hook (task 310). Each tick the server ships a monotonically
+ * Day-cycle hook. Each tick the server ships a monotonically
  * growing `time_of_day_seconds` scalar; the wire layer plumbs it here so
  * the renderer can drive the directional sun + ambient envelope from a
  * server-authoritative clock. Optional — tests / headless paths leave
@@ -299,7 +299,7 @@ export function applyTickUpdate(
   // Apply each full-state chunk and push samples for its players. Insert
   // every chunk into `terrain` first, then fan out `onChunkLoaded` in a
   // second pass — the renderer reads neighbour chunks via `terrain` during
-  // mesh build (Hidden-AO pass, task 290), so we want sibling chunks
+  // mesh build (Hidden-AO pass), so we want sibling chunks
   // arriving in the same tick to be visible to each other.
   const inserted: ChunkCoord[] = [];
   for (const wireChunk of fullStateChunks) {
@@ -344,7 +344,7 @@ export function applyTickUpdate(
     if (!visible.has(id)) deps.buffer.drop(id);
   }
 
-  // Day-cycle scalar (task 310). The server ships
+  // Day-cycle scalar. The server ships
   // `time_of_day_seconds` on every TickUpdate so a freshly arrived
   // client doesn't have to wait for a state change. Forward it to the
   // renderer through the optional sink — tests / headless paths leave
@@ -357,7 +357,7 @@ export function applyTickUpdate(
     }
   }
 
-  // Per-tick effects feed (task 070): block edits one-shot, targeting
+  // Per-tick effects feed: block edits one-shot, targeting
   // states are an authoritative replace. Both are scoped to this client's
   // view window server-side, so the bridge fans them out as-is.
   const effects = deps.effectsSink;
@@ -676,7 +676,7 @@ function chunkFromWire(
     // Proto3 default for unset `uint32` is `0`. The server never ships a
     // live player at 0 HP (the kill pipeline respawns them at full before
     // the snapshot ships), so we treat the wire `0` as "missing field —
-    // older server pre-task 060" and fall back to MAX_PLAYER_HEALTH.
+    // older server" and fall back to MAX_PLAYER_HEALTH.
     const wireHealth = p.health ?? 0;
     players.set(id, {
       id,
@@ -710,7 +710,7 @@ function chunkFromWire(
       effects: activeEffectsFromWire(e.effects),
     });
   }
-  // Task 220: per-cell flag color for any placed flag blocks in this chunk.
+  // per-cell flag color for any placed flag blocks in this chunk.
   // Drop entries whose local coords overflow `LAYER_SIZE` defensively
   // (a malformed server frame should not corrupt local state).
   const flagBlocks = new Map<string, FlagBlockState>();

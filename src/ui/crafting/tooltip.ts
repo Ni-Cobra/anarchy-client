@@ -1,5 +1,5 @@
 /**
- * Tooltip body for one crafting recipe (task 470). Shown when the cursor
+ * Tooltip body for one crafting recipe. Shown when the cursor
  * hovers a recipe row in the crafting panel; communicates the recipe's
  * output, its required ingredient stacks, and (cheaply) the player's
  * current have-count for each ingredient so the player can see at a

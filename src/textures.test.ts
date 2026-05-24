@@ -61,7 +61,7 @@ describe("textureUrlForBlock", () => {
 });
 
 describe("isSolidTopBlock", () => {
-  it("returns false for the walk-through decoratives (task 510 signal)", () => {
+  it("returns false for the walk-through decoratives", () => {
     // The break-anim layer uses `!isSolidTopBlock(kind)` to decide whether
     // to scale down the shatter + puff for small / walkable top blocks.
     // Locking the set down so a future ADR can't silently drop a kind into
@@ -137,8 +137,8 @@ describe("textureUrlForItem", () => {
     }
   });
 
-  it("post-180/190/220 items all resolve to dedicated icons (task 300)", () => {
-    // Task 300 polish pass landed the five missing icons. Pin each item
+  it("post-180/190/220 items all resolve to dedicated icons", () => {
+    // polish pass landed the five missing icons. Pin each item
     // to a `/textures/items/<name>.png` URL so a future registry edit
     // can't quietly drop them back to the gray placeholder.
     const expected: Record<number, string> = {

@@ -40,7 +40,7 @@ describe("maxCraftCount", () => {
   });
 
   it("takes the min across multi-ingredient recipes", () => {
-    // Task 580: wood-pickaxe consumes 3 Log + 2 Stick per craft. 6 Log ⇒ 2;
+    // wood-pickaxe consumes 3 Log + 2 Stick per craft. 6 Log ⇒ 2;
     // 3 Stick ⇒ 1. min = 1.
     expect(
       maxCraftCount(
@@ -76,7 +76,7 @@ describe("maxCraftCount", () => {
     expect(maxCraftCount(sticks)).toBe(0);
   });
 
-  describe("AnyOf ingredient (task 175)", () => {
+  describe("AnyOf ingredient", () => {
     const testAnyOf: Recipe = {
       id: "test-any-of",
       ingredients: [

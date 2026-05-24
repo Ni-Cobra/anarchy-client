@@ -139,7 +139,7 @@ function dragGesture(src: HTMLElement, dst: HTMLElement): void {
   document.elementsFromPoint = original;
 }
 
-describe("chest cross-grid drag/drop + split (task 535/591)", () => {
+describe("chest cross-grid drag/drop + split ()", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";
@@ -165,7 +165,7 @@ describe("chest cross-grid drag/drop + split (task 535/591)", () => {
     expect(document.querySelector(".anarchy-chest-panel")).toBeNull();
   });
 
-  it("dragging from a hotbar cell onto a chest cell ships MoveSlot with dstChestKey (task 20)", () => {
+  it("dragging from a hotbar cell onto a chest cell ships MoveSlot with dstChestKey", () => {
     const player = emptySlots();
     player[2] = { item: ItemId.Gold, count: 10 };
     const { moves } = mountUis(player);
@@ -184,7 +184,7 @@ describe("chest cross-grid drag/drop + split (task 535/591)", () => {
     ]);
   });
 
-  it("dragging from a chest cell onto a hotbar cell ships MoveSlot with srcChestKey (task 20)", () => {
+  it("dragging from a chest cell onto a hotbar cell ships MoveSlot with srcChestKey", () => {
     const chest = emptySlots();
     chest[7] = { item: ItemId.Gold, count: 10 };
     const { moves } = mountUis(emptySlots(), chest);
@@ -203,7 +203,7 @@ describe("chest cross-grid drag/drop + split (task 535/591)", () => {
     ]);
   });
 
-  it("right-click split from a hotbar cell to a chest cell ships TransferItems with dstChestKey (task 20)", () => {
+  it("right-click split from a hotbar cell to a chest cell ships TransferItems with dstChestKey", () => {
     const player = emptySlots();
     player[1] = { item: ItemId.Gold, count: 10 };
     const { transfers } = mountUis(player);
@@ -226,7 +226,7 @@ describe("chest cross-grid drag/drop + split (task 535/591)", () => {
     ]);
   });
 
-  it("right-click split from a chest cell to a hotbar cell ships TransferItems with srcChestKey (task 20)", () => {
+  it("right-click split from a chest cell to a hotbar cell ships TransferItems with srcChestKey", () => {
     const chest = emptySlots();
     chest[0] = { item: ItemId.Gold, count: 10 };
     const { transfers } = mountUis(emptySlots(), chest);
@@ -585,7 +585,7 @@ describe("chest cross-grid drag/drop + split (task 535/591)", () => {
   });
 });
 
-describe("chest panel chrome (task 591)", () => {
+describe("chest panel chrome", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";
@@ -749,7 +749,7 @@ describe("chest panel chrome (task 591)", () => {
   });
 });
 
-describe("chest panel manager (task 591)", () => {
+describe("chest panel manager", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";
@@ -801,7 +801,7 @@ describe("chest panel manager (task 591)", () => {
   });
 });
 
-describe("chest multi-panel manager (task 592)", () => {
+describe("chest multi-panel manager", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     document.head.innerHTML = "";

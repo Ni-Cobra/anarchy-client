@@ -1,5 +1,5 @@
 /**
- * Connected-player roster mirror (task 170). Server ships a
+ * Connected-player roster mirror. Server ships a
  * `ConnectedPlayersList` once on welcome (via `ServerWelcome.initial_roster`)
  * and again on every join/leave; this store is a tiny reactive cache the
  * player-list HUD subscribes to.

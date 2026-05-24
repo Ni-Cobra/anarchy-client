@@ -1,10 +1,10 @@
 /**
- * Strike-resolution slash render layer for the attack pipeline (task 130).
+ * Strike-resolution slash render layer for the attack pipeline.
  *
  * The server emits `STRIKE_HIT` / `STRIKE_MISSED_OUT_OF_REACH` on every
  * resolved attack; the renderer routes each event into this layer plus
  * (for the local player's own strike) a punchy attacker-screen-shake
- * through the shared `ScreenShake` module from task 120.
+ * through the shared `ScreenShake` module.
  *
  * One quad per active slash: a flat textured plane laid in the ground
  * plane at the strike anchor, tinted by the attacker's palette colour,
