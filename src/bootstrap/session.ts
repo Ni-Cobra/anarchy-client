@@ -366,6 +366,20 @@ export interface AnarchyHandle {
    * lifecycle without DOM scraping.
    */
   getDeathOverlayState: () => DeathOverlayState;
+  /**
+   * Test handle: per-frame WebGL stats + terrain / scene mesh counts.
+   * Sampled after at least one rAF, so values reflect a real
+   * rendered frame. Exposed for the BACKLOG 350 terrain-meshing
+   * draw-call investigation so a Playwright spec can measure cost
+   * without inspecting Three.js internals.
+   */
+  getRenderStats: () => {
+    calls: number;
+    triangles: number;
+    frameCounter: number;
+    terrainMeshes: number;
+    sceneMeshes: number;
+  };
   stop: () => void;
   readonly stopped: Promise<void>;
   /**
@@ -1084,6 +1098,7 @@ export function constructSession(deps: SessionDeps): Session {
     getScreenShakeOffset: () => renderer.getScreenShakeOffset(),
     isHpBarFlashing: () => hpBar.isFlashing(),
     getDeathOverlayState: () => deathOverlay.state(),
+    getRenderStats: () => renderer.getRenderStats(),
     sendAttackIntent,
     sendFireBlowgunIntent,
     getProjectileCount: () => renderer.getProjectileCount(),

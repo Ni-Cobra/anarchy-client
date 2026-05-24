@@ -838,6 +838,43 @@ export class Renderer {
   }
 
   /**
+   * Per-frame WebGL render stats plus terrain / scene mesh counts.
+   * `calls` and `triangles` come from `WebGLRenderer.info.render` and
+   * reset per frame, so callers should poll after at least one
+   * `requestAnimationFrame` has fired on a steady-state scene. Used by
+   * the terrain-meshing investigation in BACKLOG 350 — exposed on the
+   * test handle so a Playwright spec can measure draw-call cost without
+   * reaching into Three.js internals.
+   */
+  getRenderStats(): {
+    calls: number;
+    triangles: number;
+    frameCounter: number;
+    terrainMeshes: number;
+    sceneMeshes: number;
+  } {
+    const info = this.graph.webgl.info.render;
+    let terrainMeshes = 0;
+    const terrainGroup = this.graph.terrainGroup;
+    if (terrainGroup) {
+      terrainGroup.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) terrainMeshes++;
+      });
+    }
+    let sceneMeshes = 0;
+    this.graph.scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) sceneMeshes++;
+    });
+    return {
+      calls: info.calls,
+      triangles: info.triangles,
+      frameCounter: info.frame,
+      terrainMeshes,
+      sceneMeshes,
+    };
+  }
+
+  /**
    * Resolve a strike target's tile-centre world position from game state.
    * Players are looked up in `World`; entities are scanned out of the
    * loaded terrain chunks. Returns `null` if the target is no longer
