@@ -2,6 +2,7 @@ import { runApp, type AnarchyHandle } from "./bootstrap/index.js";
 import { isValidColorIndex, validateUsername } from "./game/index.js";
 import type { LobbyIdentity } from "./net/index.js";
 import { mountHelp } from "./ui/index.js";
+import { resolveWsUrl } from "./ws_url.js";
 
 declare global {
   interface Window {
@@ -28,12 +29,14 @@ declare global {
 //
 // `?ws=<full-url>` overrides everything below with an explicit endpoint —
 // useful for ad-hoc testing against a tunnel or remote host without
-// restarting the dev server. Resolution order:
-//   1. `?ws=...`           — full URL override.
-//   2. `?server-port=...`  — synthesises ws://localhost:NNNN/ws (e2e).
+// restarting the dev server. Resolution order (see `ws_url.ts`):
+//   1. `?ws=...`           — full URL override.        (dev builds only)
+//   2. `?server-port=...`  — synthesises ws://localhost:NNNN/ws (e2e). (dev-only)
 //   3. `import.meta.env.VITE_WS_URL` — operator-configured at build/dev
 //      time via `anarchy-client/.env`.
 //   4. Fallback to `ws://localhost:8080/ws` (the bootstrap module default).
+// The URL-bar overrides are confined to dev builds to close a credential
+// phishing vector — see `ws_url.ts` for the security rationale.
 const params = new URLSearchParams(window.location.search);
 
 if (params.get("stub-terrain") === "1") {
@@ -56,31 +59,4 @@ function lobbyBypassFromQuery(query: URLSearchParams): LobbyIdentity | null {
   if (username === null) return null;
   if (!isValidColorIndex(colorIndex)) return null;
   return { username, colorIndex };
-}
-
-/**
- * Resolve the WebSocket URL the bootstrap should connect to. Returns
- * `undefined` when no override applies, so `runApp` falls back to its own
- * default (`ws://localhost:8080/ws`). Splitting query / env / default keeps
- * the e2e specs working (they pass `?server-port=`) while still letting
- * an operator point a built bundle at a Cloudflare tunnel via
- * `VITE_WS_URL=wss://name.trycloudflare.com/ws` in `.env`.
- */
-function resolveWsUrl(query: URLSearchParams): string | undefined {
-  const wsOverride = query.get("ws");
-  if (wsOverride !== null) {
-    return wsOverride;
-  }
-  const rawPort = query.get("server-port");
-  if (rawPort !== null && /^\d+$/.test(rawPort)) {
-    const port = Number.parseInt(rawPort, 10);
-    if (port >= 1 && port <= 65535) {
-      return `ws://localhost:${port}/ws`;
-    }
-  }
-  const fromEnv = import.meta.env.VITE_WS_URL;
-  if (typeof fromEnv === "string" && fromEnv.length > 0) {
-    return fromEnv;
-  }
-  return undefined;
 }
