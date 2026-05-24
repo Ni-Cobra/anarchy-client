@@ -6,9 +6,12 @@
  * in the server repo, so the proto payloads ingested in `net/wire.ts` map
  * 1:1 onto these types.
  *
- * The `Terrain` map is keyed by a `"cx,cy"` string under the hood (ES Maps
- * compare object keys by reference, so a tuple key would be useless); the
- * public API takes plain `(cx, cy)` numbers and never exposes the string.
+ * The `Terrain` map is keyed by a single packed `(cx, cy)` number
+ * (`chunkKeyNum`) under the hood — ES Maps compare object keys by reference,
+ * so a tuple is useless, and the previous `"cx,cy"` string form allocated a
+ * fresh string on every lookup. The public API takes plain `(cx, cy)` numbers
+ * and never exposes the packed key. `chunkKey` / `parseChunkKey` (string
+ * form) stay around for tests and debug printing.
  */
 
 import type { Entity, EntityId } from "./entity.js";
@@ -223,9 +226,14 @@ export interface FlagBlockState {
   readonly colorIndex: number;
 }
 
-/** Stable string key for a flag cell `(lx, ly)` inside a chunk. */
-export function flagCellKey(lx: number, ly: number): string {
-  return `${lx},${ly}`;
+/**
+ * Stable packed key for a flag cell `(lx, ly)` inside a chunk. `lx` / `ly`
+ * are each in `[0, LAYER_SIZE)` (u8 on the wire), so a single u16 packs the
+ * pair with zero allocations — `Map<number, FlagBlockState>` lookups skip
+ * the per-call string concatenation the old `"lx,ly"` form forced.
+ */
+export function flagCellKey(lx: number, ly: number): number {
+  return (ly << 8) | lx;
 }
 
 /**
@@ -241,11 +249,11 @@ export interface Chunk {
   readonly players: ReadonlyMap<PlayerId, Player>;
   readonly entities: ReadonlyMap<EntityId, Entity>;
   /**
-   * Sparse per-cell flag color, keyed by `flagCellKey(lx, ly)`. An entry
-   * exists iff the matching `top` cell holds `BlockType.Flag`. Empty
-   * when no flags are placed in this chunk.
+   * Sparse per-cell flag color, keyed by the packed `flagCellKey(lx, ly)`
+   * u16. An entry exists iff the matching `top` cell holds
+   * `BlockType.Flag`. Empty when no flags are placed in this chunk.
    */
-  readonly flagBlocks: ReadonlyMap<string, FlagBlockState>;
+  readonly flagBlocks: ReadonlyMap<number, FlagBlockState>;
 }
 
 export function emptyChunk(): Chunk {
@@ -279,6 +287,38 @@ export function parseChunkKey(key: string): ChunkCoord {
 }
 
 /**
+ * Packing range for `chunkKeyNum` / `unpackChunkKey`. Each axis is offset
+ * by `COORD_OFFSET` before encoding so the post-offset value fits in an
+ * unsigned 16-bit half-word; the supported coord range per axis is therefore
+ * `[-COORD_OFFSET, COORD_OFFSET)`. At `CHUNK_SIZE = 16` that's a world
+ * bounded by `[-524 288, 524 288)` tiles per axis — comfortably above any
+ * realistic session — and the per-tick chunk-window code throws if a coord
+ * ever drifts outside the supported half-words rather than silently
+ * collapsing distinct chunks onto the same packed key.
+ */
+const COORD_OFFSET = 32_768;
+const COORD_MASK = 0xffff;
+
+/**
+ * Pack `(cx, cy)` into a single unsigned 32-bit integer suitable for use as
+ * a `Map<number, …>` / `Set<number>` key. Each axis is shifted by
+ * `COORD_OFFSET` so the post-offset value is non-negative and fits in
+ * `0..0xffff`. The result is normalised through `>>> 0` so the bit pattern
+ * is always interpreted as unsigned — two packings that compute the same
+ * coord pair therefore SameValueZero-equal as Map keys regardless of the
+ * sign bit landing in the high half.
+ */
+export function chunkKeyNum(cx: number, cy: number): number {
+  return (((cx + COORD_OFFSET) << 16) | ((cy + COORD_OFFSET) & COORD_MASK)) >>> 0;
+}
+
+/** Inverse of {@link chunkKeyNum}. Pure arithmetic; cheap enough to call
+ *  per Map iteration without showing up in the GC profile. */
+export function unpackChunkKey(key: number): ChunkCoord {
+  return [(key >>> 16) - COORD_OFFSET, (key & COORD_MASK) - COORD_OFFSET] as const;
+}
+
+/**
  * Map a continuous world position to the chunk-coord that contains it. Uses
  * `Math.floor`, not truncate-toward-zero, so negative positions land in the
  * chunk to the south-west of origin (e.g. `(-0.5, -0.5)` → `(-1, -1)`).
@@ -296,17 +336,17 @@ export function chunkCoordForWorldPos(x: number, y: number): ChunkCoord {
  * implicitly unloads anything missing from both.
  */
 export class Terrain {
-  private readonly chunks = new Map<string, Chunk>();
+  private readonly chunks = new Map<number, Chunk>();
 
   insert(cx: number, cy: number, chunk: Chunk): Chunk | undefined {
-    const k = chunkKey(cx, cy);
+    const k = chunkKeyNum(cx, cy);
     const prev = this.chunks.get(k);
     this.chunks.set(k, chunk);
     return prev;
   }
 
   remove(cx: number, cy: number): Chunk | undefined {
-    const k = chunkKey(cx, cy);
+    const k = chunkKeyNum(cx, cy);
     const prev = this.chunks.get(k);
     if (prev === undefined) return undefined;
     this.chunks.delete(k);
@@ -314,11 +354,11 @@ export class Terrain {
   }
 
   get(cx: number, cy: number): Chunk | undefined {
-    return this.chunks.get(chunkKey(cx, cy));
+    return this.chunks.get(chunkKeyNum(cx, cy));
   }
 
   contains(cx: number, cy: number): boolean {
-    return this.chunks.has(chunkKey(cx, cy));
+    return this.chunks.has(chunkKeyNum(cx, cy));
   }
 
   size(): number {
@@ -332,7 +372,7 @@ export class Terrain {
   /** Iterate over every loaded chunk and its coord. */
   *iter(): IterableIterator<readonly [ChunkCoord, Chunk]> {
     for (const [k, chunk] of this.chunks) {
-      yield [parseChunkKey(k), chunk] as const;
+      yield [unpackChunkKey(k), chunk] as const;
     }
   }
 }

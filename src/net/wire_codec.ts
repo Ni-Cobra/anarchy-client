@@ -12,6 +12,7 @@
 import { anarchy } from "../gen/anarchy.js";
 import {
   BlockType,
+  chunkKeyNum,
   DEFAULT_FACING,
   Direction8,
   ItemId,
@@ -32,9 +33,14 @@ export function toNumber(
   return v.toNumber();
 }
 
-/** Stable string key for `(cx, cy)` — used by chunk-window set membership. */
-export function coordKey(cx: number, cy: number): string {
-  return `${cx},${cy}`;
+/**
+ * Stable packed key for `(cx, cy)` — used by the per-tick chunk-window
+ * `Set<number>` membership check. Mirrors `chunkKeyNum` exactly so the same
+ * coord pair packs to the same key whether it comes off the wire or is
+ * read out of `Terrain`'s internal map.
+ */
+export function coordKey(cx: number, cy: number): number {
+  return chunkKeyNum(cx, cy);
 }
 
 export function blockTypeFromWire(

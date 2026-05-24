@@ -20,10 +20,12 @@ export {
   LAYER_AREA,
   LAYER_SIZE,
   Terrain,
+  chunkKeyNum,
   emptyChunk,
   flagCellKey,
   getBlock,
   setBlock,
+  unpackChunkKey,
 } from "./terrain.js";
 export { canPlaceTopBlock } from "./place_validation.js";
 export {

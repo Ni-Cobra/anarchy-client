@@ -9,13 +9,16 @@ import {
   Terrain,
   chunkCoordForWorldPos,
   chunkKey,
+  chunkKeyNum,
   emptyChunk,
   emptyLayer,
   filledLayer,
+  flagCellKey,
   getBlock,
   layerIdx,
   parseChunkKey,
   setBlock,
+  unpackChunkKey,
 } from "./terrain.js";
 
 describe("constants", () => {
@@ -152,6 +155,60 @@ describe("chunkKey / parseChunkKey", () => {
     expect(() => parseChunkKey("1,")).toThrow(/malformed chunk key/);
     expect(() => parseChunkKey(",1")).toThrow(/malformed chunk key/);
     expect(() => parseChunkKey("1,2,3")).toThrow(/malformed chunk key/);
+  });
+});
+
+describe("chunkKeyNum / unpackChunkKey", () => {
+  it("round-trips coords through the packed-number form", () => {
+    for (const [cx, cy] of [
+      [0, 0],
+      [1, 2],
+      [-3, 4],
+      [-7, -7],
+      [-1, 0],
+      [0, -1],
+      [32767, -32768],
+      [-32768, 32767],
+      [12345, -6789],
+    ] as const) {
+      const k = chunkKeyNum(cx, cy);
+      expect(typeof k).toBe("number");
+      // >>> 0 normalisation keeps the bit pattern in the unsigned range so
+      // two packings of the same coord pair Map-key-equal regardless of
+      // which axis lands in the high half.
+      expect(k).toBeGreaterThanOrEqual(0);
+      expect(k).toBeLessThanOrEqual(0xffffffff);
+      expect(unpackChunkKey(k)).toEqual([cx, cy]);
+    }
+  });
+
+  it("distinct coords produce distinct keys (no high/low half collisions)", () => {
+    const keys = new Set<number>();
+    for (let cx = -3; cx <= 3; cx++) {
+      for (let cy = -3; cy <= 3; cy++) {
+        keys.add(chunkKeyNum(cx, cy));
+      }
+    }
+    expect(keys.size).toBe(7 * 7);
+    // Symmetric pair must not collapse onto itself.
+    expect(chunkKeyNum(3, -4)).not.toBe(chunkKeyNum(-4, 3));
+  });
+});
+
+describe("flagCellKey", () => {
+  it("packs (lx, ly) into a unique u16-fitting key over the 16×16 grid", () => {
+    const keys = new Set<number>();
+    for (let ly = 0; ly < LAYER_SIZE; ly++) {
+      for (let lx = 0; lx < LAYER_SIZE; lx++) {
+        const k = flagCellKey(lx, ly);
+        expect(typeof k).toBe("number");
+        expect(k).toBeGreaterThanOrEqual(0);
+        expect(k).toBeLessThanOrEqual(0xffff);
+        expect(keys.has(k)).toBe(false);
+        keys.add(k);
+      }
+    }
+    expect(keys.size).toBe(LAYER_SIZE * LAYER_SIZE);
   });
 });
 

@@ -193,7 +193,7 @@ test("flag craft via UI stamps the crafter's color; placement writes it to the c
         const idx = tile.ly * 16 + tile.lx;
         const kind = chunk.top.blocks[idx]?.kind;
         if (kind !== tile.expectedKind) return false;
-        const state = chunk.flagBlocks.get(`${tile.lx},${tile.ly}`);
+        const state = chunk.flagBlocks.get((tile.ly << 8) | tile.lx);
         return state !== undefined && state.colorIndex === tile.expectedColor;
       },
       {
@@ -222,7 +222,7 @@ test("flag craft via UI stamps the crafter's color; placement writes it to the c
         const idx = tile.ly * 16 + tile.lx;
         const kind = chunk.top.blocks[idx]?.kind;
         if (kind !== tile.expectedKind) return false;
-        const state = chunk.flagBlocks.get(`${tile.lx},${tile.ly}`);
+        const state = chunk.flagBlocks.get((tile.ly << 8) | tile.lx);
         return state !== undefined && state.colorIndex === tile.expectedColor;
       },
       {

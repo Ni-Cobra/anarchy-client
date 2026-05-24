@@ -15,6 +15,7 @@ import {
   Terrain,
   World,
   emptyChunk,
+  flagCellKey,
   setBlock,
   type Chunk,
   type ChunkCoord,
@@ -403,8 +404,8 @@ describe("applyServerMessage — TickUpdate", () => {
 
     const chunk = terrain.get(0, 0);
     expect(chunk).toBeDefined();
-    expect(chunk!.flagBlocks.get("3,5")).toEqual({ colorIndex: 4 });
-    expect(chunk!.flagBlocks.get("7,2")).toEqual({ colorIndex: 9 });
+    expect(chunk!.flagBlocks.get(flagCellKey(3, 5))).toEqual({ colorIndex: 4 });
+    expect(chunk!.flagBlocks.get(flagCellKey(7, 2))).toEqual({ colorIndex: 9 });
   });
 
   it("applies full-state chunks to terrain and notifies the sink", () => {

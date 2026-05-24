@@ -285,7 +285,7 @@ export function applyTickUpdate(
 
   // Compute the new known window (full + unmodified). Anything in the
   // current terrain that's not in the window will be implicitly unloaded.
-  const newWindow = new Set<string>();
+  const newWindow = new Set<number>();
   for (const wireChunk of fullStateChunks) {
     const c = wireChunk.coord;
     if (!c) continue;
@@ -684,7 +684,7 @@ function chunkFromWire(
   // per-cell flag color for any placed flag blocks in this chunk.
   // Drop entries whose local coords overflow `LAYER_SIZE` defensively
   // (a malformed server frame should not corrupt local state).
-  const flagBlocks = new Map<string, FlagBlockState>();
+  const flagBlocks = new Map<number, FlagBlockState>();
   for (const f of wire.flagBlocks ?? []) {
     const lx = f.localX ?? 0;
     const ly = f.localY ?? 0;
