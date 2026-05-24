@@ -17,6 +17,7 @@
  */
 
 import type { PlayerId, Roster, RosterEntry, RosterStore } from "../game/index.js";
+import { mountHudScaffold } from "./hud_scaffold.js";
 
 const STYLE_ID = "anarchy-player-list-hud-style";
 const ROOT_ID = "anarchy-player-list-hud";
@@ -106,14 +107,6 @@ export interface PlayerListHudOptions {
   getLocalPlayerId: () => PlayerId | null;
 }
 
-function injectStyle(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const el = document.createElement("style");
-  el.id = STYLE_ID;
-  el.textContent = STYLE;
-  document.head.appendChild(el);
-}
-
 export function formatRosterLabel(entries: number, maxPlayers: number): string {
   return `${entries} / ${maxPlayers}`;
 }
@@ -134,10 +127,11 @@ export function sortedRosterEntries(roster: Roster): RosterEntry[] {
 }
 
 export function mountPlayerListHud(opts: PlayerListHudOptions): PlayerListHudHandle {
-  injectStyle();
-
-  const root = document.createElement("div");
-  root.id = ROOT_ID;
+  const { root } = mountHudScaffold({
+    styleId: STYLE_ID,
+    styleContent: STYLE,
+    rootId: ROOT_ID,
+  });
   root.setAttribute("aria-label", "Connected players");
 
   const badge = document.createElement("div");
@@ -157,8 +151,6 @@ export function mountPlayerListHud(opts: PlayerListHudOptions): PlayerListHudHan
   const list = document.createElement("ul");
   dropdown.appendChild(list);
   root.appendChild(dropdown);
-
-  document.body.appendChild(root);
 
   const render = (): void => {
     const roster = opts.store.current();

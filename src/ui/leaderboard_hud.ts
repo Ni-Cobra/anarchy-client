@@ -23,6 +23,7 @@ import {
   paletteColorCss,
   sortedByXpDesc,
 } from "../game/index.js";
+import { mountHudScaffold } from "./hud_scaffold.js";
 
 const STYLE_ID = "anarchy-leaderboard-hud-style";
 const ROOT_ID = "anarchy-leaderboard-hud";
@@ -131,21 +132,14 @@ export interface LeaderboardHudOptions {
   store: LeaderboardStore;
 }
 
-function injectStyle(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const el = document.createElement("style");
-  el.id = STYLE_ID;
-  el.textContent = STYLE;
-  document.head.appendChild(el);
-}
-
 export function mountLeaderboardHud(
   opts: LeaderboardHudOptions,
 ): LeaderboardHudHandle {
-  injectStyle();
-
-  const root = document.createElement("div");
-  root.id = ROOT_ID;
+  const { root } = mountHudScaffold({
+    styleId: STYLE_ID,
+    styleContent: STYLE,
+    rootId: ROOT_ID,
+  });
   root.setAttribute("aria-label", "Faction leaderboard");
 
   const badge = document.createElement("div");
@@ -168,8 +162,6 @@ export function mountLeaderboardHud(
   const dropdown = document.createElement("div");
   dropdown.id = DROPDOWN_ID;
   root.appendChild(dropdown);
-
-  document.body.appendChild(root);
 
   const render = (): void => {
     const map = opts.store.current();

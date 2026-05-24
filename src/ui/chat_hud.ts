@@ -36,6 +36,7 @@
  */
 
 import { paletteColorHex } from "../game/index.js";
+import { mountHudScaffold } from "./hud_scaffold.js";
 
 const STYLE_ID = "anarchy-chat-hud-style";
 const ROOT_ID = "anarchy-chat-root";
@@ -196,14 +197,6 @@ export function formatTimestamp(d: Date): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function injectStyle(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const el = document.createElement("style");
-  el.id = STYLE_ID;
-  el.textContent = STYLE;
-  document.head.appendChild(el);
-}
-
 /**
  * Identity hash for the timestamp-stability map. Two lines that share
  * `kind|sender|body` collide deliberately — chat is display-only, the
@@ -218,12 +211,13 @@ function lineKey(line: ChatLine): string {
 export function mountChatHud(deps?: {
   now?: () => Date;
 }): ChatHudHandle {
-  injectStyle();
-
   const now = deps?.now ?? (() => new Date());
 
-  const root = document.createElement("div");
-  root.id = ROOT_ID;
+  const { root } = mountHudScaffold({
+    styleId: STYLE_ID,
+    styleContent: STYLE,
+    rootId: ROOT_ID,
+  });
   root.setAttribute("aria-label", "Chat");
 
   const list = document.createElement("ul");
@@ -233,8 +227,6 @@ export function mountChatHud(deps?: {
   const inputHost = document.createElement("div");
   inputHost.id = INPUT_HOST_ID;
   root.appendChild(inputHost);
-
-  document.body.appendChild(root);
 
   // Per-line first-seen timestamp, keyed by `lineKey`. A line that
   // re-appears in a subsequent snapshot keeps its original timestamp;
