@@ -1,7 +1,5 @@
 import { test, expect } from "./test-shared";
-import protobuf from "protobufjs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { loadAnarchyProto } from "./proto-loader.js";
 
 // Per ADR 0003 the gameplay wire shape is per-tick `TickUpdate`s; there is
 // no `WorldSnapshot` in `Welcome` and no explicit `PlayerDespawned`. The
@@ -9,12 +7,7 @@ import { dirname, resolve } from "node:path";
 // and a player whose chunk falls out of view (or whose chunk no longer
 // references them) disappears via the same chunk-diff mechanism.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = resolve(__dirname, "../proto/anarchy/v1/anarchy.proto");
-
-const root = await protobuf.load(PROTO_PATH);
-const ServerMessage = root.lookupType("anarchy.v1.ServerMessage");
-const ClientMessage = root.lookupType("anarchy.v1.ClientMessage");
+const { ClientMessage, ServerMessage } = await loadAnarchyProto();
 
 const WS_URL = "ws://localhost:8080/ws";
 

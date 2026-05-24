@@ -1,13 +1,11 @@
 import { test, expect } from "./test-shared";
-import protobuf from "protobufjs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import {
   adminEquipTool,
   adminGiveItem,
   adminSetTimeOfDay,
   AdminItemId,
 } from "./admin";
+import { loadAnarchyProto } from "./proto-loader.js";
 
 // Task 330 — wire-level e2e for the day-cycle-driven view radius. The
 // per-client view window shrinks at night (radius 1, a 3×3 = 9-chunk
@@ -19,12 +17,7 @@ import {
 //      the outermost ring from the per-tick payload (full + unmodified)
 //      — chunks outside the night window vanish from the wire.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = resolve(__dirname, "../proto/anarchy/v1/anarchy.proto");
-
-const root = await protobuf.load(PROTO_PATH);
-const ClientMessage = root.lookupType("anarchy.v1.ClientMessage");
-const ServerMessage = root.lookupType("anarchy.v1.ServerMessage");
+const { ClientMessage, ServerMessage } = await loadAnarchyProto();
 
 const WS_URL = "ws://localhost:8080/ws";
 const DAY_LENGTH_SECONDS = 600;

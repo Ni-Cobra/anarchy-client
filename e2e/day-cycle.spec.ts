@@ -1,7 +1,5 @@
 import { test, expect } from "./test-shared";
-import protobuf from "protobufjs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { loadAnarchyProto } from "./proto-loader.js";
 
 // Task 310 — server-authoritative time-of-day. Every `TickUpdate` carries
 // a `time_of_day_seconds` scalar that the client folds into a day cycle.
@@ -11,12 +9,7 @@ import { dirname, resolve } from "node:path";
 //      `TICK_DT_SECONDS = 0.05` per tick, so the gap between two ticks
 //      separated by ~250 ms should be ≥ 0.2 s in steady state).
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = resolve(__dirname, "../proto/anarchy/v1/anarchy.proto");
-
-const root = await protobuf.load(PROTO_PATH);
-const ClientMessage = root.lookupType("anarchy.v1.ClientMessage");
-const ServerMessage = root.lookupType("anarchy.v1.ServerMessage");
+const { ClientMessage, ServerMessage } = await loadAnarchyProto();
 
 const WS_URL = "ws://localhost:8080/ws";
 

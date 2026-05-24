@@ -1,8 +1,6 @@
 import { test, expect } from "./test-shared";
-import protobuf from "protobufjs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { adminTeleport } from "./admin";
+import { loadAnarchyProto } from "./proto-loader.js";
 
 // Advanced wire-level e2e for the chunk-centric networking model (ADR 0003).
 // The basic per-tick shape is pinned in `tick-loop.spec.ts` / `terrain.spec.ts`
@@ -23,12 +21,7 @@ import { adminTeleport } from "./admin";
 //      comfortably under the inbound framing budget — no client risks
 //      tripping the same `MAX_INBOUND_MESSAGE_SIZE` bound on the way back.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = resolve(__dirname, "../proto/anarchy/v1/anarchy.proto");
-
-const root = await protobuf.load(PROTO_PATH);
-const ClientMessage = root.lookupType("anarchy.v1.ClientMessage");
-const ServerMessage = root.lookupType("anarchy.v1.ServerMessage");
+const { ClientMessage, ServerMessage } = await loadAnarchyProto();
 
 const WS_URL = "ws://localhost:8080/ws";
 const HTTP_BASE = "http://localhost:8080";

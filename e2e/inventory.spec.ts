@@ -1,19 +1,12 @@
 import { test, expect } from "./test-shared";
-import protobuf from "protobufjs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { loadAnarchyProto } from "./proto-loader.js";
 
 // BACKLOG task 020: per-player inventory wire surface. Pins (a) the
 // post-Welcome `InventoryUpdate` carrying the 10-Gold starter, (b) the
 // per-player isolation guarantee — a second connected client never sees
 // the first client's inventory frame on the steady-state tick stream.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = resolve(__dirname, "../proto/anarchy/v1/anarchy.proto");
-
-const root = await protobuf.load(PROTO_PATH);
-const ClientMessage = root.lookupType("anarchy.v1.ClientMessage");
-const ServerMessage = root.lookupType("anarchy.v1.ServerMessage");
+const { ClientMessage, ServerMessage } = await loadAnarchyProto();
 
 const WS_URL = "ws://localhost:8080/ws";
 
