@@ -15,7 +15,7 @@ import {
   type Slot,
 } from "../game/index.js";
 
-import { itemIdFromWire } from "./wire_inventory.js";
+import { slotFromWire } from "./wire_codec.js";
 
 export interface ChestSink {
   readonly chestState: ChestState;
@@ -49,12 +49,6 @@ export function applyChestUpdate(
     // Drop the frame rather than corrupt local state.
     return;
   }
-  const slots: Slot[] = wireSlots.map((s): Slot => {
-    const count = s.count ?? 0;
-    if (count === 0) return null;
-    const item = itemIdFromWire(s.item);
-    if (item === null) return null;
-    return { item, count };
-  });
+  const slots: Slot[] = wireSlots.map(slotFromWire);
   sink.chestState.replaceFromWire({ cx, cy, lx, ly }, slots);
 }

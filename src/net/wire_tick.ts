@@ -56,9 +56,10 @@ import {
   blockTypeFromWire,
   coordKey,
   facingFromWire,
+  itemIdFromWire,
+  tileFromWire,
   toNumber,
 } from "./wire_codec.js";
-import { itemIdFromWire } from "./wire_inventory.js";
 
 /**
  * Notifications for the renderer (or any other observer) when chunks
@@ -616,17 +617,14 @@ function attackOutcomeFromWire(
 function blockEditFromWire(
   wire: anarchy.v1.IBlockEdit,
 ): WireBlockEditEvent | null {
-  const coord = wire.chunkCoord;
-  if (!coord) return null;
+  const tile = tileFromWire(wire);
+  if (!tile) return null;
   const kind = blockEditKindFromWire(wire.kind);
   if (kind === null) return null;
   return {
     playerId: toNumber(wire.playerId),
     kind,
-    cx: coord.cx ?? 0,
-    cy: coord.cy ?? 0,
-    lx: wire.localX ?? 0,
-    ly: wire.localY ?? 0,
+    ...tile,
     blockType: blockTypeFromWire(wire.blockType),
   };
 }
@@ -647,14 +645,11 @@ function blockEditKindFromWire(
 function targetingStateFromWire(
   wire: anarchy.v1.ITargetingState,
 ): WireTargetingStateEvent | null {
-  const coord = wire.chunkCoord;
-  if (!coord) return null;
+  const tile = tileFromWire(wire);
+  if (!tile) return null;
   return {
     playerId: toNumber(wire.playerId),
-    cx: coord.cx ?? 0,
-    cy: coord.cy ?? 0,
-    lx: wire.localX ?? 0,
-    ly: wire.localY ?? 0,
+    ...tile,
     durabilityPct: wire.durabilityPct ?? 0,
   };
 }
@@ -740,12 +735,10 @@ function openChestsFromWire(
   if (!wire || wire.length === 0) return [];
   const out: OpenChestRef[] = [];
   for (const loc of wire) {
-    const coord = loc.chunkCoord;
-    if (!coord) continue;
-    const lx = loc.localX ?? 0;
-    const ly = loc.localY ?? 0;
-    if (lx >= LAYER_SIZE || ly >= LAYER_SIZE) continue;
-    out.push({ cx: coord.cx ?? 0, cy: coord.cy ?? 0, lx, ly });
+    const tile = tileFromWire(loc);
+    if (!tile) continue;
+    if (tile.lx >= LAYER_SIZE || tile.ly >= LAYER_SIZE) continue;
+    out.push(tile);
   }
   return out;
 }
