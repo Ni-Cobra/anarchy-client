@@ -11,22 +11,11 @@ export type {
   Connection,
   LobbyIdentity,
   LobbyRejectReason,
-  ConnectHooks,
   RegisterResultStatus,
 } from "./connection.js";
 export { applyServerMessage } from "./wire.js";
 export type {
-  DaylightSink,
-  EffectsSink,
-  TerrainSink,
   WireAttackEvent,
-  WireAttackOutcome,
   WireBlockEditEvent,
-  WireBlockEditKind,
-  WireFlagInteractEvent,
-  WireFlagInteractMode,
-  WireProjectileImpactEvent,
-  WireTargetKind,
   WireTargetingStateEvent,
 } from "./wire.js";
-export type { PingSink } from "./wire_ping.js";

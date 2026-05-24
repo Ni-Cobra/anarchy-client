@@ -12,10 +12,7 @@ export { Direction8, DEFAULT_FACING, EffectKind, MAX_PLAYER_HEALTH } from "./pla
 export { maxHealthForKind } from "./entity.js";
 export { World } from "./world.js";
 export { SnapshotBuffer } from "./snapshot_buffer.js";
-export {
-  LOCAL_CHARGE_FAILSAFE_MS,
-  LocalAttackChargeTracker,
-} from "./local_attack_charge_tracker.js";
+export { LocalAttackChargeTracker } from "./local_attack_charge_tracker.js";
 export type { Block, Chunk, ChunkCoord, FlagBlockState, Layer } from "./terrain.js";
 export {
   BlockType,
@@ -35,9 +32,6 @@ export {
   Inventory,
   ItemId,
   MAIN_SLOTS,
-  isAxe,
-  isPickaxe,
-  isUtility,
   toolKindOf,
 } from "./inventory.js";
 export type {
@@ -49,7 +43,6 @@ export type {
   ToolKind,
 } from "./inventory.js";
 export {
-  PROJECTILE_LERP_MS,
   ProjectileStore,
   projectileVelocity,
   sampleProjectilePosition,
@@ -59,25 +52,19 @@ export type {
   ProjectileSnapshot,
   ProjectileState,
   ProjectileTarget,
-  ProjectileTargetKind,
 } from "./projectiles.js";
 export { ChestState } from "./chest_state.js";
 export type { ChestLocation } from "./chest_state.js";
 export { RosterStore } from "./roster.js";
-export type { Roster, RosterEntry, RosterListener } from "./roster.js";
+export type { Roster, RosterEntry } from "./roster.js";
 export {
   LeaderboardStore,
   currentLeader,
   sortedByXpDesc,
 } from "./leaderboard.js";
-export type {
-  FactionEntry,
-  FactionId,
-  LeaderboardListener,
-} from "./leaderboard.js";
+export type { FactionEntry } from "./leaderboard.js";
 export {
   MAX_FACTION_NAME_LEN,
-  MIN_FACTION_NAME_LEN,
   validateFactionName,
 } from "./faction_name.js";
 export type { FactionNameError } from "./faction_name.js";
@@ -85,11 +72,9 @@ export { chestKeyOf, chestLocationFromKey } from "./chest_key.js";
 export type { ChestKey } from "./chest_key.js";
 export {
   MAX_USERNAME_LEN,
-  MIN_USERNAME_LEN,
   PALETTE,
   isValidColorIndex,
   paletteColorCss,
   paletteColorHex,
   validateUsername,
 } from "./palette.js";
-export type { PaletteColor } from "./palette.js";

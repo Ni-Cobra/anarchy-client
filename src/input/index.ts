@@ -4,4 +4,4 @@
  * the caller supplies an `InputSink` that knows how to dispatch.
  */
 export { InputController } from "./controller.js";
-export { isMovementKey, keyToDirection } from "./keymap.js";
+export { isMovementKey } from "./keymap.js";
