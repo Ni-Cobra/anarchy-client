@@ -6,7 +6,7 @@
  * (vitest) and `accounts.spec.ts` (Playwright) target them.
  */
 
-import { MAX_USERNAME_LEN } from "./game/index.js";
+import { MAX_PASSWORD_LEN, MAX_USERNAME_LEN } from "./game/index.js";
 
 export interface LobbyDomRefs {
   /** The outer fixed-positioned overlay; remove from the DOM on resolve. */
@@ -46,6 +46,7 @@ export function mountLobbyDom(): LobbyDomRefs {
       <div id="anarchy-password-section" class="field-spacer" style="display:none;">
         <label for="anarchy-password" style="margin-top:18px;">Password</label>
         <input id="anarchy-password" type="password" autocomplete="current-password"
+               maxlength="${MAX_PASSWORD_LEN}"
                placeholder="Password (or leave blank for unregistered)" />
       </div>
       <button class="submit" id="anarchy-submit" type="button" disabled>Enter world</button>

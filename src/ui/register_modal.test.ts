@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { MAX_PASSWORD_LEN } from "../game/index.js";
 import { MIN_PASSWORD_LEN, showRegisterModal } from "./register_modal.js";
 
 describe("register modal (ADR 0007)", () => {
@@ -101,6 +102,19 @@ describe("register modal (ADR 0007)", () => {
     submit.click();
     expect(received).toBe("good_password");
     expect(document.getElementById("anarchy-register-modal-root")).toBeNull();
+  });
+
+  it("both password fields are capped at MAX_PASSWORD_LEN so honest input can't trip the server's wire reject", () => {
+    // SECURITY-REVIEW M-3: the server rejects RegisterAccount frames
+    // whose `password` length exceeds `MAX_PASSWORD_LEN` before any
+    // hashing fires. `maxlength` keeps the modal under the cap so a
+    // legitimate user never hits that error.
+    showRegisterModal({ username: "X", onSubmit: () => {} });
+    const r = root();
+    const pw = r.querySelector<HTMLInputElement>("#anarchy-register-pw")!;
+    const pw2 = r.querySelector<HTMLInputElement>("#anarchy-register-pw2")!;
+    expect(pw.maxLength).toBe(MAX_PASSWORD_LEN);
+    expect(pw2.maxLength).toBe(MAX_PASSWORD_LEN);
   });
 
   it("right-click inside the modal has its default prevented", () => {

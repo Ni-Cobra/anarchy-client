@@ -74,6 +74,7 @@ export type { FactionNameError } from "./faction_name.js";
 export { chestKeyOf, chestLocationFromKey } from "./chest_key.js";
 export type { ChestKey } from "./chest_key.js";
 export {
+  MAX_PASSWORD_LEN,
   MAX_USERNAME_LEN,
   PALETTE,
   isValidColorIndex,

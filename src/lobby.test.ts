@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { MAX_PASSWORD_LEN } from "./game/index.js";
 import { lobbyRejectMessage, showLobby } from "./lobby.js";
 
 describe("lobby form (ADR 0007)", () => {
@@ -124,6 +125,17 @@ describe("lobby form (ADR 0007)", () => {
     expect(ev.defaultPrevented).toBe(true);
     expect(onWindow).not.toHaveBeenCalled();
     window.removeEventListener("keydown", onWindow);
+  });
+
+  it("password input is capped at MAX_PASSWORD_LEN so honest clients can't trip the server's wire reject", () => {
+    // SECURITY-REVIEW M-3: the server rejects passwords longer than
+    // `MAX_PASSWORD_LEN` at the wire seam (no oracle, no hash). The
+    // lobby's `maxlength` keeps honest input under the cap so a
+    // legitimate user never hits that reject.
+    showLobby({ mode: "returning" });
+    const root = panel();
+    const password = root.querySelector<HTMLInputElement>("#anarchy-password")!;
+    expect(password.maxLength).toBe(MAX_PASSWORD_LEN);
   });
 
   it("switching from Returning to New clears any typed password", () => {

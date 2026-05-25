@@ -16,6 +16,7 @@
  * destroy / place under the modal. See `input_gate.ts` for the rationale.
  */
 
+import { MAX_PASSWORD_LEN } from "../game/index.js";
 import { attachInputGate } from "./input_gate.js";
 import { attachModalContextMenuGuard } from "./modal_contextmenu.js";
 
@@ -173,9 +174,11 @@ export function showRegisterModal(
       </div>
       <label for="anarchy-register-pw">Password</label>
       <input id="anarchy-register-pw" type="password" autocomplete="new-password"
+             maxlength="${MAX_PASSWORD_LEN}"
              placeholder="At least ${MIN_PASSWORD_LEN} characters" />
       <label for="anarchy-register-pw2">Confirm password</label>
-      <input id="anarchy-register-pw2" type="password" autocomplete="new-password" />
+      <input id="anarchy-register-pw2" type="password" autocomplete="new-password"
+             maxlength="${MAX_PASSWORD_LEN}" />
       <div class="error" id="anarchy-register-error"></div>
       <div class="row">
         <button class="cancel" id="anarchy-register-cancel" type="button">Cancel</button>

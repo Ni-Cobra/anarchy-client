@@ -37,6 +37,16 @@ export const PALETTE: readonly PaletteColor[] = [
 export const MIN_USERNAME_LEN = 1;
 export const MAX_USERNAME_LEN = 16;
 
+/**
+ * Hard cap on the `password` field shipped in a `ClientHello` or
+ * `RegisterAccount`. Mirrors the server's `MAX_PASSWORD_LEN` constant
+ * (SECURITY-REVIEW M-3): every byte costs CPU + memory in the argon2id
+ * hash matrix on the server, and the server rejects overlong passwords at
+ * the wire seam. Setting `maxlength` on the lobby + register password
+ * inputs keeps honest clients comfortably under the wire cap.
+ */
+export const MAX_PASSWORD_LEN = 128;
+
 const USERNAME_PATTERN = /^[A-Za-z0-9_\- ]+$/;
 
 /**
