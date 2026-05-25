@@ -55,6 +55,13 @@ function spawnServer(): RunningServer {
       WORLD_NAME,
       "--port",
       String(TEST_PORT),
+      // The three `/debug/*` handlers this spec drives
+      // (`seed-top-block`, `seed-chest`, `save`) 404 by default outside
+      // `--testing`; this spec needs them reachable against a
+      // *non-testing* server (because it needs the real disk save/load
+      // round-trip), so it opts back in via `--allow-debug-mutations`.
+      // Production never passes this flag; the handlers stay unreachable.
+      "--allow-debug-mutations",
     ],
     {
       cwd: SERVER_DIR,
