@@ -354,6 +354,14 @@ export interface AnarchyHandle {
    */
   getScreenShakeOffset: () => ScreenShakeOffset;
   /**
+   * Test handle: wall-clock ms of the most recent screen-shake trigger,
+   * or `null` if none has fired this session. The value persists past
+   * the shake's decay window, so a polling spec (task 550) can confirm
+   * the shake fired without having to catch its brief amplitude envelope
+   * via `getScreenShakeOffset`.
+   */
+  getLastScreenShakeStartedMs: () => number | null;
+  /**
    * Test handle: true while the HP bar's damage-flash overlay
    * is active. Mirrors the DOM class on the bar root so the assertion is
    * a one-call read.
@@ -1100,6 +1108,7 @@ export function constructSession(deps: SessionDeps): Session {
     setCursorNdc: (ndc) => renderer.setCursorNdc(ndc),
     worldToClient: (worldX, worldY) => renderer.worldToClient(worldX, worldY),
     getScreenShakeOffset: () => renderer.getScreenShakeOffset(),
+    getLastScreenShakeStartedMs: () => renderer.getLastScreenShakeStartedMs(),
     isHpBarFlashing: () => hpBar.isFlashing(),
     getDeathOverlayState: () => deathOverlay.state(),
     getRenderStats: () => renderer.getRenderStats(),

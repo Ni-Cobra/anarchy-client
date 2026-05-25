@@ -60,6 +60,14 @@ interface ActiveShake {
 
 export class ScreenShake {
   private active: ActiveShake | null = null;
+  /**
+   * Wall-clock ms of the most recent `trigger()` call, or `null` if none
+   * has fired since construction / last `reset()`. Survives past the
+   * shake's decay window so a polling observer (e.g. a Playwright e2e
+   * spec, task 550) can confirm the trigger happened without having to
+   * land inside the brief amplitude window via `offsetAt`.
+   */
+  private lastStartedMs: number | null = null;
 
   /**
    * Trigger a new shake at `startMs` with the given peak magnitude (tiles)
@@ -75,6 +83,7 @@ export class ScreenShake {
   trigger(magnitudeTiles: number, durationMs: number, startMs: number): void {
     const clampedMag = Math.min(Math.max(magnitudeTiles, 0), MAX_SHAKE_TILES);
     const clampedDur = Math.max(durationMs, 0);
+    this.lastStartedMs = startMs;
     if (this.active === null) {
       this.active = {
         startMs,
@@ -121,9 +130,21 @@ export class ScreenShake {
     };
   }
 
+  /**
+   * Wall-clock ms of the most recent `trigger()`, or `null` if no shake
+   * has been triggered (or one was cleared via `reset()`). The value
+   * persists past the active window, so a polling observer can detect
+   * that a shake fired without having to catch the brief amplitude
+   * envelope live.
+   */
+  lastTriggerStartedMs(): number | null {
+    return this.lastStartedMs;
+  }
+
   /** Drop any in-flight shake — used on local-player reassign. */
   reset(): void {
     this.active = null;
+    this.lastStartedMs = null;
   }
 }
 

@@ -920,6 +920,19 @@ export class Renderer {
   }
 
   /**
+   * Test handle: wall-clock ms of the most recent screen-shake trigger,
+   * or `null` if none has fired since the local player was last set.
+   * Persists past the shake's decay window — `attack-slash.spec.ts`'s
+   * "real-click hit" assertion (task 550) reads this rather than the live
+   * offset because the 120 ms attacker-shake is shorter than the slash's
+   * 250 ms lifetime and Playwright's polling sweep can land between the
+   * "shake started" and "shake still amplitude > 0" frames.
+   */
+  getLastScreenShakeStartedMs(): number | null {
+    return this.screenShake.lastTriggerStartedMs();
+  }
+
+  /**
    * The wire layer just inserted or replaced the chunk at `(cx, cy)`.
    * Replace just that chunk's sub-group inside the terrain mesh, leaving
    * neighbors untouched.

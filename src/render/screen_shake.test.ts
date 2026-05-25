@@ -112,6 +112,31 @@ describe("ScreenShake.reset", () => {
   });
 });
 
+describe("ScreenShake.lastTriggerStartedMs", () => {
+  it("starts as null and tracks the most recent trigger", () => {
+    const shake = new ScreenShake();
+    expect(shake.lastTriggerStartedMs()).toBeNull();
+    shake.trigger(0.3, 300, 1234);
+    expect(shake.lastTriggerStartedMs()).toBe(1234);
+    shake.trigger(0.1, 100, 5678);
+    expect(shake.lastTriggerStartedMs()).toBe(5678);
+  });
+
+  it("persists past the active window so a late observer still sees it", () => {
+    const shake = new ScreenShake();
+    shake.trigger(0.3, 100, 0);
+    expect(shake.offsetAt(500)).toEqual({ dx: 0, dy: 0 });
+    expect(shake.lastTriggerStartedMs()).toBe(0);
+  });
+
+  it("clears on reset()", () => {
+    const shake = new ScreenShake();
+    shake.trigger(0.3, 300, 42);
+    shake.reset();
+    expect(shake.lastTriggerStartedMs()).toBeNull();
+  });
+});
+
 describe("magnitudeForDamage", () => {
   it("returns the floor for small damage", () => {
     expect(magnitudeForDamage(1)).toBe(MIN_SHAKE_TILES);

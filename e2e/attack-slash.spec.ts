@@ -109,15 +109,6 @@ async function grantAndEquipSword(
   );
 }
 
-async function shakeMagnitude(page: Page): Promise<number> {
-  return await page.evaluate(() => {
-    const a = window.__anarchy;
-    if (!a) return 0;
-    const off = a.getScreenShakeOffset();
-    return Math.hypot(off.dx, off.dy);
-  });
-}
-
 test("real-click hit: slash spawns and retires within the lifetime window", async ({
   browser,
 }) => {
@@ -139,28 +130,32 @@ test("real-click hit: slash spawns and retires within the lifetime window", asyn
     );
     await grantAndEquipSword(a, meA.id, AdminItemId.WoodSword);
 
-    // Before the click: no slash, no shake.
+    // Before the click: no slash, no shake recorded yet.
     expect(await a.evaluate(() => window.__anarchy!.getSlashCount())).toBe(0);
-    expect(await shakeMagnitude(a)).toBe(0);
+    expect(
+      await a.evaluate(() => window.__anarchy!.getLastScreenShakeStartedMs()),
+    ).toBe(null);
 
     const clickAt = await clientCoordsForTarget(a, 2.5, 0.5);
     await a.mouse.click(clickAt.x, clickAt.y);
 
-    // After the 0.7 s charge resolves: slash AND local-attacker shake
-    // both fire in the same frame. We observe them as a paired
-    // condition rather than back-to-back waits: the shake has a 120 ms
-    // duration vs. the slash's 250 ms lifetime, so a sequential wait
-    // can race past the shake's brief window.
+    // After the 0.7 s charge resolves, the renderer fires the slash
+    // spawn AND the local-attacker shake from the same synchronous
+    // `AttackEvent` handler. Wait on the slash count alone: that
+    // observation is the load-bearing signal that the strike resolved.
+    // Then read the persisted shake-trigger timestamp once — it
+    // captures the moment the shake started and survives past the
+    // 120 ms decay window, so we don't have to land the poll inside
+    // it. The older paired live-offset wait raced past the shake on
+    // ~40 % of runs (task 550).
     await a.waitForFunction(
-      () => {
-        const h = window.__anarchy!;
-        if (h.getSlashCount() !== 1) return false;
-        const off = h.getScreenShakeOffset();
-        return Math.hypot(off.dx, off.dy) > 0;
-      },
+      () => window.__anarchy!.getSlashCount() === 1,
       undefined,
       { timeout: CHARGE_MS + RESOLUTION_PAD_MS },
     );
+    expect(
+      await a.evaluate(() => window.__anarchy!.getLastScreenShakeStartedMs()),
+    ).not.toBeNull();
 
     // Slash retires after its 250 ms lifetime (plus a tick of slack).
     await a.waitForFunction(
