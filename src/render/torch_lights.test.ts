@@ -13,9 +13,9 @@ describe("createTorchLight", () => {
     expect(light).toBeInstanceOf(THREE.PointLight);
     // Warm flame tint shared with the lantern: red dominates blue.
     expect(light.color.r).toBeGreaterThan(light.color.b);
-    // Pinned by — see torch_lights.ts comments for rationale.
-    expect(light.distance).toBe(13.0);
-    expect(light.decay).toBe(1.4);
+    // Pinned by — see torch_lights.ts comments for rationale (task 510).
+    expect(light.distance).toBe(20.0);
+    expect(light.decay).toBe(1.1);
   });
 });
 
@@ -49,9 +49,9 @@ describe("TorchLights pool", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = TorchLights.intensityAt(1);
-    // Peak pinned by — louder than the previous 3.0 so a torch
-    // genuinely illuminates several tiles at full night.
-    expect(peak).toBe(4.5);
+    // Peak pinned by (task 510) — bumped so a torch obviously lights several
+    // tiles around it at full night.
+    expect(peak).toBe(8.0);
     expect(TorchLights.intensityAt(0)).toBe(0);
     expect(TorchLights.intensityAt(0.5)).toBeCloseTo(peak * 0.5);
     expect(TorchLights.intensityAt(1)).toBe(peak);

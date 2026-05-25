@@ -30,25 +30,23 @@ export const MAX_TORCH_LIGHTS = 32;
 /** Warm flame tint shared with the lantern. */
 const TORCH_LIGHT_COLOR = 0xffaa55;
 
-/** Falloff radius. A torch lights ~5-6 tiles around it at midnight, fading
- *  past that — far enough to navigate by, close enough that 32 of them in
- *  view don't paint everything orange. Bumped to 13.0 alongside the peak
- *  intensity lift so the brighter, elevated source spreads to a
- *  pool that actually reaches several tiles out instead of pooling at the
- *  emitter. */
-const TORCH_LIGHT_DISTANCE = 13.0;
+/** Falloff radius. A torch lights ~8-10 tiles around it at midnight, fading
+ *  past that. Bumped to 20.0 alongside the peak intensity lift (task 510)
+ *  so a placed torch actually illuminates a meaningful pool around it at
+ *  night rather than a tight glow at the emitter. */
+const TORCH_LIGHT_DISTANCE = 20.0;
 
 /** Decay exponent. Higher = sharper falloff. `2` is physically correct
- *  inverse-square; `1.4` reads warmer in the test scene without nuking the
- *  near-tile contribution to almost-imperceptible. */
-const TORCH_LIGHT_DECAY = 1.4;
+ *  inverse-square; lowered to `1.1` (task 510) to flatten falloff so the
+ *  brighter source reads evenly across the lit radius instead of dropping
+ *  off most of its energy near the emitter. */
+const TORCH_LIGHT_DECAY = 1.1;
 
-/** Peak intensity (at midnight, where `nightFactor == 1`). Lifted to 4.5
- * so a single torch reads obviously bright against the
- *  night ambient floor even after the source is lifted above the top-layer
- *  block plane (see `TORCH_LIGHT_Y`); paired with a slightly larger
- *  `TORCH_LIGHT_DISTANCE` to spread the extra energy. */
-const TORCH_LIGHT_PEAK_INTENSITY = 4.5;
+/** Peak intensity (at midnight, where `nightFactor == 1`). Lifted to 8.0
+ *  (task 510) so a single torch obviously lights several tiles around it
+ *  at full dark; paired with the larger `TORCH_LIGHT_DISTANCE` and softer
+ *  `TORCH_LIGHT_DECAY` to spread the extra energy across the radius. */
+const TORCH_LIGHT_PEAK_INTENSITY = 8.0;
 
 /** Y offset where the per-torch light sits. Lifted to 1.8 so the
  *  emitter sits clearly above the tallest top-layer geometry (tree canopy

@@ -62,9 +62,9 @@ describe("LanternLights", () => {
 
   it("scales intensity linearly with the night factor", () => {
     const peak = LanternLights.intensityAt(1);
-    // Peak pinned by — mirrors the torch lift so the day-night
+    // Peak pinned by (task 510) — mirrors the torch lift so the day-night
     // fade stays consistent across both warm-light sources.
-    expect(peak).toBe(4.5);
+    expect(peak).toBe(8.0);
     expect(LanternLights.intensityAt(0)).toBe(0);
     expect(LanternLights.intensityAt(0.5)).toBeCloseTo(peak * 0.5);
     expect(LanternLights.intensityAt(1)).toBe(peak);
@@ -91,7 +91,7 @@ describe("LanternLights", () => {
     const layer = new LanternLights();
     layer.update([wearer(1)], 1);
     const light = layer.scene().children[0] as THREE.PointLight;
-    expect(light.distance).toBe(16.0);
+    expect(light.distance).toBe(24.0);
   });
 
   it("repositions the light when the player moves", () => {
