@@ -453,6 +453,58 @@ export const RECIPES: readonly Recipe[] = [
     ],
     output: { item: ItemId.DyeDarkOrange, count: 2 },
   },
+  // reverse dark dyes — DyeDark<X> + DyeWhite -> 1 Dye<X>. The
+  // forward `dye-dark-<X>` recipe doubles its output (1+1 -> 2), so a full
+  // forward-then-reverse cycle nets back to the starting count. Gray has
+  // no reverse — it's its own identity, not a "dark white".
+  {
+    id: "dye-blue-from-dark",
+    ingredients: [
+      { kind: "one", item: ItemId.DyeDarkBlue, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.DyeBlue, count: 1 },
+  },
+  {
+    id: "dye-red-from-dark",
+    ingredients: [
+      { kind: "one", item: ItemId.DyeDarkRed, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.DyeRed, count: 1 },
+  },
+  {
+    id: "dye-yellow-from-dark",
+    ingredients: [
+      { kind: "one", item: ItemId.DyeDarkYellow, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.DyeYellow, count: 1 },
+  },
+  {
+    id: "dye-green-from-dark",
+    ingredients: [
+      { kind: "one", item: ItemId.DyeDarkGreen, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.DyeGreen, count: 1 },
+  },
+  {
+    id: "dye-purple-from-dark",
+    ingredients: [
+      { kind: "one", item: ItemId.DyeDarkPurple, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.DyePurple, count: 1 },
+  },
+  {
+    id: "dye-orange-from-dark",
+    ingredients: [
+      { kind: "one", item: ItemId.DyeDarkOrange, count: 1 },
+      { kind: "one", item: ItemId.DyeWhite, count: 1 },
+    ],
+    output: { item: ItemId.DyeOrange, count: 1 },
+  },
   // colored concrete. One stone-base recipe (gray from any
   // stone variant via pooled `AnyOf`) and 15 dye-application recipes
   // (any concrete + 1 matching dye → 4 colored concrete). The dye

@@ -375,6 +375,54 @@ describe("recipes", () => {
         output: { item: ItemId.DyeDarkOrange, count: 2 },
       },
       {
+        id: "dye-blue-from-dark",
+        ingredients: [
+          { kind: "one", item: ItemId.DyeDarkBlue, count: 1 },
+          { kind: "one", item: ItemId.DyeWhite, count: 1 },
+        ],
+        output: { item: ItemId.DyeBlue, count: 1 },
+      },
+      {
+        id: "dye-red-from-dark",
+        ingredients: [
+          { kind: "one", item: ItemId.DyeDarkRed, count: 1 },
+          { kind: "one", item: ItemId.DyeWhite, count: 1 },
+        ],
+        output: { item: ItemId.DyeRed, count: 1 },
+      },
+      {
+        id: "dye-yellow-from-dark",
+        ingredients: [
+          { kind: "one", item: ItemId.DyeDarkYellow, count: 1 },
+          { kind: "one", item: ItemId.DyeWhite, count: 1 },
+        ],
+        output: { item: ItemId.DyeYellow, count: 1 },
+      },
+      {
+        id: "dye-green-from-dark",
+        ingredients: [
+          { kind: "one", item: ItemId.DyeDarkGreen, count: 1 },
+          { kind: "one", item: ItemId.DyeWhite, count: 1 },
+        ],
+        output: { item: ItemId.DyeGreen, count: 1 },
+      },
+      {
+        id: "dye-purple-from-dark",
+        ingredients: [
+          { kind: "one", item: ItemId.DyeDarkPurple, count: 1 },
+          { kind: "one", item: ItemId.DyeWhite, count: 1 },
+        ],
+        output: { item: ItemId.DyePurple, count: 1 },
+      },
+      {
+        id: "dye-orange-from-dark",
+        ingredients: [
+          { kind: "one", item: ItemId.DyeDarkOrange, count: 1 },
+          { kind: "one", item: ItemId.DyeWhite, count: 1 },
+        ],
+        output: { item: ItemId.DyeOrange, count: 1 },
+      },
+      {
         id: "concrete-gray-from-stone",
         ingredients: [
           {
