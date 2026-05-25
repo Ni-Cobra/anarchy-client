@@ -314,11 +314,22 @@ export function applyTickUpdate(
   // second pass — the renderer reads neighbour chunks via `terrain` during
   // mesh build (Hidden-AO pass), so we want sibling chunks
   // arriving in the same tick to be visible to each other.
+  //
+  // ADR 0003 §2 amendment (2026-05-26): a chunk shipped without `ground` /
+  // `top` layers means "terrain unchanged since the last full-state ship".
+  // We merge the fresh players / entities / flag-blocks onto the existing
+  // local terrain copy. A *new* chunk (no prior local copy) always carries
+  // both layers — the assert in `chunkFromWire` pins this invariant.
   const inserted: ChunkCoord[] = [];
   for (const wireChunk of fullStateChunks) {
-    const decoded = chunkFromWire(wireChunk);
+    const coord = wireChunk.coord;
+    if (!coord) continue;
+    const cx = coord.cx ?? 0;
+    const cy = coord.cy ?? 0;
+    const existing = deps.terrain?.get(cx, cy);
+    const decoded = chunkFromWire(wireChunk, existing);
     if (!decoded) continue;
-    const [[cx, cy], chunk] = decoded;
+    const [, chunk] = decoded;
     if (deps.terrain) {
       deps.terrain.insert(cx, cy, chunk);
       inserted.push([cx, cy]);
@@ -642,16 +653,35 @@ const EMPTY_PLAYERS_MAP: ReadonlyMap<PlayerId, Player> = new Map();
 const EMPTY_ENTITIES_MAP: ReadonlyMap<EntityId, Entity> = new Map();
 const EMPTY_FLAG_BLOCKS_MAP: ReadonlyMap<number, FlagBlockState> = new Map();
 
+/**
+ * Decode a wire `Chunk` into a local `Chunk`. `existing` is the local
+ * copy of this chunk *before* the tick, if any — when the wire form
+ * omits the `ground` / `top` layers (player-only-dirty under the ADR
+ * 0003 §2 amendment, 2026-05-26) we preserve the existing layers in
+ * the returned chunk so the local terrain mirror doesn't lose its
+ * blocks. A fresh chunk arriving with no terrain layers AND no
+ * `existing` entry is rejected — the server's invariant is that the
+ * first time a client sees a chunk it ships with both layers.
+ */
 function chunkFromWire(
   wire: anarchy.v1.IChunk,
+  existing?: Chunk,
 ): readonly [ChunkCoord, Chunk] | null {
   const coord = wire.coord;
   if (!coord) return null;
   const cx = coord.cx ?? 0;
   const cy = coord.cy ?? 0;
-  if (!wire.ground || !wire.top) return null;
-  const ground = layerFromWire(wire.ground);
-  const top = layerFromWire(wire.top);
+  let ground: Layer | null;
+  let top: Layer | null;
+  if (wire.ground && wire.top) {
+    ground = layerFromWire(wire.ground);
+    top = layerFromWire(wire.top);
+  } else if (existing) {
+    ground = existing.ground;
+    top = existing.top;
+  } else {
+    return null;
+  }
   if (!ground || !top) return null;
   const wirePlayers = wire.players;
   let players: ReadonlyMap<PlayerId, Player>;
