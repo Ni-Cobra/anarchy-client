@@ -139,6 +139,24 @@ const STYLE = `
   }
   #anarchy-lobby .reject.visible { display: block; }
   #anarchy-lobby .field-spacer { margin-bottom: 18px; }
+  #anarchy-lobby .discord-link {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    background: #5865F2;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.1s ease;
+  }
+  #anarchy-lobby .discord-link:hover { background: #4752C4; }
 `;
 
 export function injectLobbyStyle(): void {

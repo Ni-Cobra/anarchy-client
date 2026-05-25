@@ -5,6 +5,8 @@
  */
 export { mountCornerActions } from "./corner_actions.js";
 export type { CornerAction } from "./corner_actions.js";
+export { mountDiscordButton } from "./discord_button.js";
+export type { DiscordButtonHandle } from "./discord_button.js";
 export { mountInventoryUi } from "./inventory/index.js";
 export type { InventoryUiHandle } from "./inventory/index.js";
 export { mountCraftingUi } from "./crafting/index.js";

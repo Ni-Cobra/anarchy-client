@@ -192,3 +192,13 @@ export const BREAK_HEARTBEAT_TICKS = 10;
  */
 export const PING_INTERVAL_MS = 5_000;
 export const RECV_TIMEOUT_MS = 15_000;
+
+// ---- External links ----
+
+/**
+ * Discord invite URL surfaced by the lobby panel and the in-game bottom-
+ * right Discord button. Hard requirement (Backlog 480): live in exactly
+ * one place in the codebase — both call sites import from here. Replace
+ * the placeholder with the real invite link before going live.
+ */
+export const DISCORD_INVITE_URL = "https://discord.gg/REPLACE_ME";

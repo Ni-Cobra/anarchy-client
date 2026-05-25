@@ -6,6 +6,7 @@
  * (vitest) and `accounts.spec.ts` (Playwright) target them.
  */
 
+import { DISCORD_INVITE_URL } from "./config.js";
 import { MAX_PASSWORD_LEN, MAX_USERNAME_LEN } from "./game/index.js";
 
 export interface LobbyDomRefs {
@@ -21,6 +22,7 @@ export interface LobbyDomRefs {
   readonly swatches: HTMLDivElement;
   readonly colorSection: HTMLDivElement;
   readonly passwordSection: HTMLDivElement;
+  readonly discordLink: HTMLAnchorElement;
 }
 
 export function mountLobbyDom(): LobbyDomRefs {
@@ -50,6 +52,9 @@ export function mountLobbyDom(): LobbyDomRefs {
                placeholder="Password (or leave blank for unregistered)" />
       </div>
       <button class="submit" id="anarchy-submit" type="button" disabled>Enter world</button>
+      <a class="discord-link" id="anarchy-discord-link"
+         href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer"
+         aria-label="Join the Discord (opens in a new tab)">Join Discord</a>
     </div>
   `;
   document.body.appendChild(root);
@@ -66,5 +71,6 @@ export function mountLobbyDom(): LobbyDomRefs {
     swatches: root.querySelector<HTMLDivElement>("#anarchy-swatches")!,
     colorSection: root.querySelector<HTMLDivElement>("#anarchy-color-section")!,
     passwordSection: root.querySelector<HTMLDivElement>("#anarchy-password-section")!,
+    discordLink: root.querySelector<HTMLAnchorElement>("#anarchy-discord-link")!,
   };
 }

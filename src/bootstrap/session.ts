@@ -64,6 +64,7 @@ import {
   mountCooldownRing,
   mountCraftingUi,
   mountDeathOverlay,
+  mountDiscordButton,
   mountHowToPlayButton,
   mountHpBar,
   mountInventoryUi,
@@ -1063,6 +1064,9 @@ export function constructSession(deps: SessionDeps): Session {
 
   cornerActions = mountCornerActions({ actions: buildCornerActions() });
   teardowns.push(() => cornerActions.unmount());
+
+  const discordButton = mountDiscordButton();
+  teardowns.push(() => discordButton.unmount());
 
   const handle: AnarchyHandle = {
     world,
