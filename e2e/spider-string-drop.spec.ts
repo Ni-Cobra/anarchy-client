@@ -7,7 +7,7 @@ import {
   adminTeleport,
 } from "./admin";
 
-// Task 080 e2e: killing a spider drops 1-3 String items straight into
+// Task 080 e2e: killing a spider drops 2-4 String items straight into
 // the killer's inventory. The kill is driven through `/admin/damage-entity`
 // with the killer attribution query parameter so the server's drop table
 // fires the same way an in-engine sword swing would route through
@@ -45,7 +45,7 @@ async function readStringCount(page: Page): Promise<number> {
   }, AdminItemId.String);
 }
 
-test("killing a spider deposits 1-3 strings into the killer's inventory", async ({
+test("killing a spider deposits 2-4 strings into the killer's inventory", async ({
   browser,
 }) => {
   const ctx = await browser.newContext();
@@ -83,7 +83,7 @@ test("killing a spider deposits 1-3 strings into the killer's inventory", async 
     expect(outcome.kind).toBe("killed");
 
     // The InventoryUpdate ships on the next tick; poll the local mirror
-    // until at least one String stack lands. The drop is 1..=3 uniform.
+    // until at least one String stack lands. The drop is 2..=4 uniform.
     const finalCount = await page
       .waitForFunction(
         (itemId: number) => {
@@ -95,8 +95,8 @@ test("killing a spider deposits 1-3 strings into the killer's inventory", async 
       )
       .then((handle) => handle.jsonValue() as Promise<number>);
 
-    expect(finalCount).toBeGreaterThanOrEqual(1);
-    expect(finalCount).toBeLessThanOrEqual(3);
+    expect(finalCount).toBeGreaterThanOrEqual(2);
+    expect(finalCount).toBeLessThanOrEqual(4);
 
     // Spider mesh should be gone too — the kill removed the entity from
     // its chunk before the drop ran.
