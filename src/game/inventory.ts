@@ -223,6 +223,12 @@ export enum ItemId {
   ConcreteDarkGreen = 82,
   ConcreteDarkPurple = 83,
   ConcreteDarkOrange = 84,
+  /**
+   * Task 100 trap-cake drop. Inventory-only — no `placesBlock`, no
+   * recipe today. Useless flavour drop from `BlockType.TrapCake` —
+   * may eventually grow an eat-for-debuff effect.
+   */
+  RottenCake = 85,
 }
 
 /**

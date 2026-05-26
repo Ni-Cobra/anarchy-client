@@ -143,6 +143,13 @@ export enum BlockType {
   ConcreteDarkGreen = 40,
   ConcreteDarkPurple = 41,
   ConcreteDarkOrange = 42,
+  /**
+   * Task 100 trap cake. Top-layer-only, solid (`is_solid_top`). Single-tick
+   * hand-break; breaking it costs the breaker 30 HP server-side and drops
+   * an `ItemId.RottenCake`. Worldgen scatters cakes sparsely on Air-over-
+   * walkable-ground tiles in every biome. Pure deception — no visual tell.
+   */
+  TrapCake = 43,
 }
 
 /**

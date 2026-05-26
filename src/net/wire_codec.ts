@@ -131,6 +131,8 @@ export function blockTypeFromWire(
       return BlockType.ConcreteDarkPurple;
     case anarchy.v1.BlockType.BLOCK_TYPE_CONCRETE_DARK_ORANGE:
       return BlockType.ConcreteDarkOrange;
+    case anarchy.v1.BlockType.BLOCK_TYPE_TRAP_CAKE:
+      return BlockType.TrapCake;
     case anarchy.v1.BlockType.BLOCK_TYPE_AIR:
     default:
       return BlockType.Air;
@@ -369,6 +371,8 @@ export function itemIdFromWire(
       return ItemId.ConcreteDarkPurple;
     case anarchy.v1.ItemId.ITEM_ID_CONCRETE_DARK_ORANGE:
       return ItemId.ConcreteDarkOrange;
+    case anarchy.v1.ItemId.ITEM_ID_ROTTEN_CAKE:
+      return ItemId.RottenCake;
     default:
       return null;
   }

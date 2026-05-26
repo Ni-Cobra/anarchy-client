@@ -549,6 +549,12 @@ export const ITEM_REGISTRY: Record<ItemId, ItemMeta> = {
     placesBlock: BlockType.ConcreteDarkOrange,
     textureUrl: `${BLOCK_TEXTURES_BASE}/concrete-dark-orange.png`,
   },
+  [ItemId.RottenCake]: {
+    id: ItemId.RottenCake,
+    displayName: "Rotten Cake",
+    placesBlock: null,
+    textureUrl: `${ITEM_TEXTURES_BASE}/rotten-cake.png`,
+  },
 };
 
 /**

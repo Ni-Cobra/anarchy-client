@@ -236,6 +236,10 @@ export const DEFAULT_BREAK_PARTICLE_COLORS: Readonly<Record<BlockType, number>> 
   [BlockType.ConcreteDarkGreen]: 0x286028,
   [BlockType.ConcreteDarkPurple]: 0x502868,
   [BlockType.ConcreteDarkOrange]: 0x905020,
+  // a broken trap cake puffs cream-colored frosting shards. The cherry
+  // colour is lost in the puff — kept frosting-uniform so the visual is
+  // the same regardless of break source.
+  [BlockType.TrapCake]: 0xf6ecc8,
 };
 
 export function defaultBreakParticleColor(kind: BlockType): number {

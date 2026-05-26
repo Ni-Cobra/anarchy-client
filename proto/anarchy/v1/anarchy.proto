@@ -1168,6 +1168,14 @@ enum BlockType {
   BLOCK_TYPE_CONCRETE_DARK_GREEN = 40;
   BLOCK_TYPE_CONCRETE_DARK_PURPLE = 41;
   BLOCK_TYPE_CONCRETE_DARK_ORANGE = 42;
+  // Task 100 trap cake. Top-layer, solid (`is_solid_top`), hand-broken in a
+  // single tick. Breaking the block damages the breaker for 30 HP (server
+  // routes the self-damage through the normal combat path so death events /
+  // regen-cooldown / chat lifecycle fire uniformly) and drops one
+  // `ITEM_ID_ROTTEN_CAKE` into the breaker's inventory. Pure trap — no
+  // visual tell. Worldgen scatters cakes sparsely on Air-on-walkable-ground
+  // tiles in any biome via the `trap_cake_pass`.
+  BLOCK_TYPE_TRAP_CAKE = 43;
 }
 
 // One tile. Field set is intentionally minimal today — the wrapper
@@ -1437,6 +1445,10 @@ enum ItemId {
   ITEM_ID_CONCRETE_DARK_GREEN = 82;
   ITEM_ID_CONCRETE_DARK_PURPLE = 83;
   ITEM_ID_CONCRETE_DARK_ORANGE = 84;
+  // Task 100 trap-cake drop. Inventory-only — no `place_block` path, no
+  // recipe today. Drop from `BLOCK_TYPE_TRAP_CAKE`. Useless item — eventually
+  // an eat-for-debuff could land but not in scope for this task.
+  ITEM_ID_ROTTEN_CAKE = 85;
 }
 
 // One inventory cell. `count == 0` is the canonical empty slot — the server

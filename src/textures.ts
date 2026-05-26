@@ -368,6 +368,13 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     minToolTier: null,
     isSolidTop: true,
   },
+  [BlockType.TrapCake]: {
+    kind: BlockType.TrapCake,
+    textureUrl: `${BLOCK_TEXTURES_BASE}/trap-cake.png`,
+    displayName: "Cake",
+    minToolTier: null,
+    isSolidTop: true,
+  },
 };
 
 /**
