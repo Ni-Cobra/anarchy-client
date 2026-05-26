@@ -144,19 +144,22 @@ const STYLE = `
     box-sizing: border-box;
     width: 100%;
     margin-top: 10px;
-    padding: 10px;
-    background: #5865F2;
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px 10px;
+    background: transparent;
+    color: #5865F2;
+    border: 1px solid #5865F2;
     border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 400;
     text-align: center;
     text-decoration: none;
     cursor: pointer;
-    transition: background 0.1s ease;
+    transition: background 0.1s ease, color 0.1s ease;
   }
-  #anarchy-lobby .discord-link:hover { background: #4752C4; }
+  #anarchy-lobby .discord-link:hover {
+    background: #5865F2;
+    color: #ffffff;
+  }
 `;
 
 export function injectLobbyStyle(): void {
