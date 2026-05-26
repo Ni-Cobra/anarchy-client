@@ -33,16 +33,15 @@ export const RECIPE_ICON_PX = 44;
 export const CRAFTING_PANEL_WIDTH_PX = 5 * SLOT_PX + 4 * PANEL_GAP_PX + PANEL_PAD_PX * 2;
 
 /**
- * Recipe-row pitch. The row is a flex shell of one stack-cell
+ * Recipe-row outer dimensions. The row is a flex shell of one stack-cell
  * tall plus its own 8px y-padding and 1px y-border on each side; the
- * row gap is the shared `PANEL_GAP_PX`. We expose both the outer height
- * and the pitch (height + inter-row gap) so the index.ts anchor math
- * can map a hovered-row index delta to a precise scrollTop adjustment.
+ * row gap is the shared `PANEL_GAP_PX`. Used to size the fixed-height
+ * scroll viewport below so the panel reserves a constant slab regardless
+ * of how many rows are populated.
  */
 export const ROW_PAD_Y_PX = 8;
 export const ROW_BORDER_PX = 1;
 export const ROW_HEIGHT_PX = RECIPE_ICON_PX + 2 * (ROW_PAD_Y_PX + ROW_BORDER_PX);
-export const ROW_PITCH_PX = ROW_HEIGHT_PX + PANEL_GAP_PX;
 
 /**
  * Fixed-size widget. The scroll viewport always reserves room
@@ -84,13 +83,13 @@ const STYLE = `
   }
   .anarchy-crafting-panel.open { transform: translate(0, -50%); }
   /*
-   * Scroll viewport (retuned in 110). Sits between the panel
-   * chrome and the row list. made this a fixed pixel height so
-   * the panel reserves the same vertical space whether the player has
-   * 0 craftable recipes or many — no jumping as recipes come and go.
-   * Anything past MAX_VISIBLE_ROWS scrolls; the row anchoring in
-   * index.ts keeps the hovered row pinned by adjusting scrollTop when
-   * its index shifts under inventory churn. scrollbar-gutter: stable
+   * Scroll viewport. Sits between the panel chrome and the row list at
+   * a fixed pixel height so the panel reserves the same vertical space
+   * whether the player has 0 craftable recipes or many — no jumping as
+   * recipes come and go. Anything past MAX_VISIBLE_ROWS scrolls; the
+   * frozen-while-open ordering in index.ts means the row strip itself
+   * never reshuffles, so the panel's scrollTop is stable across
+   * inventory churn without any anchoring math. scrollbar-gutter: stable
    * reserves the scrollbar lane so the row strip doesn't shift
    * horizontally when content crosses the overflow threshold.
    */
@@ -100,9 +99,9 @@ const STYLE = `
     scrollbar-gutter: stable;
   }
   /*
-   * Inner wrapper that owns the row flow. The hover-anchor logic in
-   * index.ts applies a translateY here (not on the panel) so the slide-in
-   * transition above is undisturbed.
+   * Inner wrapper that owns the row flow. Kept separate from the panel
+   * chrome so the slide-in transform on the panel itself stays
+   * independent of the row strip's flex layout.
    */
   .anarchy-crafting-list {
     display: flex;
@@ -137,9 +136,10 @@ const STYLE = `
     outline-offset: 1px;
   }
   /*
-   * Hovered recipe that just stopped being craftable. It stays
-   * in the list so a click already on its way doesn't end up crafting a
-   * different row; visually grayed and inert until the cursor leaves.
+   * Frozen-while-open recipe that has since dropped out of the
+   * advertised list (player consumed the last of an ingredient). It
+   * stays pinned at its open-time index so the row strip doesn't ripple
+   * mid-craft; visually grayed and inert until the panel is closed.
    */
   .anarchy-crafting-row.uncraftable {
     opacity: 0.4;

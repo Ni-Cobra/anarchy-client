@@ -150,18 +150,21 @@ test("clicking a row ships CraftRequest; server consumes ingredients and inserts
     },
     startingPickaxe,
   );
-  // Task 460: the cursor is still hovering the row (Playwright moves it
-  // there for the click), so the row stays in the list as an `uncraftable`
-  // orphan — that's what prevents stray clicks from drifting onto a
-  // sibling row that just shifted into place.
-  const orphan = page.locator(
+  // Task 110: the panel snapshot froze the wood-pickaxe row at open
+  // time, so consuming its last ingredient leaves the row pinned at the
+  // same index, grayed and inert — that's what prevents stray clicks
+  // from drifting onto a sibling row that would otherwise have shifted
+  // into place.
+  const frozen = page.locator(
     ".anarchy-crafting-row[data-recipe-id='wood-pickaxe']",
   );
-  await expect(orphan).toHaveClass(/uncraftable/);
-  // Once the cursor leaves the panel, the orphan is dropped and the
-  // natural layout takes over.
-  await page.mouse.move(10, 10);
-  await expect(orphan).toHaveCount(0);
+  await expect(frozen).toHaveClass(/uncraftable/);
+  // Closing the panel discards the frozen order; the natural layout
+  // (no wood-pickaxe, since it's no longer craftable) returns on the
+  // next open.
+  await page.keyboard.press("KeyE");
+  await page.keyboard.press("KeyE");
+  await expect(frozen).toHaveCount(0);
 });
 
 test("an open chest pools ingredients into the craftable pane and the craft drains it", async ({

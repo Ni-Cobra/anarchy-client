@@ -25,35 +25,42 @@
  * - [`./style`] — CSS injection + the panel-width constants.
  * - [`./row`] — pure DOM stamp-out for one recipe row.
  *
- * ## Hover anchoring
+ * ## Frozen-while-open ordering (task 110)
  *
- * Rows live inside a `.anarchy-crafting-list` wrapper so the panel's
- * slide-in transform is decoupled from a vertical `translateY` we apply to
- * keep the currently-hovered row pinned to its viewport position across
- * inventory churn. If the hovered recipe stops being craftable, it stays
- * in the list as a disabled "orphan" until the cursor moves off, so a
- * click that lands mid-update never crafts a different recipe.
+ * Re-sorting on every `InventoryUpdate` made the row strip ripple under
+ * the cursor — the tier of a row could change mid-craft, shoving
+ * everything around. The new contract pins the order at panel-open time:
  *
- * ## Chrome stability (retuned)
+ * - On open, snapshot `getCraftableRecipes()` into a `frozenOrder` /
+ *   `frozenStatus` pair. That order is the panel's visual order for the
+ *   whole open session.
+ * - While open, redraws update each row's status in place (refresh the
+ *   max-craft count + tooltip), never reorder. A recipe that drops out
+ *   of the natural advertised list becomes `uncraftable` and grays out
+ *   at its frozen index. A recipe that comes back recovers its natural
+ *   status at the same index.
+ * - A recipe that wasn't in the snapshot but newly appears in the
+ *   advertised list appends to the *end* of its tier (affordable → just
+ *   before the first frozen partial-hint row; partial-hint → the very
+ *   end). New rows never insert in the middle of the section they
+ *   belong to.
+ * - On close, the snapshot is discarded; the next open re-snapshots from
+ *   whatever the server is advertising at that moment.
+ *
+ * When the panel is closed the bridge between renders is simpler: there
+ * is no frozen order, so each redraw mirrors the natural advertised
+ * order directly. The panel is offscreen at that point — this is a
+ * convenience for headless tests that probe the DOM without opening.
+ *
+ * ## Chrome stability
  *
  * The panel itself owns only the static chrome (border, radius, padding,
  * slide-in transform). Scrolling lives one layer deeper on
- * `.anarchy-crafting-scroll`, sized to a **fixed pixel height** (task
- * 110) so the panel bounds don't reflow when the row set changes — an
- * empty list and a 10-recipe list occupy the same vertical space.
+ * `.anarchy-crafting-scroll`, sized to a **fixed pixel height** so the
+ * panel bounds don't reflow when the row set changes — an empty list
+ * and a 10-recipe list occupy the same vertical space.
  * `scrollbar-gutter: stable` on that wrapper reserves the scrollbar lane
  * so toggling overflow doesn't shift the row strip horizontally.
- *
- * ## Hover anchor across scroll
- *
- * With internal scrolling the "row stays under cursor across inventory
- * churn" invariant becomes a scrollTop problem: when the hovered row's
- * index shifts (e.g. a higher-priority recipe enters above it), we
- * restore the captured `scrollTop` and offset it by `(newIndex -
- * oldIndex) * ROW_PITCH_PX` so the row's viewport-y is preserved. This
- * replaces the earlier translateY-on-list trick, which is incompatible
- * with a scrollable container (transformed content can be pushed
- * outside the visible bounds without the scroll machinery noticing).
  *
  * ## Wheel capture
  *
@@ -67,12 +74,12 @@
  * stays put.
  */
 
-import type { CraftableRecipe, Inventory } from "../../game/index.js";
+import type { Inventory } from "../../game/index.js";
 import { recipeById } from "../../recipes.js";
 import { attachTooltip, type TooltipHandle } from "../tooltip.js";
 import { maxCraftCount } from "./max_craft.js";
 import { makeRecipeRow } from "./row.js";
-import { injectStyle, ROW_PITCH_PX } from "./style.js";
+import { injectStyle } from "./style.js";
 import { makeRecipeTooltip } from "./tooltip.js";
 
 export interface CraftingUiOptions {
@@ -96,6 +103,8 @@ export interface CraftingUiHandle {
   render(): void;
   unmount(): void;
 }
+
+type DisplayStatus = "affordable" | "partial-hint" | "uncraftable";
 
 /**
  * Mount the crafting overlay. Returns a handle whose `unmount()` removes
@@ -124,7 +133,15 @@ export function mountCraftingUi(
   scroll.appendChild(list);
 
   let open = false;
-  let hoveredRecipeId: string | null = null;
+  // Recipe ids in display order for the lifetime of the current open
+  // session. Cleared in `setOpen(false)`. Untouched when the panel is
+  // closed — render falls back to the natural advertised order then.
+  const frozenOrder: string[] = [];
+  // Current per-row status: `affordable` and `partial-hint` mirror the
+  // server's advertise; `uncraftable` means the row was in the frozen
+  // snapshot but has since dropped out of the advertised list (and so
+  // grays out at its pinned index).
+  const frozenStatus = new Map<string, DisplayStatus>();
   // Per-row tooltip handles; replaced wholesale on every render so each row
   // gets a fresh `attachTooltip` against its live recipe + inventory thunk.
   const tooltipHandles: TooltipHandle[] = [];
@@ -133,34 +150,43 @@ export function mountCraftingUi(
     tooltipHandles.length = 0;
   };
 
-  const rowChildren = (): HTMLElement[] =>
-    Array.from(
-      list.querySelectorAll<HTMLElement>(":scope > .anarchy-crafting-row"),
-    );
+  const computeDisplay = (): Array<{ id: string; status: DisplayStatus }> => {
+    const natural = options.getInventory().getCraftableRecipes();
+    if (!open) {
+      return natural.map((e) => ({ id: e.id, status: e.availability }));
+    }
+    const naturalMap = new Map<string, "affordable" | "partial-hint">();
+    for (const e of natural) naturalMap.set(e.id, e.availability);
+    // Reclassify known frozen ids against the latest advertise.
+    for (const id of frozenOrder) {
+      const fresh = naturalMap.get(id);
+      frozenStatus.set(id, fresh ?? "uncraftable");
+    }
+    // Append unseen ids per tier. Affordable lands at the end of the
+    // affordable section (just before the first partial-hint row);
+    // partial-hint lands at the very end.
+    for (const entry of natural) {
+      if (frozenStatus.has(entry.id)) continue;
+      if (entry.availability === "affordable") {
+        let insertAt = frozenOrder.length;
+        for (let i = 0; i < frozenOrder.length; i++) {
+          if (frozenStatus.get(frozenOrder[i]) === "partial-hint") {
+            insertAt = i;
+            break;
+          }
+        }
+        frozenOrder.splice(insertAt, 0, entry.id);
+        frozenStatus.set(entry.id, "affordable");
+      } else {
+        frozenOrder.push(entry.id);
+        frozenStatus.set(entry.id, "partial-hint");
+      }
+    }
+    return frozenOrder.map((id) => ({ id, status: frozenStatus.get(id)! }));
+  };
 
   const render = (): void => {
-    const natural = options.getInventory().getCraftableRecipes();
-    let display: readonly CraftableRecipe[] = natural;
-    let orphanId: string | null = null;
-    if (
-      hoveredRecipeId !== null &&
-      !natural.some((r) => r.id === hoveredRecipeId)
-    ) {
-      orphanId = hoveredRecipeId;
-      display = insertOrphan(natural, hoveredRecipeId);
-    }
-
-    // Hover anchor: capture the scroll viewport's scrollTop and the
-    // hovered row's index *before* the DOM mutates. After the rebuild we
-    // restore scrollTop, offset by the index delta * row pitch so the
-    // hovered row's viewport-y is preserved across the churn.
-    const prevScrollTop = scroll.scrollTop;
-    let prevHoveredIndex = -1;
-    if (hoveredRecipeId !== null) {
-      prevHoveredIndex = rowChildren().findIndex(
-        (r) => r.dataset.recipeId === hoveredRecipeId,
-      );
-    }
+    const display = computeDisplay();
 
     detachAllTooltips();
     list.replaceChildren();
@@ -175,22 +201,23 @@ export function mountCraftingUi(
     for (const entry of display) {
       const recipe = recipeById(entry.id);
       if (!recipe) continue;
-      const partialHint = entry.availability === "partial-hint";
+      const partialHint = entry.status === "partial-hint";
+      const uncraftable = entry.status === "uncraftable";
+      const inert = partialHint || uncraftable;
       const row = makeRecipeRow(
         recipe,
-        maxCraftCount(recipe, inventory),
+        inert ? 0 : maxCraftCount(recipe, inventory),
         partialHint,
       );
-      if (entry.id === orphanId) {
+      if (uncraftable) {
         row.classList.add("uncraftable");
         row.setAttribute("aria-disabled", "true");
       }
-      const inert = partialHint || entry.id === orphanId;
       row.addEventListener("click", () => {
         if (inert) return;
         options.sendCraft(recipe.id);
       });
-      // right-click → mass-craft. Same inert gate as the left-
+      // Right-click → mass-craft. Same inert gate as the left-
       // click path; the bottom-of-panel `contextmenu` suppressor on the
       // panel itself still fires (it stops the browser default menu)
       // but the row's `contextmenu` listener executes first.
@@ -204,51 +231,25 @@ export function mountCraftingUi(
       );
       list.appendChild(row);
     }
-
-    let nextScrollTop = prevScrollTop;
-    if (hoveredRecipeId !== null && prevHoveredIndex >= 0) {
-      const newHoveredIndex = rowChildren().findIndex(
-        (r) => r.dataset.recipeId === hoveredRecipeId,
-      );
-      if (newHoveredIndex >= 0 && newHoveredIndex !== prevHoveredIndex) {
-        nextScrollTop += (newHoveredIndex - prevHoveredIndex) * ROW_PITCH_PX;
-      }
-    }
-    // The browser clamps to [0, scrollHeight - clientHeight]; we just guard
-    // the lower bound explicitly so the assignment is well-defined under
-    // jsdom-like environments where the clamp isn't always reproduced.
-    scroll.scrollTop = Math.max(0, nextScrollTop);
   };
 
   const setOpen = (next: boolean): void => {
     if (open === next) return;
     open = next;
     panel.classList.toggle("open", open);
-  };
-
-  const setHovered = (next: string | null): void => {
-    if (next === hoveredRecipeId) return;
-    hoveredRecipeId = next;
-    render();
-  };
-
-  // Hover is tracked at the document level rather than via panel-scoped
-  // mouseenter/leave: in headless Chromium under Playwright, leaving the
-  // panel in a single `mouse.move(x, y)` step doesn't reliably dispatch
-  // `mouseleave` on the panel. A document `mousemove` listener catches
-  // both transitions — into and out of the panel — from the same signal.
-  // `panel.contains(target)` keeps the check scoped to our own DOM.
-  const onDocMouseMove = (e: MouseEvent): void => {
-    const target = e.target as HTMLElement | null;
-    if (!target || !panel.contains(target)) {
-      setHovered(null);
-      return;
+    if (open) {
+      const natural = options.getInventory().getCraftableRecipes();
+      frozenOrder.length = 0;
+      frozenStatus.clear();
+      for (const e of natural) {
+        frozenOrder.push(e.id);
+        frozenStatus.set(e.id, e.availability);
+      }
+    } else {
+      frozenOrder.length = 0;
+      frozenStatus.clear();
     }
-    const row = target.closest<HTMLElement>(".anarchy-crafting-row");
-    setHovered(row?.dataset.recipeId ?? null);
-  };
-  const onPanelMouseLeave = (): void => {
-    setHovered(null);
+    render();
   };
 
   const unsubscribe = options.getInventory().subscribe(render);
@@ -267,8 +268,6 @@ export function mountCraftingUi(
     e.stopPropagation();
     e.preventDefault();
   });
-  panel.addEventListener("mouseleave", onPanelMouseLeave);
-  document.addEventListener("mousemove", onDocMouseMove);
 
   document.body.appendChild(root);
   render();
@@ -281,39 +280,7 @@ export function mountCraftingUi(
     unmount: () => {
       unsubscribe();
       detachAllTooltips();
-      document.removeEventListener("mousemove", onDocMouseMove);
       root.remove();
     },
   };
-}
-
-/**
- * Insert an orphan recipe id into the natural advertise list at its
- * lexically-sorted position inside the affordable tier (orphans always
- * read as "this used to be craftable" — they go above the partial-hint
- * tier so the hover anchor doesn't drop the row past the gray section).
- */
-function insertOrphan(
-  arr: readonly CraftableRecipe[],
-  id: string,
-): CraftableRecipe[] {
-  const orphan: CraftableRecipe = { id, availability: "affordable" };
-  const out: CraftableRecipe[] = [];
-  let inserted = false;
-  for (const entry of arr) {
-    if (!inserted && entry.availability === "partial-hint") {
-      out.push(orphan);
-      inserted = true;
-    } else if (
-      !inserted &&
-      entry.availability === "affordable" &&
-      id < entry.id
-    ) {
-      out.push(orphan);
-      inserted = true;
-    }
-    out.push(entry);
-  }
-  if (!inserted) out.push(orphan);
-  return out;
 }
