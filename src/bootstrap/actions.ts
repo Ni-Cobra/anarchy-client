@@ -52,6 +52,14 @@ export interface ActionSenders {
     dstChest?: ChestLocation | null,
   ): void;
   sendCraft(recipeId: string): void;
+  /**
+   * Ship a `CraftMax(recipeId)` action — right-click on a recipe row in
+   * the crafting panel asks the server to craft as many as the player's
+   * pooled inventory + open chests allow in a single round-trip. Same
+   * silent-failure posture as `sendCraft`; the next `InventoryUpdate`
+   * reflects the post-loop state.
+   */
+  sendCraftMax(recipeId: string): void;
   sendEquipTool(sourceSlot: number, kind: ToolKind): void;
   sendUnequipTool(kind: ToolKind): void;
   sendRegisterAccount(password: string): void;
@@ -216,6 +224,10 @@ export function createActionSenders(conn: Connection): ActionSenders {
     sendCraft(recipeId) {
       const seq = ++actionSeq;
       conn.send({ craft: { recipeId, clientSeq: seq } });
+    },
+    sendCraftMax(recipeId) {
+      const seq = ++actionSeq;
+      conn.send({ craftMax: { recipeId, clientSeq: seq } });
     },
     sendEquipTool(sourceSlot, kind) {
       const seq = ++actionSeq;

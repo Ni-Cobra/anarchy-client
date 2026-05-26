@@ -80,6 +80,12 @@ export interface CraftingUiOptions {
   readonly getInventory: () => Inventory;
   /** Ship a `CraftRequest` for `recipeId` up to the server. */
   readonly sendCraft: (recipeId: string) => void;
+  /**
+   * Ship a `CraftMax` for `recipeId` — right-click on a recipe row asks
+   * the server to craft as many as the pooled inventory + open chests
+   * allow in one round-trip. Same silent-failure posture as `sendCraft`.
+   */
+  readonly sendCraftMax: (recipeId: string) => void;
 }
 
 export interface CraftingUiHandle {
@@ -183,6 +189,15 @@ export function mountCraftingUi(
       row.addEventListener("click", () => {
         if (inert) return;
         options.sendCraft(recipe.id);
+      });
+      // right-click → mass-craft. Same inert gate as the left-
+      // click path; the bottom-of-panel `contextmenu` suppressor on the
+      // panel itself still fires (it stops the browser default menu)
+      // but the row's `contextmenu` listener executes first.
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (inert) return;
+        options.sendCraftMax(recipe.id);
       });
       tooltipHandles.push(
         attachTooltip(row, () => makeRecipeTooltip(recipe, options.getInventory())),

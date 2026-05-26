@@ -63,6 +63,15 @@ message ClientMessage {
     // reject — no error envelope, no toast. No `client_seq`; chat is
     // out-of-band and the client doesn't reconcile it.
     SendChat send_chat = 35;
+    // Task 240 — "craft as many `recipe_id` as my pooled inventory +
+    // open chests allow". Right-click on a recipe row in the crafting
+    // panel sends this; the server loops the existing single-craft path
+    // until ingredients are exhausted or the inventory can't fit the
+    // next output. One round-trip vs. spamming N `CraftRequest`s — avoids
+    // partial-failure on disconnect mid-spam. Silent-failure when zero
+    // batches were craftable; the next `InventoryUpdate` reflects the
+    // post-loop state.
+    CraftMax craft_max = 36;
   }
 }
 
@@ -653,6 +662,20 @@ message UnequipTool {
 // inventory full to receive the output. The next `InventoryUpdate` reflects
 // any successful mutation.
 message CraftRequest {
+  string recipe_id = 1;
+  uint64 client_seq = 2;
+}
+
+// Client→server "craft as many `recipe_id` as the pooled inventory +
+// open chests allow" (task 240). The server validates the recipe id and
+// loops the existing single-craft path until `ingredients_satisfied`
+// fails or `try_add_main_first` reports the output can't fit; the loop
+// is also bounded by a defense-in-depth `MAX_CRAFT_MAX_ITERATIONS` cap
+// (128 today) so a misconfigured zero-input recipe can't pin the tick.
+// Failure modes (unknown recipe, zero batches craftable, inventory full
+// from the first batch) collapse to silent no-op — the next
+// `InventoryUpdate` reflects the post-loop state.
+message CraftMax {
   string recipe_id = 1;
   uint64 client_seq = 2;
 }

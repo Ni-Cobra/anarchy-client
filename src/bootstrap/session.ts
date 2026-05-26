@@ -174,6 +174,13 @@ export interface AnarchyHandle {
    */
   sendCraft: (recipeId: string) => void;
   /**
+   * Mass-craft: ask the server to craft `recipeId` as many times as
+   * the player's pooled inventory + open chests allow in one
+   * round-trip (task 240 right-click). Silent-failure posture matches
+   * `sendCraft`; success surfaces in the next `InventoryUpdate`.
+   */
+  sendCraftMax: (recipeId: string) => void;
+  /**
    * Equip the tool at `sourceSlot` into the equipment slot named by
    * `kind`. Server validates that the source slot holds a
    * tool of the matching kind and atomically swaps the source slot with
@@ -706,6 +713,7 @@ export function constructSession(deps: SessionDeps): Session {
     sendMoveSlot,
     sendTransferItems,
     sendCraft,
+    sendCraftMax,
     sendEquipTool,
     sendUnequipTool,
     sendRegisterAccount,
@@ -788,6 +796,7 @@ export function constructSession(deps: SessionDeps): Session {
   craftingUi = mountCraftingUi({
     getInventory: () => inventory,
     sendCraft,
+    sendCraftMax,
   });
   teardowns.push(() => craftingUi.unmount());
 
@@ -1090,6 +1099,7 @@ export function constructSession(deps: SessionDeps): Session {
     sendMoveSlot,
     sendTransferItems,
     sendCraft,
+    sendCraftMax,
     sendEquipTool,
     sendUnequipTool,
     sendOpenChest,

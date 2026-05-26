@@ -281,6 +281,44 @@ test("an open chest pools ingredients into the craftable pane and the craft drai
   }
 });
 
+test("right-clicking a recipe row mass-crafts every batch the inventory can fund", async ({
+  page,
+}) => {
+  // Task 240: right-click on an affordable recipe ships CraftMax — the
+  // server loops the single-craft engine until ingredients run out or the
+  // output doesn't fit. Plant 10 Wood and watch one round-trip turn into
+  // 40 Sticks.
+  await openClient(page, "craft-max");
+  await seedInventory(page, ITEM_ID_WOOD, 10);
+
+  await page.keyboard.press("KeyE");
+  await expect(
+    page.locator(".anarchy-crafting-row[data-recipe-id='sticks']"),
+  ).toHaveCount(1, { timeout: 5_000 });
+
+  // Read the baseline stick count via the live mirror; the starter
+  // loadout doesn't include any sticks, so this should be 0.
+  const stickBefore = await page.evaluate(() =>
+    window.__anarchy!.inventory.countOf(1),
+  );
+
+  // Right-click the recipe row. Playwright's mouse.click with button:right
+  // dispatches the `contextmenu` event the row listener watches for.
+  await page
+    .locator(".anarchy-crafting-row[data-recipe-id='sticks']")
+    .click({ button: "right" });
+
+  // 10 batches × (1 Wood → 4 Sticks) → 40 sticks, 0 wood.
+  await page.waitForFunction(
+    (start: number) => {
+      const inv = window.__anarchy!.inventory;
+      return inv.countOf(2) === 0 && inv.countOf(1) === start + 40;
+    },
+    stickBefore,
+    { timeout: 5_000 },
+  );
+});
+
 test("multi-stack ingredient row renders both ingredient stacks on the left half", async ({
   page,
 }) => {

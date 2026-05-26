@@ -200,7 +200,7 @@ const TABS: readonly Tab[] = [
         <li>With a source armed, <strong>left-click and hold</strong> on another slot to drip items one-by-one — the rate ramps up the longer you hold.</li>
         <li><strong>Left-click</strong> a tool in your inventory to move it into its equipment slot; click the equipment slot to send it back.</li>
         <li>You can open several chests at once — drag between any of them.</li>
-        <li>Crafting consumes ingredients pooled across your inventory and every open chest.</li>
+        <li>Crafting consumes ingredients pooled across your inventory and every open chest. <strong>Right-click a recipe</strong> to craft all you can in one go.</li>
       </ul>
     `,
   },

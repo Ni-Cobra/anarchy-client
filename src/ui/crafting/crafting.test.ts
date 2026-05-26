@@ -48,6 +48,7 @@ describe("crafting UI", () => {
     const ui = mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const panel = document.querySelector(".anarchy-crafting-panel")!;
     expect(panel.classList.contains("open")).toBe(false);
@@ -69,6 +70,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const rows = Array.from(
       document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
@@ -90,6 +92,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const rows = Array.from(
       document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
@@ -108,6 +111,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: (id) => sent.push(id),
+      sendCraftMax: () => {},
     });
     const rows = Array.from(
       document.querySelectorAll<HTMLButtonElement>(".anarchy-crafting-row"),
@@ -117,10 +121,56 @@ describe("crafting UI", () => {
     expect(sent).toEqual(["wood-pickaxe", "sticks"]);
   });
 
+  it("right-clicking a craftable row ships the recipe id via sendCraftMax (task 240)", () => {
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+      null,
+      null,
+      ["sticks", "wood-pickaxe"],
+    );
+    const craftSent: string[] = [];
+    const craftMaxSent: string[] = [];
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: (id) => craftSent.push(id),
+      sendCraftMax: (id) => craftMaxSent.push(id),
+    });
+    const sticks = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="sticks"]',
+    )!;
+    sticks.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    expect(craftMaxSent).toEqual(["sticks"]);
+    expect(craftSent).toEqual([]);
+  });
+
+  it("right-clicking a partial-hint row is inert (no sendCraftMax)", () => {
+    // Player has 1 Wood — wood-pickaxe needs 3 Logs + 2 Sticks; the server
+    // would advertise it as partial-hint. Pin the partial-hint tier via
+    // the wire shape directly.
+    inventory.replaceFromWire(
+      emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
+      null,
+      null,
+      [{ id: "wood-pickaxe", availability: "partial-hint" }],
+    );
+    const craftMaxSent: string[] = [];
+    mountCraftingUi({
+      getInventory: () => inventory,
+      sendCraft: () => {},
+      sendCraftMax: (id) => craftMaxSent.push(id),
+    });
+    const row = document.querySelector<HTMLButtonElement>(
+      '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
+    )!;
+    row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    expect(craftMaxSent).toEqual([]);
+  });
+
   it("re-renders reactively when InventoryUpdate flips the craftable list", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     expect(
       document.querySelectorAll(".anarchy-crafting-row"),
@@ -161,6 +211,7 @@ describe("crafting UI", () => {
     const ui = mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const panel = document.querySelector(".anarchy-crafting-panel")!;
     expect(panel.classList.contains("open")).toBe(false);
@@ -178,6 +229,7 @@ describe("crafting UI", () => {
     const ui = mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     expect(document.querySelector("#anarchy-crafting-root")).not.toBeNull();
     ui.unmount();
@@ -202,6 +254,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const row = document.querySelector(".anarchy-crafting-row")!;
     const left = row.querySelector(".anarchy-crafting-side.left")!;
@@ -225,6 +278,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const row = document.querySelector(".anarchy-crafting-row")!;
     const left = row.querySelector(".anarchy-crafting-side.left")!;
@@ -261,6 +315,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const rows = Array.from(
       document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
@@ -288,6 +343,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: (id) => sent.push(id),
+      sendCraftMax: () => {},
     });
     const sticks = document.querySelector<HTMLButtonElement>(
       '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -332,6 +388,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const sticks = document.querySelector<HTMLButtonElement>(
       '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -362,6 +419,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const sticks = document.querySelector<HTMLButtonElement>(
       '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -389,6 +447,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     // No mousemove on any row — inventory removes sticks; the natural
     // shrink-to-1 layout takes effect immediately.
@@ -409,6 +468,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const wrapper = document.querySelector(".anarchy-crafting-list");
     expect(wrapper).not.toBeNull();
@@ -426,6 +486,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const panel = document.querySelector<HTMLElement>(
       ".anarchy-crafting-panel",
@@ -450,6 +511,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     const panelBefore = document.querySelector<HTMLElement>(
       ".anarchy-crafting-panel",
@@ -486,6 +548,7 @@ describe("crafting UI", () => {
     mountCraftingUi({
       getInventory: () => inventory,
       sendCraft: () => {},
+      sendCraftMax: () => {},
     });
     let windowHits = 0;
     const onWindow = (): void => {
@@ -530,6 +593,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
@@ -554,6 +618,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
@@ -573,6 +638,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const sticks = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -597,6 +663,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       let row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -647,6 +714,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
@@ -690,6 +758,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
@@ -719,6 +788,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const sticks = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -749,6 +819,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         ".anarchy-crafting-row",
@@ -774,6 +845,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const sticksRow = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -807,6 +879,7 @@ describe("crafting UI", () => {
       const ui = mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         ".anarchy-crafting-row",
@@ -832,6 +905,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       expect(viewportHeight()).toBe(`${SCROLL_VIEWPORT_HEIGHT_PX}px`);
     });
@@ -846,6 +920,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       expect(viewportHeight()).toBe(`${SCROLL_VIEWPORT_HEIGHT_PX}px`);
     });
@@ -885,6 +960,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       expect(viewportHeight()).toBe(`${SCROLL_VIEWPORT_HEIGHT_PX}px`);
       const rows = document.querySelectorAll(".anarchy-crafting-row");
@@ -901,6 +977,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const scroll = document.querySelector<HTMLElement>(
         ".anarchy-crafting-scroll",
@@ -930,6 +1007,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const scroll = document.querySelector<HTMLElement>(
         ".anarchy-crafting-scroll",
@@ -974,6 +1052,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const scroll = document.querySelector<HTMLElement>(
         ".anarchy-crafting-scroll",
@@ -1010,6 +1089,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       let windowHits = 0;
       const onWindow = (): void => {
@@ -1129,6 +1209,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const rows = Array.from(
         document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
@@ -1154,6 +1235,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const torch = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="torch"]',
@@ -1177,6 +1259,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: (id) => sent.push(id),
+        sendCraftMax: () => {},
       });
       const torch = document.querySelector<HTMLButtonElement>(
         '.anarchy-crafting-row[data-recipe-id="torch"]',
@@ -1195,6 +1278,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       const row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
@@ -1218,6 +1302,7 @@ describe("crafting UI", () => {
       mountCraftingUi({
         getInventory: () => inventory,
         sendCraft: () => {},
+        sendCraftMax: () => {},
       });
       let row = document.querySelector<HTMLElement>(
         '.anarchy-crafting-row[data-recipe-id="wood-axe"]',
