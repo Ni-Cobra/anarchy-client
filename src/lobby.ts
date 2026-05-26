@@ -29,6 +29,8 @@ import {
 import type { LobbyIdentity, LobbyRejectReason } from "./net/index.js";
 import { mountLobbyDom } from "./lobby_dom.js";
 import { injectLobbyStyle } from "./lobby_style.js";
+import { showMobileUnsupportedPage } from "./mobile_unsupported.js";
+import { isMobileUserAgent } from "./platform.js";
 
 /** Lobby form mode. "new" = fresh-Hello (username + color picker); "returning"
  * = reconnect path (username + password). The reconnect-checkbox flow has
@@ -51,6 +53,12 @@ export interface LobbyDefaults {
  * clean body.
  */
 export function showLobby(defaults: LobbyDefaults = {}): Promise<LobbyIdentity> {
+  if (isMobileUserAgent()) {
+    showMobileUnsupportedPage();
+    // Terminal state — the user can't connect from mobile. Returning a
+    // never-resolving promise keeps `runApp`'s lifecycle loop parked.
+    return new Promise<LobbyIdentity>(() => {});
+  }
   injectLobbyStyle();
   const dom = mountLobbyDom();
 
