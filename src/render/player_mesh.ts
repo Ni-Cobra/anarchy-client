@@ -38,8 +38,13 @@ const BODY_TEXTURE_H = 128;
 const EYE_S_RIGHT = 0.423;
 const EYE_S_LEFT = 0.577;
 const EYE_T = 0.618;
-const EYE_WHITE_RADIUS_PX = 12;
-const EYE_WHITE_COLOR = "#ffffff";
+const EYE_RADIUS_PX = 12;
+const EYE_DEFAULT_COLOR = "#ffffff";
+const EYE_ON_WHITE_BODY_COLOR = "#000000";
+// Palette index of the near-white lobby color (see `PALETTE` in
+// `game/palette.ts`). White eyes vanish into a white body, so this
+// cohort is special-cased to paint black eyes instead.
+const WHITE_BODY_PALETTE_INDEX = 7;
 
 // Username billboard. `BILLBOARD_HEIGHT_OFFSET` is in scene units (Three.js
 // Y-up); the sprite parents to the body mesh so it follows the player. The
@@ -89,7 +94,11 @@ export const defaultPlayerMeshFactory: PlayerMeshFactory = {
     // remote players are tinted the same way (the local player is
     // distinguishable by camera follow + their own billboard).
     const bodyColorHex = paletteColorHex(entity.colorIndex);
-    const bodyMat = buildBodyMaterial(bodyColorHex);
+    const eyeColor =
+      entity.colorIndex === WHITE_BODY_PALETTE_INDEX
+        ? EYE_ON_WHITE_BODY_COLOR
+        : EYE_DEFAULT_COLOR;
+    const bodyMat = buildBodyMaterial(bodyColorHex, eyeColor);
     // Pre-build the unlit variant alongside the lit one so the per-frame
     // lantern toggle in `applyLanternBodyUnlit` is a reference swap rather
     // than an allocation. They share the painted-face texture so the body
@@ -124,7 +133,10 @@ export const defaultPlayerMeshFactory: PlayerMeshFactory = {
  * without eyes — matching the renderer's prior fault-tolerant style for
  * the username billboard.
  */
-function buildBodyMaterial(bodyColorHex: number): THREE.MeshLambertMaterial {
+function buildBodyMaterial(
+  bodyColorHex: number,
+  eyeColor: string,
+): THREE.MeshLambertMaterial {
   const canvas = document.createElement("canvas");
   canvas.width = BODY_TEXTURE_W;
   canvas.height = BODY_TEXTURE_H;
@@ -142,9 +154,9 @@ function buildBodyMaterial(bodyColorHex: number): THREE.MeshLambertMaterial {
   const eyeY = (1 - EYE_T) * BODY_TEXTURE_H;
   for (const s of [EYE_S_LEFT, EYE_S_RIGHT]) {
     const cx = s * BODY_TEXTURE_W;
-    ctx.fillStyle = EYE_WHITE_COLOR;
+    ctx.fillStyle = eyeColor;
     ctx.beginPath();
-    ctx.arc(cx, eyeY, EYE_WHITE_RADIUS_PX, 0, 2 * Math.PI);
+    ctx.arc(cx, eyeY, EYE_RADIUS_PX, 0, 2 * Math.PI);
     ctx.fill();
   }
 
