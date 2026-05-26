@@ -97,10 +97,10 @@ export const DASH_DURATION_MS = 150;
 
 /**
  * Cooldown affordance window. Mirrors the server's
- * `COOLDOWN_DURATION_SECS = 5.0`. The local player's HUD reads the
+ * `COOLDOWN_DURATION_SECS = 4.0`. The local player's HUD reads the
  * latest strike-time and renders a depleting badge for this long.
  */
-export const COOLDOWN_DURATION_MS = 5000;
+export const COOLDOWN_DURATION_MS = 4000;
 
 /**
  * Per-frame scratch for the local-player focus. `updateCamera` and

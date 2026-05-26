@@ -11,7 +11,7 @@ import {
 
 // Task 070a e2e: server-side attack pipeline driven through the admin
 // endpoints. Covers the four pinned scenarios:
-//   1. PvP hit  — wood sword: B HP drops by 15; A is in cooldown for 5s.
+//   1. PvP hit  — wood sword: B HP drops by 15; A is in cooldown for 4s.
 //   2. PvE      — stone sword: spider HP drops by 20; repeat → dies.
 //   3. Out-of-reach miss — admin-teleport B beyond strike range before
 //      the 0.7s charge resolves; B's HP unchanged; A still cools down.
@@ -138,7 +138,7 @@ test("admin PvP hit with wood sword subtracts 15 HP and cools down attacker", as
       ),
     ]);
 
-    // Attacker is on cooldown: a second admin attack within the 5s window
+    // Attacker is on cooldown: a second admin attack within the 4s window
     // must reject with a 400.
     let rejected = false;
     try {

@@ -286,15 +286,15 @@ test("real-click PvP: A clicks B in range with wood sword, B HP drops by 15 and 
     );
     expect(legacyBadge).toBe(false);
 
-    // A second left-click within the 5 s cooldown window does nothing —
+    // A second left-click within the 4 s cooldown window does nothing —
     // server silently rejects the intent; B's HP stays at 85.
     const click2 = await clientCoordsForTarget(a, 2.5, 0.5);
     await a.mouse.click(click2.x, click2.y);
     await a.waitForTimeout(CHARGE_MS + RESOLUTION_PAD_MS);
     expect(await readRemoteHp(a, meB.id)).toBe(85);
 
-    // After the 5 s cooldown elapses the ring hides again. Strike fired
-    // at roughly `cooldownMs`; wait past `cooldownMs + 5 s` plus a small
+    // After the 4 s cooldown elapses the ring hides again. Strike fired
+    // at roughly `cooldownMs`; wait past `cooldownMs + 4 s` plus a small
     // rAF-tick slack.
     await a.waitForFunction(() => {
       const ring = document.querySelector(
@@ -355,7 +355,7 @@ test("real-click PvE: wood-sword swing drops a spider's HP by 15", async ({
   // One real-click confirming the wire end-to-end (target-pick → admit
   // → strike → damage). The two-hit-kill scenario is covered by the
   // admin-driven `attack.spec.ts` PvE spec; here we focus on the
-  // single-click branch because a second real click after the 5 s
+  // single-click branch because a second real click after the 4 s
   // cooldown wait is brittle against camera-lag-vs-authoritative-
   // position when the post-strike dash + snapshot buffer interpolation
   // are still settling — out of scope for this iteration.

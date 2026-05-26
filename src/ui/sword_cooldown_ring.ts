@@ -15,7 +15,7 @@
  * and the same `null` / pre-strike / past-expiry edge cases hide the
  * ring.
  *
- * Scope is the post-strike 5 s cooldown only. The 0.7 s charge phase
+ * Scope is the post-strike 4 s cooldown only. The 0.7 s charge phase
  * already has the shrinking-beam visual; adding a charge indicator on
  * the slot is a follow-up.
  */
@@ -24,7 +24,7 @@ const STYLE_ID = "anarchy-sword-cooldown-ring-style";
 const ROOT_CLASS = "anarchy-sword-cooldown-ring";
 
 /** Total cooldown window in ms (mirrors server `COOLDOWN_DURATION_SECS`). */
-export const ATTACK_COOLDOWN_DURATION_MS = 5000;
+export const ATTACK_COOLDOWN_DURATION_MS = 4000;
 
 const COOLDOWN_COLOR = "#ffb060";
 const RING_RADIUS = 13;
@@ -92,7 +92,7 @@ export function mountSwordCooldownRing(
 }
 
 /**
- * Generalised cooldown ring used by both the sword slot (5 s
+ * Generalised cooldown ring used by both the sword slot (4 s
  * post-strike) and the blowgun slot (1 s between fires).
  * Shape mirrors [`mountSwordCooldownRing`] — pass `durationMs` for the
  * cooldown window length. Exported so callers outside this module can
