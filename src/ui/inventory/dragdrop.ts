@@ -1,10 +1,10 @@
 /**
  * Pointer state machine for inventory cells: pending click vs. promoted
  * drag, plus the drop dispatcher that routes a release to a `MoveSlot`
- * (regular → regular, same- or cross-grid), AND the right-click split
- * state machine that arms a "source" cell on right-click and ramps a
- * per-tick `TransferItems(src, dst, 1)` while right-mouse is held over
- * a destination.
+ * (regular → regular, same- or cross-grid), AND the split state
+ * machine that arms a "source" cell on right-click and ramps a per-tick
+ * `TransferItems(src, dst, 1)` while left-mouse is held over a
+ * destination.
  *
  * Cells live in one of two grids: the player's own inventory
  * (`kind: "player"`) or an open chest's inventory (`kind: "chest"`,
@@ -26,17 +26,21 @@
  * pointermove / pointerup / keydown(Escape) listeners drive promotion +
  * drop + abort and unwind via the returned `detach`.
  *
- * Right-click split:
- * - First right-click on a non-empty regular cell **arms** that cell as
- *   the split source (sticky `.split-source` border). Source can be in
- *   either grid.
- * - With a source armed, right-clicking a different regular cell
- *   **starts a hold transfer** toward that cell — first frame fires
- *   immediately, then the timer ramps from a slow tick (~500 ms) to a
- *   fast tick (~100 ms) over `RAMP_END_MS`. Cross-grid transfers carry
- *   the chest keys.
- * - Right-click release stops the timer; the source stays armed.
- * - Any left-click clears the source.
+ * Split flow (task 230):
+ * - **Right-click** on a non-empty cell **arms** that cell as the split
+ *   source (sticky `.split-source` border). A second right-click on
+ *   another non-empty cell replaces the selection. Right-click on an
+ *   empty cell or anywhere outside an inventory cell **clears** the
+ *   selection. Source can be in either grid.
+ * - With a source armed, **left-click** on another cell starts a
+ *   hold-transfer toward that cell — first frame fires immediately, then
+ *   the timer ramps from `SPLIT_SLOW_INTERVAL_MS` to
+ *   `SPLIT_FAST_INTERVAL_MS` over `SPLIT_RAMP_END_MS`. Cross-grid
+ *   transfers carry the chest keys.
+ * - Left-click release stops the timer; the source stays armed so the
+ *   user can transfer to another cell next.
+ * - With no source armed, left-click falls through to the existing
+ *   drag-drop / click-into-hand / equip-toggle handlers — unchanged.
  */
 
 import {
@@ -82,12 +86,18 @@ export function slotRefEqual(a: SlotRef | null, b: SlotRef | null): boolean {
  */
 const DRAG_THRESHOLD_PX_SQ = 25;
 
-/** Right-click hold transfer pacing. */
-const SPLIT_SLOW_INTERVAL_MS = 500;
-const SPLIT_FAST_INTERVAL_MS = 100;
-const SPLIT_RAMP_END_MS = 2000;
+/**
+ * Split hold-transfer pacing. The first tick fires immediately on press;
+ * subsequent ticks pace via {@link splitIntervalForElapsed}, which lerps
+ * from `SLOW` at press-time down to `FAST` over `RAMP_END_MS`. Constants
+ * were trimmed 2.5× in task 230 so a held transfer drains a stack at a
+ * snappier rate.
+ */
+export const SPLIT_SLOW_INTERVAL_MS = 200;
+export const SPLIT_FAST_INTERVAL_MS = 40;
+export const SPLIT_RAMP_END_MS = 800;
 
-function splitIntervalForElapsed(elapsedMs: number): number {
+export function splitIntervalForElapsed(elapsedMs: number): number {
   if (elapsedMs >= SPLIT_RAMP_END_MS) return SPLIT_FAST_INTERVAL_MS;
   const t = elapsedMs / SPLIT_RAMP_END_MS;
   return Math.round(
@@ -133,8 +143,15 @@ export interface DragDropHandle {
    * garbage-collected and the chestKey freed for future remounts.
    */
   unwireChestKey: (chestKey: ChestKey) => void;
-  /** Reconcile right-click split source state after a paint pass. */
+  /** Reconcile split source state after a paint pass. */
   refreshSplitSource: () => void;
+  /**
+   * Whether a split source is currently armed. Hotbar / panel click
+   * handlers consult this to skip selection / equip-toggle paths while a
+   * split is active — under the task-230 gesture map, a left-click with
+   * an armed source means "transfer," not "select / toggle equip."
+   */
+  isSplitArmed: () => boolean;
   detach: () => void;
 }
 
@@ -258,18 +275,35 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     }
   };
 
-  /** Right-click on `ref`: arm split source or start hold-transfer. */
-  const beginSplitGesture = (ref: SlotRef): void => {
-    if (splitSource === null) {
-      if (itemAt(ref) === null) return;
-      splitSource = ref;
-      setSplitSourceClass(null, ref);
-      return;
-    }
-    if (slotRefEqual(ref, splitSource)) {
+  /**
+   * Right-click on `ref` — arm/replace selection or clear. Right-click
+   * on an empty cell clears, mirroring the document-level "right-click
+   * outside any cell" rule.
+   */
+  const armSplitFromRightClick = (ref: SlotRef): void => {
+    if (itemAt(ref) === null) {
       clearSplitSource();
       return;
     }
+    if (splitSource !== null && slotRefEqual(ref, splitSource)) {
+      // Same cell — already armed, leave the timer alone (none should
+      // be running anyway since the right-click no longer drives the
+      // hold-transfer).
+      return;
+    }
+    const prev = splitSource;
+    splitSource = ref;
+    setSplitSourceClass(prev, ref);
+  };
+
+  /**
+   * Left-click on `ref` while a source is armed — start the hold-transfer
+   * toward that cell. First frame fires immediately; subsequent ticks
+   * pace via {@link splitIntervalForElapsed}. The source stays armed on
+   * release so the user can target a new cell with the next press.
+   */
+  const startSplitTransfer = (ref: SlotRef): void => {
+    if (splitSource === null) return;
     const src = splitSource;
     stopSplitTimer();
     splitTimerDest = ref;
@@ -305,12 +339,19 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     cell.addEventListener("pointerdown", (ev) => {
       if (ev.button === 2) {
         ev.preventDefault();
-        beginSplitGesture(ref);
+        armSplitFromRightClick(ref);
         return;
       }
       if (ev.button !== 0) return;
       ev.preventDefault();
-      clearSplitSource();
+      // With a source armed, left-click drives the hold-transfer; the
+      // regular drag/click pipeline is skipped (pointerSrc stays null
+      // so pointermove can't promote into a drag and pointerup can't
+      // fire the click-into-hand / equip-toggle branches).
+      if (splitSource !== null) {
+        startSplitTransfer(ref);
+        return;
+      }
       pointerSrc = ref;
       pointerStart = { x: ev.clientX, y: ev.clientY };
     });
@@ -335,10 +376,12 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     chestCellsByKey.delete(chestKey);
   };
 
-  // Document-level left-click pointerdown clears a sticky split source
-  // when the click landed outside any inventory cell.
-  const onDocumentPointerDownLeft = (ev: PointerEvent): void => {
-    if (ev.button !== 0) return;
+  // Document-level right-click pointerdown clears a sticky split source
+  // when the click landed outside any inventory cell. Under the task-230
+  // gesture map, right-click is the "manage selection" verb; an empty-
+  // space right-click is the explicit cancel.
+  const onDocumentPointerDownRight = (ev: PointerEvent): void => {
+    if (ev.button !== 2) return;
     if (splitSource === null) return;
     const target = ev.target;
     if (
@@ -350,7 +393,7 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     }
     clearSplitSource();
   };
-  document.addEventListener("pointerdown", onDocumentPointerDownLeft);
+  document.addEventListener("pointerdown", onDocumentPointerDownRight);
 
   // Cursor follow + drag promotion + drop resolution at document level
   // so a drag that releases outside any slot cancels cleanly.
@@ -404,7 +447,13 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
   };
 
   const onDocumentPointerUp = (ev: PointerEvent): void => {
-    if (ev.button === 2) {
+    if (ev.button !== 0) return;
+    // Left-button release with the hold-transfer active stops the timer;
+    // the source stays armed so the next press resumes against a new
+    // destination. pointerSrc was never set in that branch, so the
+    // drag/click pipeline below is already a no-op — short-circuit
+    // anyway to keep the intent explicit.
+    if (splitTimer !== null) {
       stopSplitTimer();
       return;
     }
@@ -474,8 +523,9 @@ export function attachDragDrop(ctx: DragDropContext): DragDropHandle {
     wireSlotPointerDown,
     unwireChestKey,
     refreshSplitSource,
+    isSplitArmed: () => splitSource !== null,
     detach: () => {
-      document.removeEventListener("pointerdown", onDocumentPointerDownLeft);
+      document.removeEventListener("pointerdown", onDocumentPointerDownRight);
       document.removeEventListener("pointermove", onDocumentPointerMove);
       document.removeEventListener("pointerup", onDocumentPointerUp);
       document.removeEventListener("keydown", onDocumentKeydown, true);

@@ -341,10 +341,13 @@ export function mountInventoryUi(
   // gesture starting on a hotbar cell doesn't also flip selection on the
   // way down — `click` doesn't fire when the pointer-down + pointer-up
   // pair didn't land on the same element (the drag preview floats away
-  // from the source).
+  // from the source). While a split source is armed, left-clicks on
+  // hotbar cells are dragdrop's hold-transfer trigger, so the selection
+  // path bails to avoid double-firing.
   for (let i = 0; i < HOTBAR_SLOTS; i++) {
     const idx = i;
     hotbarCells[i].addEventListener("click", () => {
+      if (dragdrop.isSplitArmed()) return;
       if (idx === selectedSlot) return;
       selectedSlot = idx;
       options.sendSelect(idx);

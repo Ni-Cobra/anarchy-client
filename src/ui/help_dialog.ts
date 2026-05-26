@@ -196,7 +196,8 @@ const TABS: readonly Tab[] = [
       <h3>Inventory shortcuts</h3>
       <ul>
         <li><strong>Drag a slot onto another</strong> — swap or merge two stacks, across hotbar, main grid, chests, and equipment.</li>
-        <li><strong>Right-click a stack</strong> to arm it as a split source (sticky border). Then <strong>right-click and hold</strong> on another slot to drip items one-by-one — the rate ramps up the longer you hold.</li>
+        <li><strong>Right-click a stack</strong> to arm it as the split source (sticky border). Right-click another stack to switch sources; right-click empty space to cancel.</li>
+        <li>With a source armed, <strong>left-click and hold</strong> on another slot to drip items one-by-one — the rate ramps up the longer you hold.</li>
         <li><strong>Left-click</strong> a tool in your inventory to move it into its equipment slot; click the equipment slot to send it back.</li>
         <li>You can open several chests at once — drag between any of them.</li>
         <li>Crafting consumes ingredients pooled across your inventory and every open chest.</li>

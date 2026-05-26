@@ -9,7 +9,39 @@ import {
   type Slot,
 } from "../../game/index.js";
 import { mountInventoryUi } from "./index.js";
+import {
+  SPLIT_FAST_INTERVAL_MS,
+  SPLIT_RAMP_END_MS,
+  SPLIT_SLOW_INTERVAL_MS,
+  splitIntervalForElapsed,
+} from "./dragdrop.js";
 import { _resetTooltipForTests } from "../tooltip.js";
+
+describe("splitIntervalForElapsed", () => {
+  it("returns SPLIT_SLOW_INTERVAL_MS at elapsed=0", () => {
+    expect(splitIntervalForElapsed(0)).toBe(SPLIT_SLOW_INTERVAL_MS);
+  });
+  it("returns SPLIT_FAST_INTERVAL_MS at elapsed=SPLIT_RAMP_END_MS", () => {
+    expect(splitIntervalForElapsed(SPLIT_RAMP_END_MS)).toBe(
+      SPLIT_FAST_INTERVAL_MS,
+    );
+  });
+  it("returns SPLIT_FAST_INTERVAL_MS past the ramp", () => {
+    expect(splitIntervalForElapsed(SPLIT_RAMP_END_MS * 5)).toBe(
+      SPLIT_FAST_INTERVAL_MS,
+    );
+  });
+  it("interpolates monotonically between slow and fast across the ramp", () => {
+    const mid = splitIntervalForElapsed(SPLIT_RAMP_END_MS / 2);
+    expect(mid).toBeLessThan(SPLIT_SLOW_INTERVAL_MS);
+    expect(mid).toBeGreaterThan(SPLIT_FAST_INTERVAL_MS);
+  });
+  it("pins task-230 constants: 200 / 40 / 800", () => {
+    expect(SPLIT_SLOW_INTERVAL_MS).toBe(200);
+    expect(SPLIT_FAST_INTERVAL_MS).toBe(40);
+    expect(SPLIT_RAMP_END_MS).toBe(800);
+  });
+});
 
 function fillSlots(updates: Record<number, Slot>): Slot[] {
   const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
@@ -1683,10 +1715,11 @@ describe("inventory UI", () => {
       expect(panelCell.classList.contains("split-source")).toBe(false);
     });
 
-    it("right-click on a destination after arming ships TransferItems(src, dst, 1)", () => {
-      // After arming the source, a right-click on a different cell
-      // ships one transfer immediately (the press itself is the first
-      // frame; the timer ramps from there for held presses).
+    it("left-click on a destination after arming ships TransferItems(src, dst, 1)", () => {
+      // After arming the source, a left-click on a different cell ships
+      // one transfer immediately (the press itself is the first frame;
+      // the timer ramps from there for held presses). Under the task-230
+      // gesture map left-click is the transfer verb, not right-click.
       const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
       inventory.replaceFromWire(slots);
@@ -1704,24 +1737,28 @@ describe("inventory UI", () => {
       );
       const sourceCell = panelCells[0] as HTMLElement;
       const destCell = panelCells[1] as HTMLElement;
-      // Arm.
+      // Arm with right-click.
       sourceCell.dispatchEvent(
         new PointerEvent("pointerdown", { button: 2, bubbles: true }),
       );
-      // Press on dest — first frame fires immediately.
+      // Left-press on dest — first frame fires immediately.
       destCell.dispatchEvent(
-        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+        new PointerEvent("pointerdown", { button: 0, bubbles: true }),
       );
       expect(transfers).toEqual([[HOTBAR_SLOTS, HOTBAR_SLOTS + 1, 1]]);
       // Release stops any future timer ticks; release does not clear
-      // the source — re-pressing resumes.
+      // the source — re-pressing resumes against the same source.
       document.dispatchEvent(
-        new PointerEvent("pointerup", { button: 2, bubbles: true }),
+        new PointerEvent("pointerup", { button: 0, bubbles: true }),
       );
       expect(sourceCell.classList.contains("split-source")).toBe(true);
     });
 
-    it("a left-click clears the sticky split source", () => {
+    it("right-click on the armed source is a no-op (selection stays armed)", () => {
+      // Under task-230 right-click is the "manage the selection" verb.
+      // Re-right-clicking the same armed cell asks for "arm that cell" —
+      // it's already armed, so the selection persists. (Pre-230 this
+      // gesture toggled the selection off.)
       const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
       slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
       inventory.replaceFromWire(slots);
@@ -1741,41 +1778,125 @@ describe("inventory UI", () => {
         new PointerEvent("pointerdown", { button: 2, bubbles: true }),
       );
       expect(sourceCell.classList.contains("split-source")).toBe(true);
-      // Left-click anywhere clears the source. Use the same cell here
-      // — the per-cell left-click handler clears split.
       sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(true);
+    });
+
+    it("right-click on another non-empty cell replaces the armed selection", () => {
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      slots[HOTBAR_SLOTS + 1] = { item: ItemId.Stone, count: 4 };
+      inventory.replaceFromWire(slots);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const firstSrc = panelCells[0] as HTMLElement;
+      const secondSrc = panelCells[1] as HTMLElement;
+      firstSrc.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(firstSrc.classList.contains("split-source")).toBe(true);
+      secondSrc.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(firstSrc.classList.contains("split-source")).toBe(false);
+      expect(secondSrc.classList.contains("split-source")).toBe(true);
+    });
+
+    it("right-click on an empty cell clears the armed selection", () => {
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const sourceCell = panelCells[0] as HTMLElement;
+      const emptyCell = panelCells[3] as HTMLElement;
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(true);
+      emptyCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(false);
+    });
+
+    it("right-click on empty space outside any inventory cell clears the armed selection", () => {
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: () => {},
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const sourceCell = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      )[0] as HTMLElement;
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(true);
+      document.body.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      expect(sourceCell.classList.contains("split-source")).toBe(false);
+    });
+
+    it("left-click while a source is armed does NOT clear the source (it transfers and the source persists)", () => {
+      // Pre-230: any left-click cleared the source. Post-230: left-click
+      // is the transfer verb, so the selection must persist across
+      // press / release so consecutive presses keep dripping items.
+      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
+      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
+      inventory.replaceFromWire(slots);
+      const transfers: Array<[number, number, number]> = [];
+      mountInventoryUi({
+        getInventory: () => inventory,
+        sendSelect: () => {},
+        sendMove: () => {},
+        sendTransfer: (src, dst, count) => transfers.push([src, dst, count]),
+        sendEquip: () => {},
+        sendUnequip: () => {},
+      });
+      const panelCells = document.querySelectorAll(
+        ".anarchy-inventory-panel .anarchy-inventory-slot",
+      );
+      const sourceCell = panelCells[0] as HTMLElement;
+      const destCell = panelCells[1] as HTMLElement;
+      sourceCell.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      );
+      destCell.dispatchEvent(
         new PointerEvent("pointerdown", { button: 0, bubbles: true }),
       );
       document.dispatchEvent(
         new PointerEvent("pointerup", { button: 0, bubbles: true }),
       );
-      expect(sourceCell.classList.contains("split-source")).toBe(false);
-    });
-
-    it("right-click on the armed source toggles the selection off", () => {
-      const slots: Slot[] = Array.from({ length: INVENTORY_SIZE }, () => null);
-      slots[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
-      inventory.replaceFromWire(slots);
-      mountInventoryUi({
-        getInventory: () => inventory,
-        sendSelect: () => {},
-        sendMove: () => {},
-        sendTransfer: () => {},
-        sendEquip: () => {},
-        sendUnequip: () => {},
-      });
-      const panelCells = document.querySelectorAll(
-        ".anarchy-inventory-panel .anarchy-inventory-slot",
-      );
-      const sourceCell = panelCells[0] as HTMLElement;
-      sourceCell.dispatchEvent(
-        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
-      );
+      expect(transfers.length).toBeGreaterThanOrEqual(1);
       expect(sourceCell.classList.contains("split-source")).toBe(true);
-      sourceCell.dispatchEvent(
-        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
-      );
-      expect(sourceCell.classList.contains("split-source")).toBe(false);
     });
 
     it("re-points the equipped highlight when InventoryUpdate moves the tool", () => {
@@ -2014,7 +2135,7 @@ describe("inventory UI", () => {
       expect(cell.classList.contains("split-source")).toBe(true);
     });
 
-    it("right-click split from a hotbar cell to a panel cell ships TransferItems(src, dst, 1)", () => {
+    it("split transfer from a hotbar cell to a panel cell ships TransferItems(src, dst, 1)", () => {
       inventory.replaceFromWire(
         fillSlots({ 0: { item: ItemId.Gold, count: 10 } }),
       );
@@ -2027,23 +2148,26 @@ describe("inventory UI", () => {
         sendEquip: () => {},
         sendUnequip: () => {},
       });
+      // Right-click arms the source, left-click on the destination
+      // fires the first transfer frame.
       hotbarCellAt(0).dispatchEvent(
         new PointerEvent("pointerdown", { button: 2, bubbles: true }),
       );
       panelCellAt(3).dispatchEvent(
-        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+        new PointerEvent("pointerdown", { button: 0, bubbles: true }),
       );
       expect(transfers).toEqual([[0, HOTBAR_SLOTS + 3, 1]]);
     });
 
-    it("right-click split from a panel cell to a hotbar cell ships TransferItems(src, dst, 1)", () => {
+    it("split transfer from a panel cell to a hotbar cell ships TransferItems(src, dst, 1)", () => {
       inventory.replaceFromWire(
         fillSlots({ [HOTBAR_SLOTS]: { item: ItemId.Gold, count: 10 } }),
       );
       const transfers: Array<[number, number, number]> = [];
+      const selects: number[] = [];
       mountInventoryUi({
         getInventory: () => inventory,
-        sendSelect: () => {},
+        sendSelect: (slot) => selects.push(slot),
         sendMove: () => {},
         sendTransfer: (src, dst, count) => transfers.push([src, dst, count]),
         sendEquip: () => {},
@@ -2052,13 +2176,19 @@ describe("inventory UI", () => {
       panelCellAt(0).dispatchEvent(
         new PointerEvent("pointerdown", { button: 2, bubbles: true }),
       );
-      hotbarCellAt(5).dispatchEvent(
-        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      const dst = hotbarCellAt(5);
+      dst.dispatchEvent(
+        new PointerEvent("pointerdown", { button: 0, bubbles: true }),
       );
+      // happy-dom doesn't auto-synthesize click; mirror what a real
+      // browser would and assert the hotbar's click-to-select path
+      // bails because a split source is armed.
+      dst.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(transfers).toEqual([[HOTBAR_SLOTS, 5, 1]]);
+      expect(selects).toEqual([]);
     });
 
-    it("right-click split from a hotbar cell to another hotbar cell ships TransferItems(src, dst, 1)", () => {
+    it("split transfer from a hotbar cell to another hotbar cell ships TransferItems(src, dst, 1)", () => {
       inventory.replaceFromWire(
         fillSlots({ 0: { item: ItemId.Gold, count: 10 } }),
       );
@@ -2075,7 +2205,7 @@ describe("inventory UI", () => {
         new PointerEvent("pointerdown", { button: 2, bubbles: true }),
       );
       hotbarCellAt(4).dispatchEvent(
-        new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+        new PointerEvent("pointerdown", { button: 0, bubbles: true }),
       );
       expect(transfers).toEqual([[0, 4, 1]]);
     });

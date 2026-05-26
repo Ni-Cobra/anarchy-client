@@ -203,16 +203,18 @@ describe("chest cross-grid drag/drop + split ()", () => {
     ]);
   });
 
-  it("right-click split from a hotbar cell to a chest cell ships TransferItems with dstChestKey", () => {
+  it("split transfer from a hotbar cell to a chest cell ships TransferItems with dstChestKey", () => {
     const player = emptySlots();
     player[1] = { item: ItemId.Gold, count: 10 };
     const { transfers } = mountUis(player);
 
+    // Right-click arms; left-click on the destination ships the first
+    // transfer frame.
     hotbarCells()[1].dispatchEvent(
       new PointerEvent("pointerdown", { button: 2, bubbles: true }),
     );
     chestCells()[8].dispatchEvent(
-      new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      new PointerEvent("pointerdown", { button: 0, bubbles: true }),
     );
 
     expect(transfers).toEqual([
@@ -226,7 +228,7 @@ describe("chest cross-grid drag/drop + split ()", () => {
     ]);
   });
 
-  it("right-click split from a chest cell to a hotbar cell ships TransferItems with srcChestKey", () => {
+  it("split transfer from a chest cell to a hotbar cell ships TransferItems with srcChestKey", () => {
     const chest = emptySlots();
     chest[0] = { item: ItemId.Gold, count: 10 };
     const { transfers } = mountUis(emptySlots(), chest);
@@ -235,7 +237,7 @@ describe("chest cross-grid drag/drop + split ()", () => {
       new PointerEvent("pointerdown", { button: 2, bubbles: true }),
     );
     hotbarCells()[6].dispatchEvent(
-      new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      new PointerEvent("pointerdown", { button: 0, bubbles: true }),
     );
 
     expect(transfers).toEqual([
@@ -415,7 +417,7 @@ describe("chest cross-grid drag/drop + split ()", () => {
     expect(cell.classList.contains("split-source")).toBe(true);
   });
 
-  it("right-click split from chest → player ships TransferItems with srcChestKey", () => {
+  it("split transfer from chest → player ships TransferItems with srcChestKey", () => {
     const chest = emptySlots();
     chest[0] = { item: ItemId.Gold, count: 10 };
     const { transfers } = mountUis(emptySlots(), chest);
@@ -426,7 +428,7 @@ describe("chest cross-grid drag/drop + split ()", () => {
       new PointerEvent("pointerdown", { button: 2, bubbles: true }),
     );
     destCell.dispatchEvent(
-      new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      new PointerEvent("pointerdown", { button: 0, bubbles: true }),
     );
 
     expect(transfers).toEqual([
@@ -440,7 +442,7 @@ describe("chest cross-grid drag/drop + split ()", () => {
     ]);
   });
 
-  it("right-click split from player → chest ships TransferItems with dstChestKey", () => {
+  it("split transfer from player → chest ships TransferItems with dstChestKey", () => {
     const player = emptySlots();
     player[HOTBAR_SLOTS] = { item: ItemId.Gold, count: 10 };
     const { transfers } = mountUis(player);
@@ -451,7 +453,7 @@ describe("chest cross-grid drag/drop + split ()", () => {
       new PointerEvent("pointerdown", { button: 2, bubbles: true }),
     );
     destCell.dispatchEvent(
-      new PointerEvent("pointerdown", { button: 2, bubbles: true }),
+      new PointerEvent("pointerdown", { button: 0, bubbles: true }),
     );
 
     expect(transfers).toEqual([
@@ -514,7 +516,11 @@ describe("chest cross-grid drag/drop + split ()", () => {
     expect(unequipCount).toBe(0);
   });
 
-  it("left-click on a player cell clears a chest-armed split source", () => {
+  it("right-click on empty document space clears a chest-armed split source", () => {
+    // Task 230 swapped the deselect surface from left-click to right-
+    // click on empty space. A left-click no longer clears (it's now
+    // the transfer verb); a right-click outside any inventory cell is
+    // the cancel gesture.
     const chest = emptySlots();
     chest[0] = { item: ItemId.Gold, count: 10 };
     mountUis(emptySlots(), chest);
@@ -525,12 +531,8 @@ describe("chest cross-grid drag/drop + split ()", () => {
     );
     expect(sourceCell.classList.contains("split-source")).toBe(true);
 
-    const playerCell = hotbarCells()[0];
-    playerCell.dispatchEvent(
-      new PointerEvent("pointerdown", { button: 0, bubbles: true }),
-    );
-    document.dispatchEvent(
-      new PointerEvent("pointerup", { button: 0, bubbles: true }),
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { button: 2, bubbles: true }),
     );
 
     expect(sourceCell.classList.contains("split-source")).toBe(false);
@@ -934,7 +936,7 @@ describe("chest multi-panel manager", () => {
     ]);
   });
 
-  it("right-click split across two chest panels ships TransferItems with both keys", () => {
+  it("split transfer across two chest panels ships TransferItems with both keys", () => {
     const aFill = emptySlots();
     aFill[0] = { item: ItemId.Gold, count: 10 };
     const { transfers, chestState } = mountUis(emptySlots(), aFill, DEFAULT_LOC);
@@ -944,7 +946,7 @@ describe("chest multi-panel manager", () => {
     const src = panels[0].querySelectorAll(".anarchy-chest-slot")[0] as HTMLDivElement;
     const dst = panels[1].querySelectorAll(".anarchy-chest-slot")[5] as HTMLDivElement;
     src.dispatchEvent(new PointerEvent("pointerdown", { button: 2, bubbles: true }));
-    dst.dispatchEvent(new PointerEvent("pointerdown", { button: 2, bubbles: true }));
+    dst.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
 
     expect(transfers).toEqual([
       {
