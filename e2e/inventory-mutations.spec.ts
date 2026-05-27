@@ -231,6 +231,13 @@ test("split hold transfer ramps items between slots, releases on pointer-up", as
   // Release: left-button pointer-up at the document level stops the timer.
   await page.dispatchEvent("body", "pointerup", { button: 0 });
 
+  // Drain: the last tickFn may have sent a TransferItems message to the
+  // server a few ms before pointerup arrived. Wait long enough for that
+  // in-flight round-trip (local socket < 5 ms) to complete and for any
+  // already-queued timer macrotask to run and resolve, so the snapshot
+  // below reflects the stable post-release state, not a half-applied one.
+  await page.waitForTimeout(100);
+
   // Snapshot the post-release count, wait past the fast-interval, and
   // assert no further movement. The source border stays armed (the
   // spec is "release stops the transfer; re-press resumes").
