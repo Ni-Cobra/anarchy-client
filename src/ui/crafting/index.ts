@@ -40,12 +40,19 @@
  *   at its frozen index. A recipe that comes back recovers its natural
  *   status at the same index.
  * - A recipe that wasn't in the snapshot but newly appears in the
- *   advertised list appends to the *end* of its tier (affordable → just
+ *   advertised list inserts immediately after the row the user most
+ *   recently clicked in this open session (task 180) — so a newcomer
+ *   that drops in while the player is hovering the action they just
+ *   crafted appears right under their gaze instead of disappearing
+ *   below the partial-hint section. Multiple newcomers in one tick
+ *   are spliced in advertise iteration order; the first iterated lands
+ *   closest to the clicked row. If no row has been clicked yet, falls
+ *   back to appending at the *end* of its tier (affordable → just
  *   before the first frozen partial-hint row; partial-hint → the very
- *   end). New rows never insert in the middle of the section they
- *   belong to.
- * - On close, the snapshot is discarded; the next open re-snapshots from
- *   whatever the server is advertising at that moment.
+ *   end).
+ * - On close, the snapshot — including the click anchor — is discarded;
+ *   the next open re-snapshots from whatever the server is advertising
+ *   at that moment.
  *
  * When the panel is closed the bridge between renders is simpler: there
  * is no frozen order, so each redraw mirrors the natural advertised
@@ -142,6 +149,10 @@ export function mountCraftingUi(
   // snapshot but has since dropped out of the advertised list (and so
   // grays out at its pinned index).
   const frozenStatus = new Map<string, DisplayStatus>();
+  // Recipe id of the row the user most recently clicked in this open
+  // session (left- or right-click, regardless of inert state). Anchors
+  // task 180's newcomer-insertion rule. Cleared in `setOpen(false)`.
+  let lastClickedId: string | null = null;
   // Per-row tooltip handles; replaced wholesale on every render so each row
   // gets a fresh `attachTooltip` against its live recipe + inventory thunk.
   const tooltipHandles: TooltipHandle[] = [];
@@ -162,24 +173,39 @@ export function mountCraftingUi(
       const fresh = naturalMap.get(id);
       frozenStatus.set(id, fresh ?? "uncraftable");
     }
-    // Append unseen ids per tier. Affordable lands at the end of the
-    // affordable section (just before the first partial-hint row);
-    // partial-hint lands at the very end.
-    for (const entry of natural) {
-      if (frozenStatus.has(entry.id)) continue;
-      if (entry.availability === "affordable") {
-        let insertAt = frozenOrder.length;
-        for (let i = 0; i < frozenOrder.length; i++) {
-          if (frozenStatus.get(frozenOrder[i]) === "partial-hint") {
-            insertAt = i;
-            break;
-          }
-        }
+    // Splice unseen ids in. If the user has clicked a row this open
+    // session, newcomers land directly after that row (task 180):
+    // first iterated newcomer at clickedIndex+1, second at +2, etc., so
+    // arrival order is preserved with the first newcomer closest to the
+    // click. Otherwise fall back to the per-tier append: affordable at
+    // the end of the affordable section, partial-hint at the very end.
+    const clickAnchor =
+      lastClickedId !== null ? frozenOrder.indexOf(lastClickedId) : -1;
+    if (clickAnchor >= 0) {
+      let insertAt = clickAnchor + 1;
+      for (const entry of natural) {
+        if (frozenStatus.has(entry.id)) continue;
         frozenOrder.splice(insertAt, 0, entry.id);
-        frozenStatus.set(entry.id, "affordable");
-      } else {
-        frozenOrder.push(entry.id);
-        frozenStatus.set(entry.id, "partial-hint");
+        frozenStatus.set(entry.id, entry.availability);
+        insertAt++;
+      }
+    } else {
+      for (const entry of natural) {
+        if (frozenStatus.has(entry.id)) continue;
+        if (entry.availability === "affordable") {
+          let insertAt = frozenOrder.length;
+          for (let i = 0; i < frozenOrder.length; i++) {
+            if (frozenStatus.get(frozenOrder[i]) === "partial-hint") {
+              insertAt = i;
+              break;
+            }
+          }
+          frozenOrder.splice(insertAt, 0, entry.id);
+          frozenStatus.set(entry.id, "affordable");
+        } else {
+          frozenOrder.push(entry.id);
+          frozenStatus.set(entry.id, "partial-hint");
+        }
       }
     }
     return frozenOrder.map((id) => ({ id, status: frozenStatus.get(id)! }));
@@ -214,6 +240,7 @@ export function mountCraftingUi(
         row.setAttribute("aria-disabled", "true");
       }
       row.addEventListener("click", () => {
+        lastClickedId = recipe.id;
         if (inert) return;
         options.sendCraft(recipe.id);
       });
@@ -223,6 +250,7 @@ export function mountCraftingUi(
       // but the row's `contextmenu` listener executes first.
       row.addEventListener("contextmenu", (e) => {
         e.preventDefault();
+        lastClickedId = recipe.id;
         if (inert) return;
         options.sendCraftMax(recipe.id);
       });
@@ -248,6 +276,7 @@ export function mountCraftingUi(
     } else {
       frozenOrder.length = 0;
       frozenStatus.clear();
+      lastClickedId = null;
     }
     render();
   };

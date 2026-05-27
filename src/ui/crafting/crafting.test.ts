@@ -570,6 +570,315 @@ describe("crafting UI", () => {
     });
   });
 
+  describe("clicked-row insertion (task 180)", () => {
+    it("splices a newcomer immediately after the last clicked row", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        ["sticks", "wood-pickaxe"],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      // Click on `sticks` (index 0).
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+
+      // Player picks up sticks; wood-axe newly unlocks. Natural sort
+      // would interleave wood-axe between sticks and wood-pickaxe by
+      // lex order — that coincidence makes this a weak signal on its
+      // own, but combined with the clicked-row-stable assertion below
+      // it pins the splice point.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 5 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 4 },
+        }),
+        null,
+        null,
+        ["sticks", "wood-axe", "wood-pickaxe"],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "wood-pickaxe",
+      ]);
+    });
+
+    it("falls back to tier-end append when no row has been clicked yet", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      // No click. New affordable arrives — must land at the affordable
+      // tier end (just before torch), matching the task 110 contract.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 5 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 4 },
+        }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "torch",
+      ]);
+    });
+
+    it("keeps the clicked row pinned at its index when a newcomer arrives", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        ["sticks", "wood-pickaxe"],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      // Click wood-pickaxe (index 1). A natural-sort newcomer (`wood-axe`,
+      // lex-before wood-pickaxe) must NOT shove wood-pickaxe down — the
+      // clicked row stays put and wood-axe goes directly after it.
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
+        )!
+        .click();
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 5 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 4 },
+        }),
+        null,
+        null,
+        ["sticks", "wood-axe", "wood-pickaxe"],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-pickaxe",
+        "wood-axe",
+      ]);
+    });
+
+    it("splices multiple newcomers in advertise iteration order, first closest to the click", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        ["sticks"],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+
+      // Two newcomers arrive at once. The first iterated (wood-axe) lands
+      // at sticks+1; the second (wood-pickaxe) at sticks+2.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 5 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 4 },
+        }),
+        null,
+        null,
+        ["sticks", "wood-axe", "wood-pickaxe"],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "wood-pickaxe",
+      ]);
+    });
+
+    it("a partial-hint newcomer also lands directly after the clicked affordable row", () => {
+      // Insertion is by index, not by tier — the visual affordable/partial-
+      // hint grouping can be broken by the click anchor (per task 180 spec).
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      // torch is partial-hint but slots in right after the clicked sticks
+      // row, ahead of the existing affordable wood-pickaxe.
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "torch",
+        "wood-pickaxe",
+      ]);
+    });
+
+    it("right-clicking a row also anchors the splice point", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        ["sticks", "wood-pickaxe"],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .dispatchEvent(
+          new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+        );
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 5 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 4 },
+        }),
+        null,
+        null,
+        ["sticks", "wood-axe", "wood-pickaxe"],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "wood-pickaxe",
+      ]);
+    });
+
+    it("closing the panel clears the click anchor", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+
+      // Close + reopen wipes the anchor; the snapshot resets to whatever
+      // is advertised at reopen time.
+      ui.setOpen(false);
+      ui.setOpen(true);
+
+      // A newcomer arrives. Without the click anchor, it lands at the
+      // affordable tier end (just before torch), not adjacent to sticks.
+      inventory.replaceFromWire(
+        emptySlots({
+          0: { item: ItemId.Wood, count: 5 },
+          [HOTBAR_SLOTS]: { item: ItemId.Stick, count: 4 },
+        }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "torch",
+      ]);
+    });
+  });
+
   it("rows live inside a .anarchy-crafting-list wrapper so the slide-in transform stays separate from the row flow", () => {
     inventory.replaceFromWire(
       emptySlots({ 0: { item: ItemId.Wood, count: 1 } }),
