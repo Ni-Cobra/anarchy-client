@@ -51,6 +51,14 @@ export default defineConfig({
       timeout: 60_000,
       stdout: "pipe",
       stderr: "pipe",
+      // Shield the e2e bundle from a developer's local `VITE_WS_URL` override
+      // (Cloudflare tunnel for sharing a build, alternative TLS host, etc.).
+      // The e2e suite always targets the Playwright-managed server on the
+      // localhost default; without this, a stale operator URL leaks through
+      // `anarchy-client/.env` and every browser-driven spec fails with the
+      // in-game "Connection lost" overlay because the bundle points the
+      // WebSocket at an unreachable host.
+      env: { VITE_WS_URL: "" },
     },
   ],
 });

@@ -10,8 +10,15 @@ afterEach(() => {
 });
 
 describe("resolveWsUrl — dev gate (SECURITY-REVIEW H-1)", () => {
+  // Tests asserting `undefined` must explicitly clear VITE_WS_URL. Without
+  // this, a developer with an operator override set in `anarchy-client/.env`
+  // (e.g. a Cloudflare tunnel for sharing a local build) sees vitest pick up
+  // that value at import time and the function returns the tunnel URL instead
+  // of `undefined`. The dev gate is still correct; the test just needs to
+  // pin the env it depends on.
   it("ignores ?ws= override in production builds", () => {
     vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_WS_URL", "");
     expect(
       resolveWsUrl(new URLSearchParams("?ws=wss://evil/ws")),
     ).toBeUndefined();
@@ -29,6 +36,7 @@ describe("resolveWsUrl — dev gate (SECURITY-REVIEW H-1)", () => {
   // server on a non-default port). Confine it to dev for the same reason.
   it("ignores ?server-port= in production builds", () => {
     vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_WS_URL", "");
     expect(
       resolveWsUrl(new URLSearchParams("?server-port=9090")),
     ).toBeUndefined();
