@@ -330,6 +330,14 @@ export class Renderer {
     this.projectiles?.clear();
   }
 
+  /** Clear all transient combat visuals (attack beams + slashes). Called on
+   *  local-player death so a mid-charge beam doesn't re-anchor at the
+   *  respawn position. */
+  clearCombatEffects(): void {
+    this.graph.attackBeams.clearAll();
+    this.graph.slashes.clearAll();
+  }
+
   setTerrain(terrain: Terrain): void {
     this.terrain = terrain;
   }

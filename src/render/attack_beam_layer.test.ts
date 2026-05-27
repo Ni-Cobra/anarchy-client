@@ -163,4 +163,17 @@ describe("AttackBeamLayer", () => {
     expect(layer.size()).toBe(1);
     layer.dispose();
   });
+
+  it("clearAll removes a mid-charge beam when the target dies before strike resolves", () => {
+    // Scenario: attacker 1 has a charge-started beam targeting local player 2.
+    // Player 2 dies from a different hit before attacker 1's strike resolves,
+    // so onResolve is never called for this beam. Without clearAll() on the
+    // death event, the beam would re-aim to player 2's respawn position.
+    const layer = new AttackBeamLayer();
+    layer.onCharge(1, "player", 2, 0, 1_000);
+    expect(layer.size()).toBe(1);
+    layer.clearAll(); // fired by the local-player death handler
+    expect(layer.size()).toBe(0);
+    layer.dispose();
+  });
 });

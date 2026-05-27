@@ -626,6 +626,11 @@ export function constructSession(deps: SessionDeps): Session {
             for (const ev of events) {
               if (ev.playerId !== localPlayerId) continue;
               deathOverlay.trigger(performance.now());
+              // A charge-started beam targeting the local player may
+              // still be live if the kill landed before the charge
+              // resolved — clear it now so it doesn't re-aim to the
+              // respawn position when the new chunk loads.
+              renderer.clearCombatEffects();
             }
           },
           applyProjectiles: (snapshots, tickReceivedMs) => {
