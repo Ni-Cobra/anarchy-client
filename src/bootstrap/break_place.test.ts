@@ -979,7 +979,7 @@ describe("attachBreakAndPlace — attack cooldown hint", () => {
   const HINT_HOST_ID = "anarchy-cursor-hint";
 
   // Server cooldown window — mirrored from `ui/sword_cooldown_ring.ts`.
-  const ATTACK_COOLDOWN_MS = 4000;
+  const ATTACK_COOLDOWN_MS = 2500;
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -1109,7 +1109,7 @@ describe("attachBreakAndPlace — attack cooldown hint", () => {
   it("the hint auto-fades after ~1 s and stays hidden once cooldown elapses", () => {
     vi.useFakeTimers();
     const sendAttackIntent = vi.fn();
-    // Strike at t=0, now=100 ⇒ 4.9 s of cooldown remaining ⇒ fade caps at 1 s.
+    // Strike at t=0, now=100 ⇒ 2.4 s of cooldown remaining ⇒ fade caps at 1 s.
     detach = attachBreakAndPlace(
       window,
       buildCooldownDeps({

@@ -2,7 +2,7 @@
  * Sword-slot cooldown ring. Replaces the bottom-right
  * `Cooldown Xs` badge that lived in the now-deleted `attack_cooldown.ts`
  * — the sword equipment slot is the single canonical surface for the
- * post-strike 5 s cooldown.
+ * post-strike 2.5 s cooldown.
  *
  * An SVG ring is absolutely positioned over the slot's interior. A
  * full-circle "track" stays visible only while the cooldown is
@@ -15,7 +15,7 @@
  * and the same `null` / pre-strike / past-expiry edge cases hide the
  * ring.
  *
- * Scope is the post-strike 4 s cooldown only. The 0.7 s charge phase
+ * Scope is the post-strike 2.5 s cooldown only. The 0.7 s charge phase
  * already has the shrinking-beam visual; adding a charge indicator on
  * the slot is a follow-up.
  */
@@ -24,7 +24,7 @@ const STYLE_ID = "anarchy-sword-cooldown-ring-style";
 const ROOT_CLASS = "anarchy-sword-cooldown-ring";
 
 /** Total cooldown window in ms (mirrors server `COOLDOWN_DURATION_SECS`). */
-export const ATTACK_COOLDOWN_DURATION_MS = 4000;
+export const ATTACK_COOLDOWN_DURATION_MS = 2500;
 
 const COOLDOWN_COLOR = "#ffb060";
 const RING_RADIUS = 13;
