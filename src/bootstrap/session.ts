@@ -626,11 +626,13 @@ export function constructSession(deps: SessionDeps): Session {
             for (const ev of events) {
               if (ev.playerId !== localPlayerId) continue;
               deathOverlay.trigger(performance.now());
-              // A charge-started beam targeting the local player may
-              // still be live if the kill landed before the charge
-              // resolved — clear it now so it doesn't re-aim to the
-              // respawn position when the new chunk loads.
-              renderer.clearCombatEffects();
+              // Wipe every transient combat / damage-feedback layer the
+              // local player owns. Without this the death overlay's
+              // black fade (4 s) finishes before the title fade (8 s),
+              // and the world peeks through with leftover damage
+              // numbers / white-flash / slash / cooldown-ring depletion
+              // / mid-charge beam re-aiming at the respawn position.
+              renderer.onLocalDeath();
               // Server `kill_player` zeros AttackState but ships no
               // strike resolution, so without this the charge tracker
               // would hold its lock until the 1.7s failsafe trips —

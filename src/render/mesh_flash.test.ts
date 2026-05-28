@@ -6,10 +6,10 @@ import {
   BODY_UNLIT_MAT_USERDATA_KEY,
 } from "./player_mesh.js";
 import {
-  clearAllMeshFlashesForTest,
   flashMeshWhite,
   meshFlashCount,
   MESH_FLASH_DURATION_MS,
+  purgeAllMeshFlashes,
   purgeMeshFlash,
   tickMeshFlashes,
 } from "./mesh_flash.js";
@@ -28,7 +28,7 @@ function buildPlayerLikeMesh(litHex: number): {
 }
 
 afterEach(() => {
-  clearAllMeshFlashesForTest();
+  purgeAllMeshFlashes();
 });
 
 describe("mesh_flash", () => {
@@ -91,6 +91,22 @@ describe("mesh_flash", () => {
     const group = new THREE.Group();
     flashMeshWhite(group, 0);
     expect(meshFlashCount()).toBe(0);
+  });
+
+  it("purgeAllMeshFlashes restores colors on every active flash and drops the entries", () => {
+    const a = buildPlayerLikeMesh(0xaaaaaa);
+    const b = buildPlayerLikeMesh(0xbbbbbb);
+    flashMeshWhite(a.mesh, 0);
+    flashMeshWhite(b.mesh, 0);
+    expect(meshFlashCount()).toBe(2);
+    expect(a.lit.color.getHex()).toBe(0xffffff);
+    expect(b.lit.color.getHex()).toBe(0xffffff);
+    purgeAllMeshFlashes();
+    expect(meshFlashCount()).toBe(0);
+    expect(a.lit.color.getHex()).toBe(0xaaaaaa);
+    expect(a.unlit.color.getHex()).toBe(0xaaaaaa);
+    expect(b.lit.color.getHex()).toBe(0xbbbbbb);
+    expect(b.unlit.color.getHex()).toBe(0xbbbbbb);
   });
 
   it("two simultaneous flashes on different meshes coexist", () => {

@@ -176,10 +176,18 @@ export function meshFlashCount(): number {
 }
 
 /**
- * Test-only: clear the entire flash table. Used by unit tests to reset
- * the module-level state between cases. Production code never calls
- * this — `tickMeshFlashes` handles natural retirement.
+ * Restore the original color on every active flash and drop the entries.
+ * Called from `Renderer.onLocalDeath` so any mid-flash mesh isn't left
+ * stuck white when the world peeks through the post-death overlay fade.
+ * Functionally equivalent to running `tickMeshFlashes` past every active
+ * flash's expiry, just without waiting for the per-flash window to pass.
  */
-export function clearAllMeshFlashesForTest(): void {
+export function purgeAllMeshFlashes(): void {
+  if (flashes.size === 0) return;
+  for (const state of flashes.values()) {
+    for (let i = 0; i < state.materials.length; i++) {
+      colorOf(state.materials[i])?.setHex(state.originalHexes[i]);
+    }
+  }
   flashes.clear();
 }

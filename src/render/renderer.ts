@@ -58,6 +58,7 @@ import { MS_PER_TICK, reconstructChargeStartMs } from "./attack_beam_layer.js";
 import {
   flashMeshWhite,
   meshFlashCount,
+  purgeAllMeshFlashes,
   tickMeshFlashes,
 } from "./mesh_flash.js";
 import { computeGhostState, type GhostState } from "./ghost.js";
@@ -330,12 +331,26 @@ export class Renderer {
     this.projectiles?.clear();
   }
 
-  /** Clear all transient combat visuals (attack beams + slashes). Called on
-   *  local-player death so a mid-charge beam doesn't re-anchor at the
-   *  respawn position. */
-  clearCombatEffects(): void {
+  /**
+   * Wipe every transient combat / damage-feedback visual layer the local
+   * player owns. Called from the bootstrap death-event sink so a mid-charge
+   * beam doesn't re-anchor at the respawn position, the cooldown ring
+   * doesn't keep depleting on the fresh life, and any leftover damage
+   * number / slash / white-flash / dash / screen-shake doesn't peek
+   * through the post-death overlay fade.
+   *
+   * Future transient combat layers should add their reset here so the
+   * death-clear surface stays a single line in `session.ts`.
+   */
+  onLocalDeath(): void {
     this.graph.attackBeams.clearAll();
     this.graph.slashes.clearAll();
+    this.graph.damageNumbers.clearAll();
+    purgeAllMeshFlashes();
+    this.screenShake.reset();
+    this.activeDashes.clear();
+    this.tickAnchorByAttacker.clear();
+    this.cooldownStartMsByAttacker.clear();
   }
 
   setTerrain(terrain: Terrain): void {
