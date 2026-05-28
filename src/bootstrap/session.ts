@@ -83,7 +83,7 @@ import {
   type DeathOverlayState,
   type InventoryUiHandle,
 } from "../ui/index.js";
-import { BLOWGUN_COOLDOWN_MS } from "../config.js";
+import { BLOWGUN_COOLDOWN_MS, FLAG_INTERACT_DAMAGE_GRACE_MS } from "../config.js";
 import { createActionSenders } from "./actions.js";
 import { attachBreakAndPlace } from "./break_place.js";
 import { attachKeybindings } from "./keybindings.js";
@@ -535,6 +535,15 @@ export function constructSession(deps: SessionDeps): Session {
   // bridge can reset it without a forward-reference.
   let lastSeenLocalHp: number | null = null;
 
+  // wall-clock ms at which the local player's flag-interact
+  // damage-grace window expires, or `null` when they aren't in it.
+  // Bumped from `onDamageEvents` whenever a damage event lands on the
+  // local player; read by `break_place` to gate the flag-interact press
+  // path and surface a transient "In combat" cursor hint instead of the
+  // silent server-side rejection. Reset on local-player reassign so a
+  // fresh life never inherits the previous session's combat clock.
+  let localInCombatUntilMs: number | null = null;
+
   // Test-handle observability for the effects feed. The
   // renderer-visible effects layer is internal; these mirrors give
   // Playwright (and unit tests for the bootstrap wire) a way to assert
@@ -615,6 +624,22 @@ export function constructSession(deps: SessionDeps): Session {
           },
           onDamageEvents: (events, tickReceivedMs) => {
             renderer.onDamageEvents(events, tickReceivedMs);
+            // Track the local player's last-damage clock so the
+            // break_place flag-interact press path can gate against the
+            // server's `FLAG_INTERACT_DAMAGE_GRACE_SECS` window. Match the
+            // server invariant: every hit refreshes the window from the
+            // hit's wall-clock instant. Death clears the server's
+            // `last_damage_tick`; the local-player reassign callback
+            // clears this mirror.
+            if (localPlayerId !== null) {
+              for (const ev of events) {
+                if (ev.targetKind === "player" && ev.targetId === localPlayerId) {
+                  localInCombatUntilMs =
+                    tickReceivedMs + FLAG_INTERACT_DAMAGE_GRACE_MS;
+                  break;
+                }
+              }
+            }
           },
           onDeathEvents: (events) => {
             // Server scopes the feed per-receiver, so any event we see
@@ -684,6 +709,10 @@ export function constructSession(deps: SessionDeps): Session {
             // we observe on the new player never spuriously fires
             // shake/flash against a stale previous-session value.
             lastSeenLocalHp = null;
+            // Drop the in-combat clock so a new life never inherits the
+            // previous session's grace window — server clears
+            // `last_damage_tick` on death and so does the client mirror.
+            localInCombatUntilMs = null;
             // drop the blowgun fire timestamp so the new
             // local player isn't gated by the previous session's fire.
             lastBlowgunFireMs = null;
@@ -1048,6 +1077,12 @@ export function constructSession(deps: SessionDeps): Session {
       // dropped server-side.
       getLocalStrikeStartedMs: () =>
         localPlayerId === null ? null : renderer.getStrikeStartedMs(localPlayerId),
+      // expiry of the local-damage flag-interact grace window in
+      // wall-clock ms, or `null` when the window isn't active. Updated by
+      // the `onDamageEvents` callback above whenever a damage hit lands
+      // on the local player. break_place reads this to surface the
+      // "In combat" cursor-anchored hint on a denied press.
+      getLocalInCombatUntilMs: () => localInCombatUntilMs,
     }),
   );
 

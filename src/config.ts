@@ -85,6 +85,17 @@ export const BLOWGUN_COOLDOWN_MS = 1000;
  */
 export const FLAG_INTERACT_RANGE_TILES = 4;
 
+/**
+ * How long after the local player took damage the flag-interact gate
+ * stays locked. Mirrors the server's
+ * `combat/config.rs::FLAG_INTERACT_DAMAGE_GRACE_SECS` (seconds), expressed
+ * in wall-clock ms so the client can compare against `Date.now()` directly.
+ * Server is authoritative for the rejection; the client uses this purely
+ * to surface a "In combat" cursor-anchored hint on click instead of the
+ * silent server-side reject.
+ */
+export const FLAG_INTERACT_DAMAGE_GRACE_MS = 5_000;
+
 // ---- Render ----
 
 /**

@@ -969,6 +969,150 @@ describe("attachBreakAndPlace — drain-to-destroy fall-through", () => {
   });
 });
 
+// flag-interact post-damage grace gate. A press on a claimed
+// flag in range while the local player is still inside the server's
+// `FLAG_INTERACT_DAMAGE_GRACE_SECS` window must NOT ship
+// `FlagInteractIntent(active=true)` (the server would silently reject it).
+// Instead the cursor-anchored hint surfaces "In combat" for ~1 s and
+// no intent leaves the wire. Mirrors the attack-cooldown gate above.
+describe("attachBreakAndPlace — flag-interact in-combat hint", () => {
+  let detach: (() => void) | null = null;
+
+  const HINT_HOST_ID = "anarchy-cursor-hint";
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 600, configurable: true });
+  });
+
+  afterEach(() => {
+    if (detach) detach();
+    detach = null;
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  function buildGraceDeps(opts: {
+    sendFlagInteractIntent: BreakPlaceDeps["sendFlagInteractIntent"];
+    getLocalInCombatUntilMs: () => number | null;
+    nowMs: () => number;
+    factionXp?: number | null;
+  }): BreakPlaceDeps {
+    const { renderer } = buildRenderer(tilePickAt(0, 0, 1, 0, BlockType.Flag));
+    return {
+      world: buildWorld(),
+      renderer,
+      getLocalPlayerId: () => PLAYER_ID,
+      getInventory: () => new Inventory(),
+      sendBreakIntent: vi.fn(),
+      sendPlaceBlock: vi.fn(),
+      sendFlagInteractIntent: opts.sendFlagInteractIntent,
+      getFactionXpAt: () => opts.factionXp ?? 5,
+      getLocalInCombatUntilMs: opts.getLocalInCombatUntilMs,
+      nowMs: opts.nowMs,
+    };
+  }
+
+  it("suppresses FlagInteractIntent and surfaces the transient hint while in combat", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildGraceDeps({
+        sendFlagInteractIntent: sendFlag,
+        getLocalInCombatUntilMs: () => 5_000,
+        nowMs: () => 1_000,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).not.toHaveBeenCalled();
+    const chip = document.getElementById(HINT_HOST_ID);
+    expect(chip).not.toBeNull();
+    expect(chip!.textContent).toBe("In combat");
+    expect(chip!.style.display).toBe("block");
+  });
+
+  it("right-click on a flag inside the grace window also gates and shows the hint", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildGraceDeps({
+        sendFlagInteractIntent: sendFlag,
+        getLocalInCombatUntilMs: () => 5_000,
+        nowMs: () => 1_000,
+      }),
+    );
+
+    fireMouseDown(2, 400, 300);
+
+    expect(sendFlag).not.toHaveBeenCalled();
+    expect(document.getElementById(HINT_HOST_ID)?.textContent).toBe("In combat");
+  });
+
+  it("ships the intent once the grace window has elapsed", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildGraceDeps({
+        sendFlagInteractIntent: sendFlag,
+        getLocalInCombatUntilMs: () => 1_000,
+        nowMs: () => 1_000,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).toHaveBeenCalledTimes(1);
+    expect(sendFlag).toHaveBeenCalledWith(0, 0, 1, 0, "steal", true);
+    // No hint host gets created when the press is allowed through.
+    expect(document.getElementById(HINT_HOST_ID)).toBeNull();
+  });
+
+  it("ships the intent when getLocalInCombatUntilMs returns null (never been hit)", () => {
+    const sendFlag = vi.fn();
+    detach = attachBreakAndPlace(
+      window,
+      buildGraceDeps({
+        sendFlagInteractIntent: sendFlag,
+        getLocalInCombatUntilMs: () => null,
+        nowMs: () => 5_000_000,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+
+    expect(sendFlag).toHaveBeenCalledTimes(1);
+    expect(document.getElementById(HINT_HOST_ID)).toBeNull();
+  });
+
+  it("hint fade is clamped to the remaining grace window when less than 1 s is left", () => {
+    vi.useFakeTimers();
+    const sendFlag = vi.fn();
+    // 250 ms left in the grace window — fade should cap at 250 ms, not
+    // the 1 s default, so the chip never outlives the rejection.
+    detach = attachBreakAndPlace(
+      window,
+      buildGraceDeps({
+        sendFlagInteractIntent: sendFlag,
+        getLocalInCombatUntilMs: () => 1_250,
+        nowMs: () => 1_000,
+      }),
+    );
+
+    fireMouseDown(0, 400, 300);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("block");
+
+    vi.advanceTimersByTime(249);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("block");
+    vi.advanceTimersByTime(1);
+    expect(document.getElementById(HINT_HOST_ID)?.style.display).toBe("none");
+  });
+});
+
 // the local attack-cooldown gate. A left-click on an in-range
 // attack target while the local sword is still cooling down must NOT
 // ship `AttackIntent` (the server would silently reject it). Instead the

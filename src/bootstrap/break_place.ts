@@ -41,6 +41,11 @@ import { createCursorHint } from "./cursor_hint.js";
  *  so the chip doesn't outlive the condition it explains. */
 const ATTACK_COOLDOWN_HINT_FADE_MS = 1000;
 
+/** how long the "In combat" transient chip stays visible after a denied
+ *  flag-interact press. Clamped at show-time to the remaining grace window
+ *  so the chip never outlives the rejection condition. */
+const IN_COMBAT_HINT_FADE_MS = 1000;
+
 const REACH_BLOCKS_SQ = REACH_BLOCKS * REACH_BLOCKS;
 
 const ATTACK_RANGE_TILES_SQ = ATTACK_RANGE_TILES * ATTACK_RANGE_TILES;
@@ -186,6 +191,18 @@ export interface BreakPlaceDeps {
     lx: number,
     ly: number,
   ) => number | null;
+  /**
+   * wall-clock ms at which the local player's post-damage flag-
+   * interact grace window expires, or `null` when they aren't currently
+   * in the grace. Sourced from the session-owned tracker that watches
+   * `onDamageEvents` for the local player. When the press lands inside
+   * the grace window, the flag-interact intent never ships and a
+   * transient "In combat" hint surfaces next to the cursor instead of
+   * the silent server-side rejection. Optional — tests / wire-only paths
+   * that don't exercise the in-combat UX leave it absent and every
+   * press-time gate falls through.
+   */
+  readonly getLocalInCombatUntilMs?: () => number | null;
 }
 
 /** Equipped pickaxe tier derived from the local-player inventory mirror. */
@@ -500,6 +517,24 @@ export function attachBreakAndPlace(
         const fallThrough =
           flag.factionXp === null || (isLeft && flag.factionXp === 0);
         if (!fallThrough) {
+          // local in-combat gate. The server silently rejects a
+          // flag-interact admission within `FLAG_INTERACT_DAMAGE_GRACE_MS`
+          // of the local player's last damage hit. Mirror that here so
+          // the press surfaces a cursor-anchored "In combat" chip instead
+          // of "nothing happens", and never ships an intent the server
+          // would drop anyway. The fade caps at `min(1 s, remaining grace)`
+          // so the chip hides the moment the player can press again.
+          const inCombatUntil = deps.getLocalInCombatUntilMs?.() ?? null;
+          if (inCombatUntil !== null) {
+            const remaining = inCombatUntil - nowMs();
+            if (remaining > 0) {
+              cursorHint.show("In combat", {
+                channel: "transient",
+                durationMs: Math.min(IN_COMBAT_HINT_FADE_MS, remaining),
+              });
+              return;
+            }
+          }
           // A second press while one is already held releases the prior
           // hold first so we never strand the server with two outstanding
           // intents for the same player. Latest-wins per player on the
