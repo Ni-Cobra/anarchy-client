@@ -1,8 +1,8 @@
 /**
  * Full-page "Mobile not supported" gate. `showLobby()` short-circuits into
- * this when `isMobileUserAgent()` returns true so phone / tablet users
- * see a plain message instead of the desktop lobby controls (touch
- * drag/drop and hotbar shortcuts were never designed for them). The
+ * this when `isMobile()` returns true so phone / tablet users see a plain
+ * message instead of the desktop lobby controls (touch drag/drop and
+ * hotbar shortcuts were never designed for them). The
  * Discord button is kept so users can ping the community from their
  * phone — there is intentionally no "Continue anyway" escape hatch.
  *
