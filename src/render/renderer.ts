@@ -546,7 +546,11 @@ export class Renderer {
       readonly attackerPlayerId: number;
       readonly targetKind: "player" | "entity";
       readonly targetId: number;
-      readonly outcome: "charge-started" | "strike-hit" | "strike-missed";
+      readonly outcome:
+        | "charge-started"
+        | "strike-hit"
+        | "strike-missed"
+        | "charge-cancelled";
       readonly startedAtTick: number;
     }>,
     tickReceivedMs: number,
@@ -573,6 +577,12 @@ export class Renderer {
           colorIndex,
           chargeStartMs,
         );
+      } else if (ev.outcome === "charge-cancelled") {
+        // Bug 280: attacker died or disconnected mid-charge. Retire the
+        // beam and drop the anchor — no dash, no cooldown, no slash, no
+        // shake; the strike never happened.
+        this.graph.attackBeams.onResolve(ev.attackerPlayerId);
+        this.tickAnchorByAttacker.delete(ev.attackerPlayerId);
       } else {
         // STRIKE_HIT or STRIKE_MISSED. Retire the beam, capture the
         // current rendered position as the dash "from", pin the

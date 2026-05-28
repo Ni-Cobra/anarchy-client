@@ -481,8 +481,9 @@ enum TargetKind {
 
 // Stage of an attack the server is broadcasting (task 070). The client
 // renders the charge beam between `CHARGE_STARTED` and the matching
-// `STRIKE_HIT` / `STRIKE_MISSED_OUT_OF_REACH`. `ATTACK_OUTCOME_UNSPECIFIED`
-// is the proto3 default sentinel and never emitted by the server.
+// terminator — `STRIKE_HIT` / `STRIKE_MISSED_OUT_OF_REACH` /
+// `CHARGE_CANCELLED`. `ATTACK_OUTCOME_UNSPECIFIED` is the proto3 default
+// sentinel and never emitted by the server.
 enum AttackOutcome {
   ATTACK_OUTCOME_UNSPECIFIED = 0;
   // The 0.7s charge began this tick. Client starts rendering the beam.
@@ -492,6 +493,11 @@ enum AttackOutcome {
   // Strike missed because the target was out of `STRIKE_RANGE_TILES` at
   // the resolution tick. No damage. Beam terminates.
   ATTACK_OUTCOME_STRIKE_MISSED_OUT_OF_REACH = 3;
+  // Attacker died or disconnected mid-charge (bug 280). No damage, no
+  // dash, no cooldown — the charge is just gone. Client retires the beam
+  // silently. The wire keeps the same `started_at_tick` so a replay tool
+  // can recognize the charge it matches.
+  ATTACK_OUTCOME_CHARGE_CANCELLED = 4;
 }
 
 // Client→server "left-click target" intent (task 070). The server

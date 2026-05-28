@@ -52,7 +52,11 @@ export class LocalAttackChargeTracker {
   onAttackEvent(
     event: {
       readonly attackerPlayerId: number;
-      readonly outcome: "charge-started" | "strike-hit" | "strike-missed";
+      readonly outcome:
+        | "charge-started"
+        | "strike-hit"
+        | "strike-missed"
+        | "charge-cancelled";
     },
     localPlayerId: number | null,
   ): void {

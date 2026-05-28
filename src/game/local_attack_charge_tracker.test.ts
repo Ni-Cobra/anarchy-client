@@ -45,6 +45,22 @@ describe("LocalAttackChargeTracker", () => {
     expect(tracker.isLocalCharging()).toBe(false);
   });
 
+  it("releases on charge-cancelled too (bug 280)", () => {
+    // The local player died mid-charge: the server emits a
+    // ChargeCancelled instead of a strike resolution. The tracker must
+    // drop the lock so the next move intent ships once the player
+    // respawns.
+    tracker.onAttackEvent(
+      { attackerPlayerId: LOCAL_ID, outcome: "charge-started" },
+      LOCAL_ID,
+    );
+    tracker.onAttackEvent(
+      { attackerPlayerId: LOCAL_ID, outcome: "charge-cancelled" },
+      LOCAL_ID,
+    );
+    expect(tracker.isLocalCharging()).toBe(false);
+  });
+
   it("ignores events from other attackers", () => {
     tracker.onAttackEvent(
       { attackerPlayerId: 99, outcome: "charge-started" },

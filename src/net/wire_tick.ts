@@ -118,7 +118,13 @@ export interface WireTargetingStateEvent {
  * bridge stays free of protobuf-numeric leaks.
  */
 export type WireTargetKind = "player" | "entity";
-export type WireAttackOutcome = "charge-started" | "strike-hit" | "strike-missed";
+export type WireAttackOutcome =
+  | "charge-started"
+  | "strike-hit"
+  | "strike-missed"
+  // Bug 280 terminator: attacker died or disconnected mid-charge. No
+  // damage, no dash, no cooldown — observers retire the beam silently.
+  | "charge-cancelled";
 export interface WireAttackEvent {
   readonly attackerPlayerId: number;
   readonly targetKind: WireTargetKind;
@@ -597,6 +603,8 @@ function attackOutcomeFromWire(
       return "strike-hit";
     case anarchy.v1.AttackOutcome.ATTACK_OUTCOME_STRIKE_MISSED_OUT_OF_REACH:
       return "strike-missed";
+    case anarchy.v1.AttackOutcome.ATTACK_OUTCOME_CHARGE_CANCELLED:
+      return "charge-cancelled";
     default:
       return null;
   }

@@ -1211,6 +1211,14 @@ describe("applyServerMessage — TickUpdate effects feed", () => {
                 .ATTACK_OUTCOME_STRIKE_MISSED_OUT_OF_REACH,
             startedAtTick: 300,
           },
+          {
+            attackerPlayerId: 6,
+            targetKind: anarchy.v1.TargetKind.TARGET_KIND_PLAYER,
+            targetId: 7,
+            outcome:
+              anarchy.v1.AttackOutcome.ATTACK_OUTCOME_CHARGE_CANCELLED,
+            startedAtTick: 400,
+          },
         ],
       },
     });
@@ -1238,6 +1246,16 @@ describe("applyServerMessage — TickUpdate effects feed", () => {
         targetId: 5,
         outcome: "strike-missed",
         startedAtTick: 300,
+      },
+      {
+        attackerPlayerId: 6,
+        targetKind: "player",
+        targetId: 7,
+        // Bug 280: attacker died or disconnected mid-charge. The wire
+        // ChargeCancelled outcome lands here so the renderer can retire
+        // the abandoned beam silently.
+        outcome: "charge-cancelled",
+        startedAtTick: 400,
       },
     ]);
   });
