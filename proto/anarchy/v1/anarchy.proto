@@ -258,8 +258,8 @@ message ConnectedPlayersList {
 // freshly admitted client only sees lines sent after its welcome.
 // Client→server "post this body as a chat line from me" (task 090).
 // Server-side validation: the body is trimmed; an empty body or a body
-// that exceeds `crate::config::CHAT_BODY_MAX_LEN` (256 chars) is
-// silently dropped. A per-connection token bucket
+// that exceeds `crate::config::CHAT_BODY_MAX_LEN` (256 Unicode scalar
+// values; i.e. `str::chars().count()`, not bytes) is silently dropped. A per-connection token bucket
 // (`crate::config::CHAT_RATE_PER_SECOND`, burst
 // `crate::config::CHAT_RATE_BURST`) gates the rate independently of the
 // inbound-frame limiter — chat shouldn't compete with movement for the
