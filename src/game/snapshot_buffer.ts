@@ -13,6 +13,25 @@ export interface Sample {
 const DEFAULT_CAPACITY = 16;
 
 /**
+ * If two bracketing samples for the same player are more than this many
+ * world units apart, treat the transition as a teleport and snap to the
+ * newer sample instead of linearly interpolating. Max normal player speed
+ * is 5 u/s, so over the ~100 ms render-delay window legitimate movement
+ * caps near 0.5 u; anything beyond a handful of units is a respawn,
+ * admin-teleport, or strike-dash and would otherwise drag the camera
+ * (and any visuals anchored on the local player) across the world for
+ * the interpolation window.
+ *
+ * Strike-dash teleports (capped at ATTACK_RANGE_TILES = 6) sit below
+ * this threshold so this snap doesn't interfere with the renderer's
+ * dash override; respawns (typically tens of units back to spawn) sit
+ * well above.
+ */
+const TELEPORT_SNAP_DISTANCE_TILES = 8;
+const TELEPORT_SNAP_DISTANCE_SQ =
+  TELEPORT_SNAP_DISTANCE_TILES * TELEPORT_SNAP_DISTANCE_TILES;
+
+/**
  * Per-player ring of recent positions for render-time interpolation.
  * Coordinates from the server are continuous floats; samples are stored as
  * numbers and `sample()` returns interpolated values between bracketing
@@ -78,10 +97,15 @@ export class SnapshotBuffer {
       const b = list[i];
       if (b.timeMs >= timeMs) {
         const a = list[i - 1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        if (dx * dx + dy * dy > TELEPORT_SNAP_DISTANCE_SQ) {
+          return { x: b.x, y: b.y };
+        }
         const span = b.timeMs - a.timeMs;
         if (span <= 0) return { x: b.x, y: b.y };
         const t = (timeMs - a.timeMs) / span;
-        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        return { x: a.x + dx * t, y: a.y + dy * t };
       }
     }
     return { x: last.x, y: last.y };

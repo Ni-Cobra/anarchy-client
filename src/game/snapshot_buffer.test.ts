@@ -33,22 +33,22 @@ describe("SnapshotBuffer", () => {
   it("linearly interpolates between bracketing samples", () => {
     const buf = new SnapshotBuffer();
     buf.push(1, 0, 0, 1000);
-    buf.push(1, 10, 4, 1100);
+    buf.push(1, 5, 2, 1100);
     const mid = buf.sample(1, 1050);
     expect(mid).not.toBeNull();
-    expect(mid!.x).toBeCloseTo(5);
-    expect(mid!.y).toBeCloseTo(2);
+    expect(mid!.x).toBeCloseTo(2.5);
+    expect(mid!.y).toBeCloseTo(1);
   });
 
   it("walks past intermediate samples to find the right bracketing pair", () => {
     const buf = new SnapshotBuffer();
     buf.push(1, 0, 0, 1000);
-    buf.push(1, 5, 0, 1100);
-    buf.push(1, 5, 5, 1200);
-    buf.push(1, 10, 5, 1300);
+    buf.push(1, 3, 0, 1100);
+    buf.push(1, 3, 3, 1200);
+    buf.push(1, 6, 3, 1300);
     const between = buf.sample(1, 1250);
-    expect(between!.x).toBeCloseTo(7.5);
-    expect(between!.y).toBeCloseTo(5);
+    expect(between!.x).toBeCloseTo(4.5);
+    expect(between!.y).toBeCloseTo(3);
   });
 
   it("drops the oldest sample once capacity is reached", () => {
@@ -73,6 +73,29 @@ describe("SnapshotBuffer", () => {
     buf.push(1, 7, 7, 900);
     expect(buf.samplesOf(1)).toHaveLength(2);
     expect(buf.sample(1, 1100)).toEqual({ x: 7, y: 7 });
+  });
+
+  it("snaps to the newer sample when bracketing samples are a teleport apart", () => {
+    // A respawn jumps the player from far out (50,50) back to spawn (0,0)
+    // between two consecutive ticks. Without snap detection the renderer
+    // would lerp ~71 units across the world over the interpolation window
+    // and drag the camera along with it.
+    const buf = new SnapshotBuffer();
+    buf.push(1, 50, 50, 1000);
+    buf.push(1, 0, 0, 1050);
+    const mid = buf.sample(1, 1025);
+    expect(mid).toEqual({ x: 0, y: 0 });
+  });
+
+  it("still interpolates between samples that are within the teleport threshold", () => {
+    // Movement at ~the snap threshold (8 units) still linearly interpolates.
+    // Picking 4 units across the span keeps us comfortably under the gate.
+    const buf = new SnapshotBuffer();
+    buf.push(1, 0, 0, 1000);
+    buf.push(1, 4, 0, 1100);
+    const mid = buf.sample(1, 1050);
+    expect(mid!.x).toBeCloseTo(2);
+    expect(mid!.y).toBeCloseTo(0);
   });
 
   it("drop() removes per-id history without affecting other ids", () => {
