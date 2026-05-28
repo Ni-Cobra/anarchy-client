@@ -631,6 +631,11 @@ export function constructSession(deps: SessionDeps): Session {
               // resolved — clear it now so it doesn't re-aim to the
               // respawn position when the new chunk loads.
               renderer.clearCombatEffects();
+              // Server `kill_player` zeros AttackState but ships no
+              // strike resolution, so without this the charge tracker
+              // would hold its lock until the 1.7s failsafe trips —
+              // freezing WASD for ~1s after respawn.
+              localAttackChargeTracker.reset();
             }
           },
           applyProjectiles: (snapshots, tickReceivedMs) => {
