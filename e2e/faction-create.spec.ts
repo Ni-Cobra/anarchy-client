@@ -16,7 +16,7 @@ import {
 //
 // Covers:
 //   - admin `/admin/create-faction` succeeds against a real placed
-//     flag → leaderboard HUD shows "Current leading faction: Alpha".
+//     flag → leaderboard HUD badge shows "Alpha" as the rank-1 row.
 //   - case-insensitive duplicate name is rejected by the same admin
 //     gate that wire `CreateFactionIntent` flows through.
 //   - admin `/admin/destroy-faction` succeeds → leaderboard delta
@@ -166,10 +166,11 @@ test("create-faction round-trip: leaderboard delta updates the HUD; case-insensi
   const self = await openClient(page, "alpha-founder", 3);
 
   // Initial state: no factions, HUD reads the empty placeholder.
-  await expect(page.locator(".anarchy-leaderboard-label")).toHaveText(
-    "No factions yet",
-    { timeout: 5_000 },
-  );
+  await expect(
+    page.locator(
+      "#anarchy-leaderboard-badge .anarchy-leaderboard-empty",
+    ),
+  ).toHaveText("No factions yet", { timeout: 5_000 });
 
   await craftAndPlaceFlag(page);
 
@@ -194,9 +195,11 @@ test("create-faction round-trip: leaderboard delta updates the HUD; case-insensi
     factionId,
     { timeout: 5_000 },
   );
-  await expect(page.locator(".anarchy-leaderboard-label")).toHaveText(
-    "Current leading faction: Alpha",
-  );
+  await expect(
+    page.locator(
+      "#anarchy-leaderboard-badge .anarchy-leaderboard-row .anarchy-leaderboard-name",
+    ),
+  ).toHaveText(["Alpha"]);
 
   // Case-insensitive duplicate name rejected (the same gate the wire
   // CreateFactionIntent goes through). The body carries one of the
@@ -213,7 +216,9 @@ test("create-faction round-trip: leaderboard delta updates the HUD; case-insensi
     factionId,
     { timeout: 5_000 },
   );
-  await expect(page.locator(".anarchy-leaderboard-label")).toHaveText(
-    "No factions yet",
-  );
+  await expect(
+    page.locator(
+      "#anarchy-leaderboard-badge .anarchy-leaderboard-empty",
+    ),
+  ).toHaveText("No factions yet");
 });
