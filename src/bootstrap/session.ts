@@ -800,6 +800,7 @@ export function constructSession(deps: SessionDeps): Session {
   // a row ships a `CraftRequest`.
   craftingUi = mountCraftingUi({
     getInventory: () => inventory,
+    chestState,
     sendCraft,
     sendCraftMax,
   });

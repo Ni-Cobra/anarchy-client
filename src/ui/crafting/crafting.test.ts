@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ChestState,
   HOTBAR_SLOTS,
   INVENTORY_SIZE,
   Inventory,
@@ -1195,6 +1196,38 @@ describe("crafting UI", () => {
       }
     });
 
+    it("pools open-chest contents into the tooltip have-count (task 240)", () => {
+      // Player has 0 wood; an open chest holds 50 wood. Tooltip must
+      // show "(have 50)" and stay green — the server pools both for
+      // mass-craft, so the tooltip's numbers track that pool.
+      inventory.replaceFromWire(
+        emptySlots(),
+        null,
+        null,
+        ["sticks"],
+      );
+      const chestState = new ChestState();
+      chestState.replaceFromWire(
+        { cx: 0, cy: 0, lx: 0, ly: 0 },
+        emptySlots({ 0: { item: ItemId.Wood, count: 50 } }),
+      );
+      mountCraftingUi({
+        getInventory: () => inventory,
+        chestState,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      const row = document.querySelector<HTMLElement>(
+        '.anarchy-crafting-row[data-recipe-id="sticks"]',
+      )!;
+      hover(row);
+      const have = document.querySelector<HTMLElement>(
+        ".anarchy-crafting-tooltip-have",
+      )!;
+      expect(have.textContent).toBe("(have 50)");
+      expect(have.classList.contains("short")).toBe(false);
+    });
+
     it("flags ingredients with insufficient have-count via the `short` class (frozen uncraftable row)", () => {
       inventory.replaceFromWire(
         emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
@@ -1625,6 +1658,62 @@ describe("crafting UI", () => {
         '.anarchy-crafting-row[data-recipe-id="wood-pickaxe"]',
       )!;
       expect(row.querySelector(".anarchy-crafting-arrow-count")).toBeNull();
+    });
+
+    it("max-craft badge pools open-chest contents with the player's inventory (task 240)", () => {
+      // Player has zero wood; an open chest holds 50 wood. The server
+      // pools both during mass-craft, so the badge must show the chest
+      // contents.
+      inventory.replaceFromWire(
+        emptySlots(),
+        null,
+        null,
+        ["sticks"],
+      );
+      const chestState = new ChestState();
+      const chestSlots = emptySlots({ 0: { item: ItemId.Wood, count: 50 } });
+      chestState.replaceFromWire({ cx: 0, cy: 0, lx: 0, ly: 0 }, chestSlots);
+      mountCraftingUi({
+        getInventory: () => inventory,
+        chestState,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      const row = document.querySelector<HTMLElement>(
+        '.anarchy-crafting-row[data-recipe-id="sticks"]',
+      )!;
+      expect(
+        row.querySelector(".anarchy-crafting-arrow-count")?.textContent,
+      ).toBe("50");
+    });
+
+    it("re-renders when a chest opens so the badge picks up new pool contents (task 240)", () => {
+      inventory.replaceFromWire(
+        emptySlots(),
+        null,
+        null,
+        ["sticks"],
+      );
+      const chestState = new ChestState();
+      mountCraftingUi({
+        getInventory: () => inventory,
+        chestState,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      let row = document.querySelector<HTMLElement>(
+        '.anarchy-crafting-row[data-recipe-id="sticks"]',
+      )!;
+      expect(row.querySelector(".anarchy-crafting-arrow-count")).toBeNull();
+
+      const chestSlots = emptySlots({ 0: { item: ItemId.Wood, count: 7 } });
+      chestState.replaceFromWire({ cx: 0, cy: 0, lx: 0, ly: 0 }, chestSlots);
+      row = document.querySelector<HTMLElement>(
+        '.anarchy-crafting-row[data-recipe-id="sticks"]',
+      )!;
+      expect(
+        row.querySelector(".anarchy-crafting-arrow-count")?.textContent,
+      ).toBe("7");
     });
 
     it("demoting a recipe affordable → partial-hint keeps it in the panel", () => {

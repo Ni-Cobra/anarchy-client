@@ -10,6 +10,11 @@
  * — the recipe table is tiny so the per-event allocations are
  * negligible, and reading the live inventory keeps have-counts current
  * as the player gathers ingredients without leaving the panel.
+ *
+ * Variadic over `Inventory` pools so the have-count matches the server's
+ * mass-craft path, which pools the player's inventory with every open
+ * chest — the caller passes the player inventory plus every currently-
+ * open chest inventory and the tooltip sums across all of them.
  */
 
 import type { Inventory, ItemId } from "../../game/index.js";
@@ -19,7 +24,7 @@ import { textureUrlForItem } from "../../textures.js";
 
 export function makeRecipeTooltip(
   recipe: Recipe,
-  inventory: Inventory,
+  ...pools: readonly Inventory[]
 ): HTMLElement {
   const root = document.createElement("div");
   root.className = "anarchy-crafting-tooltip";
@@ -39,15 +44,21 @@ export function makeRecipeTooltip(
   const list = document.createElement("div");
   list.className = "anarchy-crafting-tooltip-ingredients";
   for (const ing of recipe.ingredients) {
-    list.appendChild(makeIngredientRow(ing, inventory));
+    list.appendChild(makeIngredientRow(ing, pools));
   }
   root.appendChild(list);
   return root;
 }
 
+function pooledCount(pools: readonly Inventory[], item: ItemId): number {
+  let total = 0;
+  for (const pool of pools) total += pool.countOf(item);
+  return total;
+}
+
 function makeIngredientRow(
   ing: Ingredient,
-  inventory: Inventory,
+  pools: readonly Inventory[],
 ): HTMLDivElement {
   const row = document.createElement("div");
   row.className = "anarchy-crafting-tooltip-ingredient";
@@ -64,7 +75,7 @@ function makeIngredientRow(
     name.textContent = itemDisplayName(ing.item);
     row.appendChild(name);
 
-    const have = inventory.countOf(ing.item);
+    const have = pooledCount(pools, ing.item);
     const haveEl = document.createElement("span");
     haveEl.className = "anarchy-crafting-tooltip-have";
     if (have < ing.count) haveEl.classList.add("short");
@@ -72,7 +83,8 @@ function makeIngredientRow(
     row.appendChild(haveEl);
   } else {
     // AnyOf: render every candidate icon inline, joined by "or" gaps in
-    // the readable name, with the have-count being the pooled sum.
+    // the readable name, with the have-count being the pooled sum
+    // across both items and inventory pools.
     ing.items.forEach((item, idx) => {
       if (idx > 0) {
         const sep = document.createElement("span");
@@ -88,7 +100,7 @@ function makeIngredientRow(
     row.appendChild(name);
 
     let pooled = 0;
-    for (const item of ing.items) pooled += inventory.countOf(item);
+    for (const item of ing.items) pooled += pooledCount(pools, item);
     const haveEl = document.createElement("span");
     haveEl.className = "anarchy-crafting-tooltip-have";
     if (pooled < ing.count) haveEl.classList.add("short");

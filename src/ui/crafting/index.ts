@@ -81,7 +81,7 @@
  * stays put.
  */
 
-import type { Inventory } from "../../game/index.js";
+import type { ChestState, Inventory } from "../../game/index.js";
 import { recipeById } from "../../recipes.js";
 import { attachTooltip, type TooltipHandle } from "../tooltip.js";
 import { maxCraftCount } from "./max_craft.js";
@@ -92,6 +92,15 @@ import { makeRecipeTooltip } from "./tooltip.js";
 export interface CraftingUiOptions {
   /** Reads the current inventory mirror. Called on every render. */
   readonly getInventory: () => Inventory;
+  /**
+   * Open-chest mirror — when present, every currently-open chest's
+   * inventory is pooled with the player's for the row's max-craft badge
+   * and the tooltip's have-counts. Matches the server's mass-craft path
+   * which resolves ingredients against the same pool, so the panel's
+   * numbers don't lie when the user actually right-clicks. Optional so
+   * tests can mount without standing up a chest mirror.
+   */
+  readonly chestState?: ChestState;
   /** Ship a `CraftRequest` for `recipeId` up to the server. */
   readonly sendCraft: (recipeId: string) => void;
   /**
@@ -161,6 +170,17 @@ export function mountCraftingUi(
     tooltipHandles.length = 0;
   };
 
+  const getOpenChestInventories = (): readonly Inventory[] => {
+    const cs = options.chestState;
+    if (cs === undefined) return [];
+    const out: Inventory[] = [];
+    for (const loc of cs.locations()) {
+      const inv = cs.inventoryFor(loc);
+      if (inv !== null) out.push(inv);
+    }
+    return out;
+  };
+
   const computeDisplay = (): Array<{ id: string; status: DisplayStatus }> => {
     const natural = options.getInventory().getCraftableRecipes();
     if (!open) {
@@ -224,6 +244,7 @@ export function mountCraftingUi(
       return;
     }
     const inventory = options.getInventory();
+    const chestInvs = getOpenChestInventories();
     for (const entry of display) {
       const recipe = recipeById(entry.id);
       if (!recipe) continue;
@@ -232,7 +253,7 @@ export function mountCraftingUi(
       const inert = partialHint || uncraftable;
       const row = makeRecipeRow(
         recipe,
-        inert ? 0 : maxCraftCount(recipe, inventory),
+        inert ? 0 : maxCraftCount(recipe, inventory, ...chestInvs),
         partialHint,
       );
       if (uncraftable) {
@@ -255,7 +276,13 @@ export function mountCraftingUi(
         options.sendCraftMax(recipe.id);
       });
       tooltipHandles.push(
-        attachTooltip(row, () => makeRecipeTooltip(recipe, options.getInventory())),
+        attachTooltip(row, () =>
+          makeRecipeTooltip(
+            recipe,
+            options.getInventory(),
+            ...getOpenChestInventories(),
+          ),
+        ),
       );
       list.appendChild(row);
     }
@@ -282,6 +309,11 @@ export function mountCraftingUi(
   };
 
   const unsubscribe = options.getInventory().subscribe(render);
+  // Chest open/close changes the pool composition. Subscribe to set
+  // changes so the row max-craft + tooltip have-counts pick up newly-
+  // open chests (and drop closed ones) even when the player inventory
+  // didn't change in the same beat.
+  const unsubscribeChests = options.chestState?.subscribeSet(render);
 
   // Stop pointer events from reaching `window` so the bootstrap-level
   // mousedown / contextmenu / wheel handlers don't fire destroy / place /
@@ -308,6 +340,7 @@ export function mountCraftingUi(
     render,
     unmount: () => {
       unsubscribe();
+      unsubscribeChests?.();
       detachAllTooltips();
       root.remove();
     },
