@@ -59,8 +59,9 @@ test("player-list HUD reflects the local roster on welcome", async ({
     await openClient(page, "roster-solo");
     const label = await waitForBadge(page);
     // Other concurrent specs may push the count above 1, but the cap
-    // ships as 32 and there is always at least one (us).
-    expect(label).toMatch(/^\d+ \/ 32$/);
+    // ships as 200 (server `MAX_PLAYERS`) and there is always at least
+    // one (us).
+    expect(label).toMatch(/^\d+ \/ 200$/);
     const leading = Number(label.match(/^(\d+) \/ \d+$/)![1]);
     expect(leading).toBeGreaterThanOrEqual(1);
 
