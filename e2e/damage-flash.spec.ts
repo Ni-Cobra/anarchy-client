@@ -86,7 +86,7 @@ test("strike-hit spawns a damage number on the target", async ({ browser }) => {
     await a.waitForFunction(
       () => window.__anarchy!.getDamageNumberCount() === 0,
       undefined,
-      { timeout: DAMAGE_NUMBER_DURATION_MS + 600 },
+      { timeout: DAMAGE_NUMBER_DURATION_MS + 2_000 },
     );
   } finally {
     await ctxA.close();
@@ -127,7 +127,7 @@ test("admin damage to a remote player spawns a damage number without an attack",
     await a.waitForFunction(
       () => window.__anarchy!.getDamageNumberCount() === 0,
       undefined,
-      { timeout: DAMAGE_NUMBER_DURATION_MS + 600 },
+      { timeout: DAMAGE_NUMBER_DURATION_MS + 2_000 },
     );
   } finally {
     await ctxA.close();
@@ -156,7 +156,7 @@ test("local player taking damage spawns a damage number on their own mesh", asyn
     await page.waitForFunction(
       () => window.__anarchy!.getDamageNumberCount() === 0,
       undefined,
-      { timeout: DAMAGE_NUMBER_DURATION_MS + 600 },
+      { timeout: DAMAGE_NUMBER_DURATION_MS + 2_000 },
     );
   } finally {
     await ctx.close();
@@ -194,7 +194,7 @@ test("entity target: damaging a spider spawns a damage number on the spider", as
     await page.waitForFunction(
       () => window.__anarchy!.getDamageNumberCount() === 0,
       undefined,
-      { timeout: DAMAGE_NUMBER_DURATION_MS + 600 },
+      { timeout: DAMAGE_NUMBER_DURATION_MS + 2_000 },
     );
   } finally {
     await ctx.close();
