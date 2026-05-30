@@ -357,7 +357,7 @@ describe("crafting UI", () => {
       ]);
     });
 
-    it("crafting the last of an ingredient leaves the recipe pinned in place, grayed and inert", () => {
+    it("a row that goes gray from another action sinks below the affordable block, grayed and inert (task 450)", () => {
       inventory.replaceFromWire(
         emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
         null,
@@ -372,18 +372,20 @@ describe("crafting UI", () => {
       });
       ui.setOpen(true);
 
-      // Player consumes all wood (another action) — sticks drops off the
-      // advertise list. Frozen contract: row stays at its open-time index,
-      // grays out, click-inert.
+      // Player consumes all wood (another action, not a craft of sticks) —
+      // sticks drops off the advertise list while wood-pickaxe stays
+      // affordable. Per task 450 the freshly-grayed sticks must sink below
+      // the affordable wood-pickaxe rather than stay wedged at index 0; it
+      // stays click-inert.
       inventory.replaceFromWire(emptySlots(), null, null, ["wood-pickaxe"]);
       const rows = Array.from(
         document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
       );
       expect(rows.map((r) => r.dataset.recipeId)).toEqual([
-        "sticks",
         "wood-pickaxe",
+        "sticks",
       ]);
-      const sticks = rows[0];
+      const sticks = rows[1];
       expect(sticks.classList.contains("uncraftable")).toBe(true);
       expect(sticks.getAttribute("aria-disabled")).toBe("true");
       sticks.click();
@@ -877,6 +879,232 @@ describe("crafting UI", () => {
         "wood-axe",
         "torch",
       ]);
+    });
+  });
+
+  describe("freshly-grayed rows sink below affordable (task 450)", () => {
+    it("a gray entry between two affordable ones sinks below both when not just-crafted", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+      // Frozen order: sticks, wood-axe, wood-pickaxe (all affordable).
+      // wood-axe goes gray from another action while its neighbors stay
+      // affordable — with no craft to pin it, it must sink below both.
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "partial-hint" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-pickaxe",
+        "wood-axe",
+      ]);
+    });
+
+    it("the just-crafted recipe holds its slot even when crafting it grays it out", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+      // Craft the middle row, then it goes gray (ran out of its
+      // ingredient). The just-crafted row stays put — it does not jump out
+      // from under the cursor.
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="wood-axe"]',
+        )!
+        .click();
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "partial-hint" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "wood-pickaxe",
+      ]);
+    });
+
+    it("crafting one recipe sinks a different recipe that goes gray while the clicked row stays", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+      // Craft sticks; it stays affordable but spends a shared ingredient so
+      // wood-axe goes gray. The clicked sticks holds its slot, the now-gray
+      // wood-axe drops below the affordable block.
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "partial-hint" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-pickaxe",
+        "wood-axe",
+      ]);
+    });
+
+    it("a row born partial-hint keeps its frozen slot — only affordable→gray crossings sink", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+      // Frozen order: sticks, wood-axe (affordable), torch (partial-hint).
+      // wood-axe crosses to gray; torch was always gray. Only wood-axe
+      // sinks — torch keeps its frozen slot, so it stays ahead of the
+      // freshly-sunk wood-axe.
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "partial-hint" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "torch",
+        "wood-axe",
+      ]);
+    });
+
+    it("a sunk row that recovers to affordable snaps back to its frozen index", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+      // wood-axe sinks while gray...
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "partial-hint" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      expect(
+        Array.from(
+          document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+        ).map((r) => r.dataset.recipeId),
+      ).toEqual(["sticks", "wood-pickaxe", "wood-axe"]);
+
+      // ...then recovers to affordable and snaps back to its frozen index.
+      // The sink is display-only — the frozen order was never mutated.
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      expect(
+        Array.from(
+          document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+        ).map((r) => r.dataset.recipeId),
+      ).toEqual(["sticks", "wood-axe", "wood-pickaxe"]);
     });
   });
 

@@ -54,6 +54,26 @@
  *   the next open re-snapshots from whatever the server is advertising
  *   at that moment.
  *
+ * ## Sinking freshly-grayed rows (task 450)
+ *
+ * Freezing the order in place has one bad corner: a row that was
+ * affordable when the panel opened can go gray mid-session (you crafted
+ * its last ingredient, or spent it elsewhere) yet keep its slot — leaving
+ * a grayed row wedged between two still-affordable ones. After refreshing
+ * statuses, `computeDisplay()` lifts the affordable block above any row
+ * that has *crossed* affordable→gray, so no gray row sits between
+ * affordable ones. This is a display-only reorder layered over the frozen
+ * order (the frozen order is never mutated), so a row that recovers to
+ * affordable snaps back to its pinned index. Two carve-outs preserve the
+ * no-ripple guarantee above:
+ *
+ * - Rows born partial-hint never sink — they were always meant to sit at
+ *   the bottom, and sinking a task-180 partial-hint newcomer would undo
+ *   its clicked-row anchor.
+ * - The row you just crafted holds its slot even when the craft grayed it
+ *   out, so the row under the cursor never jumps. Crafting a *different*
+ *   recipe drops this pin, letting the now-stale gray row sink.
+ *
  * When the panel is closed the bridge between renders is simpler: there
  * is no frozen order, so each redraw mirrors the natural advertised
  * order directly. The panel is offscreen at that point — this is a
@@ -162,6 +182,19 @@ export function mountCraftingUi(
   // session (left- or right-click, regardless of inert state). Anchors
   // task 180's newcomer-insertion rule. Cleared in `setOpen(false)`.
   let lastClickedId: string | null = null;
+  // Recipe id of the row the user most recently *crafted* — a left- or
+  // right-click that passed the inert gate and actually shipped a craft.
+  // Pins that row in its frozen slot even if crafting it grayed it out, so
+  // the row under the cursor never jumps out (task 450). Distinct from
+  // `lastClickedId`, which also tracks clicks on inert rows. Cleared in
+  // `setOpen(false)`.
+  let lastCraftedId: string | null = null;
+  // Ids that were `affordable` when they entered the frozen order (at open-
+  // time snapshot or task-180 splice). Only these sink when they later go
+  // gray (task 450); a row that was *born* partial-hint keeps its frozen
+  // slot so the task 110/180 no-ripple guarantee holds. Cleared with the
+  // frozen order.
+  const bornAffordable = new Set<string>();
   // Per-row tooltip handles; replaced wholesale on every render so each row
   // gets a fresh `attachTooltip` against its live recipe + inventory thunk.
   const tooltipHandles: TooltipHandle[] = [];
@@ -207,6 +240,7 @@ export function mountCraftingUi(
         if (frozenStatus.has(entry.id)) continue;
         frozenOrder.splice(insertAt, 0, entry.id);
         frozenStatus.set(entry.id, entry.availability);
+        if (entry.availability === "affordable") bornAffordable.add(entry.id);
         insertAt++;
       }
     } else {
@@ -222,13 +256,34 @@ export function mountCraftingUi(
           }
           frozenOrder.splice(insertAt, 0, entry.id);
           frozenStatus.set(entry.id, "affordable");
+          bornAffordable.add(entry.id);
         } else {
           frozenOrder.push(entry.id);
           frozenStatus.set(entry.id, "partial-hint");
         }
       }
     }
-    return frozenOrder.map((id) => ({ id, status: frozenStatus.get(id)! }));
+    // Sink rows that crossed affordable→gray below the affordable block so a
+    // freshly-grayed row never sits wedged between affordable ones (task
+    // 450). The frozen order itself is left untouched — this is a display-
+    // only reorder, so a row that recovers to affordable snaps back to its
+    // pinned index. Two carve-outs keep the no-ripple guarantees intact:
+    // rows born partial-hint never sink (they were always meant to sit at
+    // the bottom — task 110/180), and the just-crafted row holds its slot
+    // even when crafting it grayed it out, so it doesn't jump out from
+    // under the cursor.
+    const top: string[] = [];
+    const sunk: string[] = [];
+    for (const id of frozenOrder) {
+      const gray = frozenStatus.get(id) !== "affordable";
+      const crossed = gray && bornAffordable.has(id);
+      if (crossed && id !== lastCraftedId) sunk.push(id);
+      else top.push(id);
+    }
+    return [...top, ...sunk].map((id) => ({
+      id,
+      status: frozenStatus.get(id)!,
+    }));
   };
 
   const render = (): void => {
@@ -263,6 +318,7 @@ export function mountCraftingUi(
       row.addEventListener("click", () => {
         lastClickedId = recipe.id;
         if (inert) return;
+        lastCraftedId = recipe.id;
         options.sendCraft(recipe.id);
       });
       // Right-click → mass-craft. Same inert gate as the left-
@@ -273,6 +329,7 @@ export function mountCraftingUi(
         e.preventDefault();
         lastClickedId = recipe.id;
         if (inert) return;
+        lastCraftedId = recipe.id;
         options.sendCraftMax(recipe.id);
       });
       tooltipHandles.push(
@@ -296,14 +353,18 @@ export function mountCraftingUi(
       const natural = options.getInventory().getCraftableRecipes();
       frozenOrder.length = 0;
       frozenStatus.clear();
+      bornAffordable.clear();
       for (const e of natural) {
         frozenOrder.push(e.id);
         frozenStatus.set(e.id, e.availability);
+        if (e.availability === "affordable") bornAffordable.add(e.id);
       }
     } else {
       frozenOrder.length = 0;
       frozenStatus.clear();
+      bornAffordable.clear();
       lastClickedId = null;
+      lastCraftedId = null;
     }
     render();
   };
