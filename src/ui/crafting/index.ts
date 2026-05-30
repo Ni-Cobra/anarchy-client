@@ -39,15 +39,17 @@
  *   of the natural advertised list becomes `uncraftable` and grays out
  *   at its frozen index. A recipe that comes back recovers its natural
  *   status at the same index.
- * - A recipe that wasn't in the snapshot but newly appears in the
- *   advertised list inserts immediately after the row the user most
- *   recently clicked in this open session (task 180) — so a newcomer
- *   that drops in while the player is hovering the action they just
- *   crafted appears right under their gaze instead of disappearing
- *   below the partial-hint section. Multiple newcomers in one tick
- *   are spliced in advertise iteration order; the first iterated lands
- *   closest to the clicked row. If no row has been clicked yet, falls
- *   back to appending at the *end* of its tier (affordable → just
+ * - An *affordable* recipe that wasn't in the snapshot but newly appears
+ *   in the advertised list inserts immediately after the row the user
+ *   most recently clicked in this open session (task 180) — so a newly-
+ *   craftable recipe that drops in while the player is hovering the
+ *   action they just crafted appears right under their gaze. Multiple
+ *   affordable newcomers in one tick are spliced in advertise iteration
+ *   order; the first iterated lands closest to the clicked row. A
+ *   *partial-hint* (grayed) newcomer always appends at the very end
+ *   instead, never under the click — every grayed row belongs in the
+ *   bottom block (task 460). If no row has been clicked yet, both tiers
+ *   fall back to appending at the *end* of their tier (affordable → just
  *   before the first frozen partial-hint row; partial-hint → the very
  *   end).
  * - On close, the snapshot — including the click anchor — is discarded;
@@ -227,21 +229,30 @@ export function mountCraftingUi(
       frozenStatus.set(id, fresh ?? "uncraftable");
     }
     // Splice unseen ids in. If the user has clicked a row this open
-    // session, newcomers land directly after that row (task 180):
-    // first iterated newcomer at clickedIndex+1, second at +2, etc., so
-    // arrival order is preserved with the first newcomer closest to the
-    // click. Otherwise fall back to the per-tier append: affordable at
-    // the end of the affordable section, partial-hint at the very end.
+    // session, only *affordable* newcomers land directly after that row
+    // (task 180): first iterated affordable newcomer at clickedIndex+1,
+    // second at +2, etc., so arrival order is preserved with the first
+    // closest to the click. Partial-hint (grayed) newcomers always append
+    // at the very end instead, so every grayed row sits in the bottom block
+    // — a born-gray newcomer must never wedge under the just-crafted row
+    // (task 460). Without a click anchor, fall back to the per-tier append:
+    // affordable at the end of the affordable section, partial-hint at the
+    // very end.
     const clickAnchor =
       lastClickedId !== null ? frozenOrder.indexOf(lastClickedId) : -1;
     if (clickAnchor >= 0) {
       let insertAt = clickAnchor + 1;
       for (const entry of natural) {
         if (frozenStatus.has(entry.id)) continue;
-        frozenOrder.splice(insertAt, 0, entry.id);
-        frozenStatus.set(entry.id, entry.availability);
-        if (entry.availability === "affordable") bornAffordable.add(entry.id);
-        insertAt++;
+        if (entry.availability === "affordable") {
+          frozenOrder.splice(insertAt, 0, entry.id);
+          frozenStatus.set(entry.id, "affordable");
+          bornAffordable.add(entry.id);
+          insertAt++;
+        } else {
+          frozenOrder.push(entry.id);
+          frozenStatus.set(entry.id, "partial-hint");
+        }
       }
     } else {
       for (const entry of natural) {
