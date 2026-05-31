@@ -743,52 +743,6 @@ describe("crafting UI", () => {
       ]);
     });
 
-    it("a partial-hint newcomer also lands directly after the clicked affordable row", () => {
-      // Insertion is by index, not by tier — the visual affordable/partial-
-      // hint grouping can be broken by the click anchor (per task 180 spec).
-      inventory.replaceFromWire(
-        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
-        null,
-        null,
-        [
-          { id: "sticks", availability: "affordable" },
-          { id: "wood-pickaxe", availability: "affordable" },
-        ],
-      );
-      const ui = mountCraftingUi({
-        getInventory: () => inventory,
-        sendCraft: () => {},
-        sendCraftMax: () => {},
-      });
-      ui.setOpen(true);
-
-      document
-        .querySelector<HTMLButtonElement>(
-          '.anarchy-crafting-row[data-recipe-id="sticks"]',
-        )!
-        .click();
-      inventory.replaceFromWire(
-        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
-        null,
-        null,
-        [
-          { id: "sticks", availability: "affordable" },
-          { id: "wood-pickaxe", availability: "affordable" },
-          { id: "torch", availability: "partial-hint" },
-        ],
-      );
-      const rows = Array.from(
-        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
-      );
-      // torch is partial-hint but slots in right after the clicked sticks
-      // row, ahead of the existing affordable wood-pickaxe.
-      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
-        "sticks",
-        "torch",
-        "wood-pickaxe",
-      ]);
-    });
-
     it("right-clicking a row also anchors the splice point", () => {
       inventory.replaceFromWire(
         emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
@@ -877,6 +831,146 @@ describe("crafting UI", () => {
       expect(rows.map((r) => r.dataset.recipeId)).toEqual([
         "sticks",
         "wood-axe",
+        "torch",
+      ]);
+    });
+  });
+
+  describe("born-gray newcomers always sink to the end (task 460)", () => {
+    it("a partial-hint newcomer renders at the end, not under the crafted row", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      // Craft `sticks` (index 0) — anchors the click at the top row.
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+      // A grayed (partial-hint) newcomer appears. It must fall to the
+      // bottom block, NOT wedge under the just-crafted sticks row.
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-pickaxe",
+        "torch",
+      ]);
+    });
+
+    it("an affordable newcomer still lands directly under the crafted row (task 180 guard)", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      // Craft `sticks` (index 0).
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+      // A craftable (affordable) newcomer appears — it lands right under
+      // the clicked row, ahead of the pre-existing wood-pickaxe.
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "wood-pickaxe",
+      ]);
+    });
+
+    it("a mixed tick splits the tiers — affordable under the click, partial-hint at the end", () => {
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+        ],
+      );
+      const ui = mountCraftingUi({
+        getInventory: () => inventory,
+        sendCraft: () => {},
+        sendCraftMax: () => {},
+      });
+      ui.setOpen(true);
+
+      // Craft `sticks` (index 0).
+      document
+        .querySelector<HTMLButtonElement>(
+          '.anarchy-crafting-row[data-recipe-id="sticks"]',
+        )!
+        .click();
+      // Two newcomers arrive in the same advertise: one affordable
+      // (wood-axe), one partial-hint (torch). The affordable lands under
+      // the clicked sticks row; the partial-hint falls to the very end.
+      inventory.replaceFromWire(
+        emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
+        null,
+        null,
+        [
+          { id: "sticks", availability: "affordable" },
+          { id: "wood-axe", availability: "affordable" },
+          { id: "wood-pickaxe", availability: "affordable" },
+          { id: "torch", availability: "partial-hint" },
+        ],
+      );
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
+      );
+      expect(rows.map((r) => r.dataset.recipeId)).toEqual([
+        "sticks",
+        "wood-axe",
+        "wood-pickaxe",
         "torch",
       ]);
     });
