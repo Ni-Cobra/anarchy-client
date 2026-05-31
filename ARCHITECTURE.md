@@ -528,9 +528,10 @@ don't know about each other.
   inventory side panel. Rows are driven by
   `InventoryUpdate.craftable_recipe_ids`. Left-click on a row →
   `sendCraft`; right-click → `sendCraftMax` (task 240 mass-craft).
-  The freeze-order behavior (clicked row inserts after the click
-  position so the next click stays on the same row) lives in
-  `crafting/row.ts`.
+  Row order is a stateless mirror of the server's advertise:
+  affordable rows on top, partial-hint (grayed) rows on the bottom,
+  deterministic within each tier (task 010 — replaced the earlier
+  frozen / clicked-row / sinking machinery).
 - **`ui/chest/`** — chest panel. Opens automatically when
   `ChestUpdate` lands with a non-null `chest`; closes when the
   server ships a closed sentinel. With multi-chest open the panel

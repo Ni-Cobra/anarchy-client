@@ -25,61 +25,22 @@
  * - [`./style`] — CSS injection + the panel-width constants.
  * - [`./row`] — pure DOM stamp-out for one recipe row.
  *
- * ## Frozen-while-open ordering (task 110)
+ * ## Deterministic ordering
  *
- * Re-sorting on every `InventoryUpdate` made the row strip ripple under
- * the cursor — the tier of a row could change mid-craft, shoving
- * everything around. The new contract pins the order at panel-open time:
+ * Row order is a pure function of what the server advertises: it is
+ * **fully deterministic** at all times (open or closed, before or after a
+ * craft, regardless of click history). The same set of recipes in the same
+ * affordability state always renders in the same on-screen order. Concretely:
  *
- * - On open, snapshot `getCraftableRecipes()` into a `frozenOrder` /
- *   `frozenStatus` pair. That order is the panel's visual order for the
- *   whole open session.
- * - While open, redraws update each row's status in place (refresh the
- *   max-craft count + tooltip), never reorder. A recipe that drops out
- *   of the natural advertised list becomes `uncraftable` and grays out
- *   at its frozen index. A recipe that comes back recovers its natural
- *   status at the same index.
- * - An *affordable* recipe that wasn't in the snapshot but newly appears
- *   in the advertised list inserts immediately after the row the user
- *   most recently clicked in this open session (task 180) — so a newly-
- *   craftable recipe that drops in while the player is hovering the
- *   action they just crafted appears right under their gaze. Multiple
- *   affordable newcomers in one tick are spliced in advertise iteration
- *   order; the first iterated lands closest to the clicked row. A
- *   *partial-hint* (grayed) newcomer always appends at the very end
- *   instead, never under the click — every grayed row belongs in the
- *   bottom block (task 460). If no row has been clicked yet, both tiers
- *   fall back to appending at the *end* of their tier (affordable → just
- *   before the first frozen partial-hint row; partial-hint → the very
- *   end).
- * - On close, the snapshot — including the click anchor — is discarded;
- *   the next open re-snapshots from whatever the server is advertising
- *   at that moment.
+ * - Affordable rows on top, partial-hint (grayed) rows on the bottom.
+ * - Within each tier, the server's advertised order is authoritative
+ *   (`Inventory` sorts affordable-then-lexical before storing, so the panel
+ *   just mirrors `getCraftableRecipes()`).
  *
- * ## Sinking freshly-grayed rows (task 450)
- *
- * Freezing the order in place has one bad corner: a row that was
- * affordable when the panel opened can go gray mid-session (you crafted
- * its last ingredient, or spent it elsewhere) yet keep its slot — leaving
- * a grayed row wedged between two still-affordable ones. After refreshing
- * statuses, `computeDisplay()` lifts the affordable block above any row
- * that has *crossed* affordable→gray, so no gray row sits between
- * affordable ones. This is a display-only reorder layered over the frozen
- * order (the frozen order is never mutated), so a row that recovers to
- * affordable snaps back to its pinned index. Two carve-outs preserve the
- * no-ripple guarantee above:
- *
- * - Rows born partial-hint never sink — they were always meant to sit at
- *   the bottom, and sinking a task-180 partial-hint newcomer would undo
- *   its clicked-row anchor.
- * - The row you just crafted holds its slot even when the craft grayed it
- *   out, so the row under the cursor never jumps. Crafting a *different*
- *   recipe drops this pin, letting the now-stale gray row sink.
- *
- * When the panel is closed the bridge between renders is simpler: there
- * is no frozen order, so each redraw mirrors the natural advertised
- * order directly. The panel is offscreen at that point — this is a
- * convenience for headless tests that probe the DOM without opening.
+ * A row that becomes grayed drops to the bottom block immediately; a row
+ * that becomes affordable returns to its deterministic affordable slot — on
+ * every recompute. There is no frozen snapshot, no click anchor, no
+ * just-crafted pin: rendering is a stateless mirror of the advertise.
  *
  * ## Chrome stability
  *
@@ -142,8 +103,6 @@ export interface CraftingUiHandle {
   unmount(): void;
 }
 
-type DisplayStatus = "affordable" | "partial-hint" | "uncraftable";
-
 /**
  * Mount the crafting overlay. Returns a handle whose `unmount()` removes
  * all DOM and listeners, used by `runMain`'s teardown.
@@ -171,32 +130,6 @@ export function mountCraftingUi(
   scroll.appendChild(list);
 
   let open = false;
-  // Recipe ids in display order for the lifetime of the current open
-  // session. Cleared in `setOpen(false)`. Untouched when the panel is
-  // closed — render falls back to the natural advertised order then.
-  const frozenOrder: string[] = [];
-  // Current per-row status: `affordable` and `partial-hint` mirror the
-  // server's advertise; `uncraftable` means the row was in the frozen
-  // snapshot but has since dropped out of the advertised list (and so
-  // grays out at its pinned index).
-  const frozenStatus = new Map<string, DisplayStatus>();
-  // Recipe id of the row the user most recently clicked in this open
-  // session (left- or right-click, regardless of inert state). Anchors
-  // task 180's newcomer-insertion rule. Cleared in `setOpen(false)`.
-  let lastClickedId: string | null = null;
-  // Recipe id of the row the user most recently *crafted* — a left- or
-  // right-click that passed the inert gate and actually shipped a craft.
-  // Pins that row in its frozen slot even if crafting it grayed it out, so
-  // the row under the cursor never jumps out (task 450). Distinct from
-  // `lastClickedId`, which also tracks clicks on inert rows. Cleared in
-  // `setOpen(false)`.
-  let lastCraftedId: string | null = null;
-  // Ids that were `affordable` when they entered the frozen order (at open-
-  // time snapshot or task-180 splice). Only these sink when they later go
-  // gray (task 450); a row that was *born* partial-hint keeps its frozen
-  // slot so the task 110/180 no-ripple guarantee holds. Cleared with the
-  // frozen order.
-  const bornAffordable = new Set<string>();
   // Per-row tooltip handles; replaced wholesale on every render so each row
   // gets a fresh `attachTooltip` against its live recipe + inventory thunk.
   const tooltipHandles: TooltipHandle[] = [];
@@ -216,89 +149,11 @@ export function mountCraftingUi(
     return out;
   };
 
-  const computeDisplay = (): Array<{ id: string; status: DisplayStatus }> => {
-    const natural = options.getInventory().getCraftableRecipes();
-    if (!open) {
-      return natural.map((e) => ({ id: e.id, status: e.availability }));
-    }
-    const naturalMap = new Map<string, "affordable" | "partial-hint">();
-    for (const e of natural) naturalMap.set(e.id, e.availability);
-    // Reclassify known frozen ids against the latest advertise.
-    for (const id of frozenOrder) {
-      const fresh = naturalMap.get(id);
-      frozenStatus.set(id, fresh ?? "uncraftable");
-    }
-    // Splice unseen ids in. If the user has clicked a row this open
-    // session, only *affordable* newcomers land directly after that row
-    // (task 180): first iterated affordable newcomer at clickedIndex+1,
-    // second at +2, etc., so arrival order is preserved with the first
-    // closest to the click. Partial-hint (grayed) newcomers always append
-    // at the very end instead, so every grayed row sits in the bottom block
-    // — a born-gray newcomer must never wedge under the just-crafted row
-    // (task 460). Without a click anchor, fall back to the per-tier append:
-    // affordable at the end of the affordable section, partial-hint at the
-    // very end.
-    const clickAnchor =
-      lastClickedId !== null ? frozenOrder.indexOf(lastClickedId) : -1;
-    if (clickAnchor >= 0) {
-      let insertAt = clickAnchor + 1;
-      for (const entry of natural) {
-        if (frozenStatus.has(entry.id)) continue;
-        if (entry.availability === "affordable") {
-          frozenOrder.splice(insertAt, 0, entry.id);
-          frozenStatus.set(entry.id, "affordable");
-          bornAffordable.add(entry.id);
-          insertAt++;
-        } else {
-          frozenOrder.push(entry.id);
-          frozenStatus.set(entry.id, "partial-hint");
-        }
-      }
-    } else {
-      for (const entry of natural) {
-        if (frozenStatus.has(entry.id)) continue;
-        if (entry.availability === "affordable") {
-          let insertAt = frozenOrder.length;
-          for (let i = 0; i < frozenOrder.length; i++) {
-            if (frozenStatus.get(frozenOrder[i]) === "partial-hint") {
-              insertAt = i;
-              break;
-            }
-          }
-          frozenOrder.splice(insertAt, 0, entry.id);
-          frozenStatus.set(entry.id, "affordable");
-          bornAffordable.add(entry.id);
-        } else {
-          frozenOrder.push(entry.id);
-          frozenStatus.set(entry.id, "partial-hint");
-        }
-      }
-    }
-    // Sink rows that crossed affordable→gray below the affordable block so a
-    // freshly-grayed row never sits wedged between affordable ones (task
-    // 450). The frozen order itself is left untouched — this is a display-
-    // only reorder, so a row that recovers to affordable snaps back to its
-    // pinned index. Two carve-outs keep the no-ripple guarantees intact:
-    // rows born partial-hint never sink (they were always meant to sit at
-    // the bottom — task 110/180), and the just-crafted row holds its slot
-    // even when crafting it grayed it out, so it doesn't jump out from
-    // under the cursor.
-    const top: string[] = [];
-    const sunk: string[] = [];
-    for (const id of frozenOrder) {
-      const gray = frozenStatus.get(id) !== "affordable";
-      const crossed = gray && bornAffordable.has(id);
-      if (crossed && id !== lastCraftedId) sunk.push(id);
-      else top.push(id);
-    }
-    return [...top, ...sunk].map((id) => ({
-      id,
-      status: frozenStatus.get(id)!,
-    }));
-  };
-
   const render = (): void => {
-    const display = computeDisplay();
+    // Pure mirror of the server's advertised order: affordable rows first,
+    // partial-hint rows after, deterministic within each tier. `Inventory`
+    // already sorts before storing, so there is nothing to reorder here.
+    const display = options.getInventory().getCraftableRecipes();
 
     detachAllTooltips();
     list.replaceChildren();
@@ -314,22 +169,14 @@ export function mountCraftingUi(
     for (const entry of display) {
       const recipe = recipeById(entry.id);
       if (!recipe) continue;
-      const partialHint = entry.status === "partial-hint";
-      const uncraftable = entry.status === "uncraftable";
-      const inert = partialHint || uncraftable;
+      const partialHint = entry.availability === "partial-hint";
       const row = makeRecipeRow(
         recipe,
-        inert ? 0 : maxCraftCount(recipe, inventory, ...chestInvs),
+        partialHint ? 0 : maxCraftCount(recipe, inventory, ...chestInvs),
         partialHint,
       );
-      if (uncraftable) {
-        row.classList.add("uncraftable");
-        row.setAttribute("aria-disabled", "true");
-      }
       row.addEventListener("click", () => {
-        lastClickedId = recipe.id;
-        if (inert) return;
-        lastCraftedId = recipe.id;
+        if (partialHint) return;
         options.sendCraft(recipe.id);
       });
       // Right-click → mass-craft. Same inert gate as the left-
@@ -338,9 +185,7 @@ export function mountCraftingUi(
       // but the row's `contextmenu` listener executes first.
       row.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        lastClickedId = recipe.id;
-        if (inert) return;
-        lastCraftedId = recipe.id;
+        if (partialHint) return;
         options.sendCraftMax(recipe.id);
       });
       tooltipHandles.push(
@@ -360,23 +205,6 @@ export function mountCraftingUi(
     if (open === next) return;
     open = next;
     panel.classList.toggle("open", open);
-    if (open) {
-      const natural = options.getInventory().getCraftableRecipes();
-      frozenOrder.length = 0;
-      frozenStatus.clear();
-      bornAffordable.clear();
-      for (const e of natural) {
-        frozenOrder.push(e.id);
-        frozenStatus.set(e.id, e.availability);
-        if (e.availability === "affordable") bornAffordable.add(e.id);
-      }
-    } else {
-      frozenOrder.length = 0;
-      frozenStatus.clear();
-      bornAffordable.clear();
-      lastClickedId = null;
-      lastCraftedId = null;
-    }
     render();
   };
 
