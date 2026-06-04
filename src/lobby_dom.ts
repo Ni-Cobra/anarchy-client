@@ -31,6 +31,7 @@ export function mountLobbyDom(): LobbyDomRefs {
   root.innerHTML = `
     <div class="panel" role="dialog" aria-label="Project Anarchy lobby">
       <h1>Project Anarchy</h1>
+      <p class="prototype-warning">⚠️ This is a vibe-coded early prototype — expect bugs, wipes, and breaking changes.</p>
       <div class="reject" id="anarchy-reject" role="alert"></div>
       <div class="tabs" role="tablist">
         <button class="tab" id="anarchy-tab-new" role="tab" type="button">New player</button>

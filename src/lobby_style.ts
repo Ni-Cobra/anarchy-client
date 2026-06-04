@@ -30,10 +30,16 @@ const STYLE = `
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   }
   #anarchy-lobby h1 {
-    margin: 0 0 20px 0;
+    margin: 0 0 8px 0;
     font-size: 22px;
     font-weight: 600;
     letter-spacing: 0.4px;
+  }
+  #anarchy-lobby .prototype-warning {
+    margin: 0 0 20px 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #ffcf66;
   }
   #anarchy-lobby .tabs {
     display: flex;
