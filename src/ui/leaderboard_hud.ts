@@ -206,7 +206,7 @@ export function mountLeaderboardHud(
   badge.id = BADGE_ID;
   const icon = document.createElement("span");
   icon.className = "anarchy-leaderboard-icon";
-  icon.textContent = "\u{1F3F3}"; // 🏳
+  icon.textContent = "\u{1F3F3} [Factions]"; // 🏳
   badge.appendChild(icon);
   const rows = document.createElement("div");
   rows.className = "anarchy-leaderboard-rows";

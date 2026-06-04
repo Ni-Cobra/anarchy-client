@@ -60,12 +60,14 @@ describe("crafting UI", () => {
     expect(panel.querySelectorAll(".anarchy-crafting-row")).toHaveLength(0);
   });
 
-  it("renders one row per craftable recipe id, sorted lexicographically", () => {
+  it("renders one row per craftable recipe id, in CRAFT_DISPLAY_ORDER", () => {
     inventory.replaceFromWire(
       emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
       null,
       null,
-      // Order intentionally scrambled; the inventory mirror sorts internally.
+      // Order intentionally scrambled; the inventory mirror sorts internally
+      // by the hand-tuned recipe_order.ts list (sticks < wood-pickaxe <
+      // stone-axe there), not alphabetically.
       ["wood-pickaxe", "sticks", "stone-axe"],
     );
     mountCraftingUi({
@@ -78,8 +80,8 @@ describe("crafting UI", () => {
     );
     expect(rows.map((r) => r.dataset.recipeId)).toEqual([
       "sticks",
-      "stone-axe",
       "wood-pickaxe",
+      "stone-axe",
     ]);
   });
 
@@ -203,8 +205,8 @@ describe("crafting UI", () => {
     );
     expect(rows.map((r) => r.dataset.recipeId)).toEqual([
       "sticks",
-      "wood-axe",
       "wood-pickaxe",
+      "wood-axe",
     ]);
   });
 
@@ -421,7 +423,7 @@ describe("crafting UI", () => {
         Array.from(
           document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
         ).map((r) => r.dataset.recipeId!);
-      expect(ids()).toEqual(["sticks", "wood-axe", "wood-pickaxe"]);
+      expect(ids()).toEqual(["sticks", "wood-pickaxe", "wood-axe"]);
 
       // wood-axe goes gray — it drops to the bottom block immediately, and
       // renders grayed + click-inert.
@@ -455,7 +457,7 @@ describe("crafting UI", () => {
           { id: "wood-pickaxe", availability: "affordable" },
         ],
       );
-      expect(ids()).toEqual(["sticks", "wood-axe", "wood-pickaxe"]);
+      expect(ids()).toEqual(["sticks", "wood-pickaxe", "wood-axe"]);
     });
 
     it("does not depend on click or craft history", () => {
@@ -476,7 +478,8 @@ describe("crafting UI", () => {
       ui.setOpen(true);
       // Click the top row, then a newcomer (affordable) and a grayed newcomer
       // both arrive. With no click-anchor / just-crafted machinery, both land
-      // in their plain deterministic tier slots — affordable lex, gray last.
+      // in their plain deterministic tier slots — affordable by display
+      // order, gray last.
       document
         .querySelector<HTMLButtonElement>(
           '.anarchy-crafting-row[data-recipe-id="sticks"]',
@@ -496,7 +499,7 @@ describe("crafting UI", () => {
       const ids = Array.from(
         document.querySelectorAll<HTMLElement>(".anarchy-crafting-row"),
       ).map((r) => r.dataset.recipeId);
-      expect(ids).toEqual(["sticks", "wood-axe", "wood-pickaxe", "torch"]);
+      expect(ids).toEqual(["sticks", "wood-pickaxe", "wood-axe", "torch"]);
     });
   });
 
@@ -1181,7 +1184,7 @@ describe("crafting UI", () => {
   });
 
   describe("partial-hint rows", () => {
-    it("renders affordable rows above partial-hint rows, lexically within tier", () => {
+    it("renders affordable rows above partial-hint rows, in display order within tier", () => {
       inventory.replaceFromWire(
         emptySlots({ 0: { item: ItemId.Wood, count: 5 } }),
         null,

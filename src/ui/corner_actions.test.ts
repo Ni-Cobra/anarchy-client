@@ -39,7 +39,7 @@ describe("mountCornerActions", () => {
     const b = vi.fn();
     handle = mountCornerActions({
       actions: [
-        { label: "Register", onClick: a },
+        { label: "Register to save", onClick: a },
         { label: "Disconnect", onClick: b },
       ],
     });

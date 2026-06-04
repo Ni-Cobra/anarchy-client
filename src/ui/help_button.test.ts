@@ -170,7 +170,7 @@ describe("mountHowToPlayButton", () => {
     mount();
     mountHowTo();
     const btn = howToButton();
-    expect(btn.textContent).toBe("How to play");
+    expect(btn.textContent).toBe("How to play and goal");
     // Corner root is still in the DOM but hidden via the `hidden` class.
     expect(cornerRoot().classList.contains("hidden")).toBe(true);
   });

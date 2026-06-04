@@ -60,6 +60,11 @@ export interface Recipe {
  * `crafting.rs::RECIPES` — when a new recipe lands server-side, mirror it
  * here in the same iteration (the charter pins this kind of cross-boundary
  * redundancy as expected).
+ *
+ * This array's order is the *server* order, NOT the crafting-panel order.
+ * To arrange how recipes appear in the panel, edit `CRAFT_DISPLAY_ORDER` in
+ * `recipe_order.ts`. A new recipe added here must also be placed there
+ * (`recipe_order.test.ts` enforces the two stay in sync).
  */
 export const RECIPES: readonly Recipe[] = [
   {

@@ -16,6 +16,8 @@
  *   frames whose `slots` array does not match this length.
  */
 
+import { craftDisplayRank } from "../recipe_order.js";
+
 /** Hotbar slot count — the bottom row addressable by a number key in the UI. */
 export const HOTBAR_SLOTS = 9;
 /** Main-grid slot count — the upper region of the inventory window. */
@@ -538,11 +540,21 @@ function normalizeCraftable(
   );
 }
 
+/**
+ * Order the advertised recipes for the panel: affordable rows above grayed
+ * ones, and *within* each tier by the hand-tuned [`CRAFT_DISPLAY_ORDER`]
+ * (see `../recipe_order.ts` — that list is the knob for arranging crafts).
+ * Ids not in the list fall to the end of their tier, then sort alphabetically
+ * so a newly added recipe stays deterministic until it's placed in the list.
+ */
 function sortCraftable(entries: CraftableRecipe[]): CraftableRecipe[] {
   return [...entries].sort((a, b) => {
     if (a.availability !== b.availability) {
       return a.availability === "affordable" ? -1 : 1;
     }
+    const ra = craftDisplayRank(a.id);
+    const rb = craftDisplayRank(b.id);
+    if (ra !== rb) return ra - rb;
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 }

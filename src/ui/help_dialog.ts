@@ -266,7 +266,7 @@ export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandl
   root.innerHTML = `
     <div id="${PANEL_ID}" tabindex="-1" role="dialog" aria-label="Help">
       <div class="header">
-        <h2>How to play</h2>
+        <h2>How to play and goal</h2>
         <button class="close" type="button" aria-label="Close help">×</button>
       </div>
       <div class="tabs" role="tablist">${tabsMarkup}</div>

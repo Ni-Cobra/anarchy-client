@@ -1105,7 +1105,7 @@ export function constructSession(deps: SessionDeps): Session {
     const actions: CornerAction[] = [];
     if (!registerFlow.isRegistered()) {
       actions.push({
-        label: "Register",
+        label: "Register to keep progress",
         onClick: () => registerFlow.open(),
       });
     }

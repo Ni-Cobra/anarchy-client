@@ -212,4 +212,4 @@ export const RECV_TIMEOUT_MS = 15_000;
  * one place in the codebase — both call sites import from here. Replace
  * the placeholder with the real invite link before going live.
  */
-export const DISCORD_INVITE_URL = "https://discord.gg/REPLACE_ME";
+export const DISCORD_INVITE_URL = "https://discord.gg/p5aHPnXAgB";
