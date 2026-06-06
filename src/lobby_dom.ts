@@ -53,9 +53,7 @@ export function mountLobbyDom(): LobbyDomRefs {
                placeholder="Password (or leave blank for unregistered)" />
       </div>
       <button class="submit" id="anarchy-submit" type="button" disabled>Enter world</button>
-      <a class="discord-link" id="anarchy-discord-link"
-         href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer"
-         aria-label="Join the Discord (opens in a new tab)">Join Discord</a>
+      <div class="version" aria-hidden="true">v0.0.1</div>
     </div>
   `;
   document.body.appendChild(root);

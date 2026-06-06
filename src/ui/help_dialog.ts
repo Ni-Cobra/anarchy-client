@@ -224,7 +224,7 @@ const TABS: readonly Tab[] = [
       <h3>Goal : Factions</h3>
       <ul>
         <li>You earn XP by several actions in-game. Steal all the XP of a player by killing them.</li>
-        <li>Craft and place a <strong>Flag</strong> to found a faction binded to that flag.</li>
+        <li>Craft a <strong>Flag</strong> (you need to kill spiders to get string then cloth) and place it to found a faction binded to that flag.</li>
         <li>Stand near a flag and <strong>Right-click + hold</strong> on it to <em>transfer</em> your XP into that faction.</li>
         <li>Stand near a flag and <strong>Left-click + hold</strong> on it to <em>steal</em> XP from that faction.</li>
         <li>Faction XP shows on the leaderboard. A faction's flag is unbreakable while its XP is above zero — drain it first to dismantle.</li>

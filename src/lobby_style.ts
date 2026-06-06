@@ -166,6 +166,13 @@ const STYLE = `
     background: #5865F2;
     color: #ffffff;
   }
+  #anarchy-lobby .version {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 11px;
+    color: #5a6470;
+    letter-spacing: 0.5px;
+  }
 `;
 
 export function injectLobbyStyle(): void {
