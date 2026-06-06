@@ -255,8 +255,8 @@ export function mountHowToPlayButton(): HowToPlayButtonHandle {
 
   const button = document.createElement("button");
   button.type = "button";
-  button.setAttribute("aria-label", "How to play and goal");
-  button.textContent = "How to play and goal";
+  button.setAttribute("aria-label", "How to play");
+  button.textContent = "How to play";
   root.appendChild(button);
   document.body.appendChild(root);
 

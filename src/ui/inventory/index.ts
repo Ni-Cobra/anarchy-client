@@ -244,15 +244,15 @@ export function mountInventoryUi(
         if (equipped !== null) return itemDisplayName(equipped);
         switch (kind) {
           case "pickaxe":
-            return "Pickaxe slot (empty)";
+            return "Equipped Pickaxe (empty)";
           case "axe":
-            return "Axe slot (empty)";
+            return "Equipped Axe (empty)";
           case "shovel":
-            return "Shovel slot (empty)";
+            return "Equipped Shovel (empty)";
           case "sword":
-            return "Sword slot (empty)";
+            return "Equipped Sword (empty)";
           case "utility":
-            return "Utility slot (empty)";
+            return "Equipped Utility (empty)";
         }
       }),
     );

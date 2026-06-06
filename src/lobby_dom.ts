@@ -31,11 +31,11 @@ export function mountLobbyDom(): LobbyDomRefs {
   root.innerHTML = `
     <div class="panel" role="dialog" aria-label="Project Anarchy lobby">
       <h1>Project Anarchy</h1>
-      <p class="prototype-warning">⚠️ This is a vibe-coded early prototype — expect bugs, wipes, and breaking changes.</p>
+      <p class="prototype-warning">⚠️ This is an experimental, vibe-coded, early prototype. All the code and visuals are AI-generated.</p>
       <div class="reject" id="anarchy-reject" role="alert"></div>
       <div class="tabs" role="tablist">
         <button class="tab" id="anarchy-tab-new" role="tab" type="button">New player</button>
-        <button class="tab" id="anarchy-tab-returning" role="tab" type="button">Returning player</button>
+        <button class="tab" id="anarchy-tab-returning" role="tab" type="button">Log in</button>
       </div>
       <label for="anarchy-username">Username</label>
       <input id="anarchy-username" type="text" maxlength="${MAX_USERNAME_LEN}"

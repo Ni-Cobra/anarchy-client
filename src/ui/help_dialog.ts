@@ -170,19 +170,17 @@ const TABS: readonly Tab[] = [
       <ul>
         <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (or arrow keys) — move.</li>
         <li><kbd>1</kbd>–<kbd>9</kbd> — pick a hotbar slot. Mouse wheel cycles.</li>
-        <li>Left-click — break the block under the cursor (hold to keep breaking) or attack a target in range.</li>
-        <li>Right-click — place the held hotbar block, or open a chest / tombstone.</li>
-        <li><kbd>E</kbd> — open / close the inventory. <kbd>Esc</kbd> also closes it.</li>
+        <li><b>Left-click</b> — break the block under the cursor (hold to keep breaking) or attack a target in range. If you hold a full block, you can destroy the floor to replace it with.</li>
+        <li><b>Right-click</b> — place the held hotbar block, or open a chest / tombstone.</li>
+        <li><kbd>E</kbd> — open / close the inventory and the crafting menu.
         <li><kbd>M</kbd> — toggle wide-angle zoom. <kbd>+</kbd> / <kbd>−</kbd> (or <kbd>Ctrl</kbd>+wheel) nudge zoom.</li>
         <li><kbd>Enter</kbd> — open chat. <kbd>Enter</kbd> sends, <kbd>Esc</kbd> cancels.</li>
         <li><kbd>H</kbd> or <kbd>F1</kbd> — open this help.</li>
       </ul>
       <p>
-        The equipment row holds a pickaxe, axe, shovel, sword, and a
-        utility slot (lantern or blowgun). The equipped tool decides
-        what left-click does in the world — pickaxe on stone / ores,
-        axe on wood, shovel on dirt, sword on enemies.
+        The <b>equipment row</b> indicates the <b>selection</b> for your tools and utilities. Pickaxes, axes, shovels, swords and utilities can be anywhere in your inventory and <b>passively</b> used if they appear there.
       </p>
+      <h4>Start by breaking a tree !</h4>
       <p class="footnote">
         Progress only survives reconnects if you register an account —
         click <em>Register</em> in the top-right corner to lock in your name.
@@ -195,11 +193,13 @@ const TABS: readonly Tab[] = [
     html: `
       <h3>Inventory shortcuts</h3>
       <ul>
-        <li><strong>Drag a slot onto another</strong> — swap or merge two stacks, across hotbar, main grid, chests, and equipment.</li>
-        <li><strong>Right-click a stack</strong> to arm it as the split source (sticky border). Right-click another stack to switch sources; right-click empty space to cancel.</li>
-        <li>With a source armed, <strong>left-click and hold</strong> on another slot to drip items one-by-one — the rate ramps up the longer you hold.</li>
-        <li><strong>Left-click</strong> a tool in your inventory to move it into its equipment slot; click the equipment slot to send it back.</li>
-        <li>You can open several chests at once — drag between any of them.</li>
+        <li><strong>Drag-and-drop items</strong></li>
+        <li><strong>Left-click an equippable item</strong> to equip it</li>
+        <li><strong>Left-click in inventory</strong> to swap with current hotbar selection</li>
+        <li><strong>Left-click in chest</strong> to move the item to inventory</li>
+        <li><strong>Right-click a stack</strong> to select it as the split source</li>
+        <li>With a split source selected, <strong>left-click and hold</strong> on another slot to drip items one-by-one.</li>
+        <li>You can open several containers at once — drag between any of them.</li>
         <li>Crafting consumes ingredients pooled across your inventory and every open chest. <strong>Right-click a recipe</strong> to craft all you can in one go.</li>
       </ul>
     `,
@@ -210,26 +210,26 @@ const TABS: readonly Tab[] = [
     html: `
       <h3>Combat</h3>
       <ul>
-        <li>Left-click an enemy or player within ~6 tiles to attack with the equipped sword. Bare-handed works but hits weaker.</li>
-        <li>A swing has a short charge phase, then resolves. After a strike the sword is locked for 5 s — the ring around the sword slot shows the cooldown ticking down.</li>
-        <li>Your HP bar sits with the player HUD. At zero HP you die, drop your carried items into a tombstone at the death spot, and respawn shortly after. Open the tombstone with right-click to recover the items.</li>
-        <li>Equip the <strong>blowgun</strong> in the utility slot, load <strong>poison darts</strong>, and right-click an enemy (within ~8 tiles) to fire. Darts deal small damage and apply a brief <em>Slow</em> effect.</li>
+        <li>Left-click a close enemy or player to attack with the equipped sword, after a charge.</li>
+        <li>A swing has a short cooldown phase (icon in equipment slot)</li>
+        <li>When you die, drop your carried items into a tombstone at the death spot, tombstones work like chests.</li>
+        <li>Equip the <strong>blowgun</strong> in the utility slot, right-click an enemy (within ~8 tiles) to fire <strong>poison darts</strong> stored in your inventory. Darts apply a brief <em>Slow</em> effect.</li>
       </ul>
     `,
   },
   {
     id: "factions",
-    label: "Factions",
+    label: "Goal : Factions",
     html: `
-      <h3>Factions</h3>
+      <h3>Goal : Factions</h3>
       <ul>
-        <li>You earn XP by breaking blocks and from PvP kills (a kill transfers the victim's whole XP pool to you).</li>
-        <li>Craft and place a <strong>Flag</strong> to found a faction — you'll name it on placement. The flag's tile is the faction's claim.</li>
-        <li>Stand within ~4 tiles of a claimed flag and <strong>right-click + hold</strong> on it to <em>deposit</em> XP from your pool into that faction.</li>
-        <li>Stand within ~4 tiles of a rival flag and <strong>left-click + hold</strong> on it to <em>steal</em> XP from that faction into your pool.</li>
-        <li>XP transfers at ~10 per second while held, and stops when either pool runs dry or you walk out of range.</li>
+        <li>You earn XP by several actions in-game. Steal all the XP of a player by killing them.</li>
+        <li>Craft and place a <strong>Flag</strong> to found a faction binded to that flag.</li>
+        <li>Stand near a flag and <strong>Right-click + hold</strong> on it to <em>transfer</em> your XP into that faction.</li>
+        <li>Stand near a flag and <strong>Left-click + hold</strong> on it to <em>steal</em> XP from that faction.</li>
         <li>Faction XP shows on the leaderboard. A faction's flag is unbreakable while its XP is above zero — drain it first to dismantle.</li>
       </ul>
+      <h3>Try to have your Faction the highest on the leaderboard !</h3>
     `,
   },
 ];
@@ -266,7 +266,7 @@ export function showHelpDialog(options: HelpDialogOptions = {}): HelpDialogHandl
   root.innerHTML = `
     <div id="${PANEL_ID}" tabindex="-1" role="dialog" aria-label="Help">
       <div class="header">
-        <h2>How to play and goal</h2>
+        <h2>How to play</h2>
         <button class="close" type="button" aria-label="Close help">×</button>
       </div>
       <div class="tabs" role="tablist">${tabsMarkup}</div>
