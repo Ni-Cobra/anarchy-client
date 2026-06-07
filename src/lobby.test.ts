@@ -2,7 +2,6 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DISCORD_INVITE_URL } from "./config.js";
 import { MAX_PASSWORD_LEN } from "./game/index.js";
 import { lobbyRejectMessage, showLobby } from "./lobby.js";
 
@@ -137,28 +136,6 @@ describe("lobby form (ADR 0007)", () => {
     const root = panel();
     const password = root.querySelector<HTMLInputElement>("#anarchy-password")!;
     expect(password.maxLength).toBe(MAX_PASSWORD_LEN);
-  });
-
-  it("renders a Discord link pointing at DISCORD_INVITE_URL, visible on both tabs", () => {
-    // Backlog 480: the Discord button must be visible at every step of
-    // the lobby flow and must source its URL from `config.ts` so the
-    // literal lives in exactly one place. Verify the anchor is mounted,
-    // points at the config constant, opens in a new tab, and is not
-    // gated behind either tab.
-    showLobby();
-    const root = panel();
-    const link = root.querySelector<HTMLAnchorElement>("#anarchy-discord-link")!;
-    expect(link).not.toBeNull();
-    expect(link.getAttribute("href")).toBe(DISCORD_INVITE_URL);
-    expect(link.target).toBe("_blank");
-    expect(link.rel).toBe("noopener noreferrer");
-    // Visible by default (New tab).
-    expect(link.offsetParent !== null || link.style.display !== "none").toBe(
-      true,
-    );
-    // Visible after switching to Returning.
-    root.querySelector<HTMLButtonElement>("#anarchy-tab-returning")!.click();
-    expect(link.style.display).not.toBe("none");
   });
 
   it("switching from Returning to New clears any typed password", () => {

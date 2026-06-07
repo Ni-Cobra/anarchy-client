@@ -6,7 +6,6 @@
  * (vitest) and `accounts.spec.ts` (Playwright) target them.
  */
 
-import { DISCORD_INVITE_URL } from "./config.js";
 import { MAX_PASSWORD_LEN, MAX_USERNAME_LEN } from "./game/index.js";
 
 export interface LobbyDomRefs {
@@ -22,7 +21,6 @@ export interface LobbyDomRefs {
   readonly swatches: HTMLDivElement;
   readonly colorSection: HTMLDivElement;
   readonly passwordSection: HTMLDivElement;
-  readonly discordLink: HTMLAnchorElement;
 }
 
 export function mountLobbyDom(): LobbyDomRefs {
@@ -70,6 +68,5 @@ export function mountLobbyDom(): LobbyDomRefs {
     swatches: root.querySelector<HTMLDivElement>("#anarchy-swatches")!,
     colorSection: root.querySelector<HTMLDivElement>("#anarchy-color-section")!,
     passwordSection: root.querySelector<HTMLDivElement>("#anarchy-password-section")!,
-    discordLink: root.querySelector<HTMLAnchorElement>("#anarchy-discord-link")!,
   };
 }

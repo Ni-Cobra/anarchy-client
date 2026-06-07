@@ -145,27 +145,6 @@ const STYLE = `
   }
   #anarchy-lobby .reject.visible { display: block; }
   #anarchy-lobby .field-spacer { margin-bottom: 18px; }
-  #anarchy-lobby .discord-link {
-    display: block;
-    box-sizing: border-box;
-    width: 100%;
-    margin-top: 10px;
-    padding: 6px 10px;
-    background: transparent;
-    color: #5865F2;
-    border: 1px solid #5865F2;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 400;
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.1s ease, color 0.1s ease;
-  }
-  #anarchy-lobby .discord-link:hover {
-    background: #5865F2;
-    color: #ffffff;
-  }
   #anarchy-lobby .version {
     margin-top: 14px;
     text-align: center;
